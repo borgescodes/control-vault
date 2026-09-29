@@ -7,7 +7,7 @@ import type {
   OdometerReading,
   VehicleState,
 } from '../../modules/vehicle/domain/types'
-import { closeLocalDatabase, resetLocalDatabase } from './db'
+import { closeLocalDatabase, LOCAL_DATABASE_NAME, resetLocalDatabase } from './db'
 import {
   getVehicleState,
   initializeLocalVehicle,
@@ -200,5 +200,87 @@ describe('local vehicle store', () => {
     await saveFuelEntry(fuelEntry('fuel-1'))
 
     await expect(isLocalDatabaseEmpty()).resolves.toBe(false)
+  })
+})
+
+
+async function createLegacyV1Database() {
+  await resetLocalDatabase()
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(LOCAL_DATABASE_NAME, 1)
+
+    request.onupgradeneeded = () => {
+      const database = request.result
+      database.createObjectStore('vehicle_state')
+      database.createObjectStore('odometer_readings', { keyPath: 'id' })
+      database.createObjectStore('fuel_entries', { keyPath: 'id' })
+    }
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(
+        ['vehicle_state', 'fuel_entries'],
+        'readwrite',
+      )
+
+      transaction.objectStore('vehicle_state').put(
+        {
+          tankCapacityLiters: 14,
+          initialOdometerKm: 12_000,
+          initialFullTankAt: timestamp,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          syncStatus: 'synced',
+        },
+        'primary',
+      )
+      transaction.objectStore('fuel_entries').put({
+        id: 'legacy-fuel',
+        odometerKm: 12_100,
+        amountCents: 7_500,
+        liters: 10,
+        fullTank: true,
+        fueledAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        syncStatus: 'pending',
+      })
+
+      transaction.onerror = () => reject(transaction.error)
+      transaction.oncomplete = () => {
+        database.close()
+        resolve()
+      }
+    }
+  })
+}
+
+describe('local vehicle store v1 to v2 migration', () => {
+  it('migrates legacy vehicle and fuel fields without losing metadata', async () => {
+    await createLegacyV1Database()
+
+    const state = await getVehicleState()
+    const entries = await listFuelEntries()
+
+    expect(state).toMatchObject({
+      nominalTankCapacityLiters: 14,
+      initialOdometerKm: 12_000,
+      initialFullTankAt: timestamp,
+      syncStatus: 'synced',
+    })
+    expect(state).not.toHaveProperty('tankCapacityLiters')
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        id: 'legacy-fuel',
+        estimatedLiters: 10,
+        referencePricePerLiter: null,
+        referenceWeekStart: null,
+        referenceWeekEnd: null,
+        syncStatus: 'pending',
+      }),
+    ])
+    expect(entries[0]).not.toHaveProperty('liters')
   })
 })
