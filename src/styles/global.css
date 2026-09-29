@@ -355,6 +355,82 @@ form button[type='submit']:hover {
   opacity: 0.45;
 }
 
+.vehicle-panel {
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 70%, var(--lcm-surface-accent) 30%);
+  border-radius: 0;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lcm-card) 96%, var(--lcm-accent) 4%), var(--lcm-card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  animation: lcm-view-in 360ms cubic-bezier(.16,1,.3,1) both;
+}
+
+.vehicle-panel__header {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--lcm-border) 62%, transparent);
+}
+
+.vehicle-panel__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--lcm-accent);
+  background: color-mix(in srgb, var(--lcm-surface-accent) 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lcm-accent) 18%, transparent);
+}
+
+.vehicle-panel__header h2 {
+  margin: 0;
+  color: var(--lcm-fg);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: -.035em;
+}
+
+.vehicle-panel__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--lcm-muted);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.vehicle-form {
+  gap: 10px;
+}
+
+.vehicle-form label {
+  color: var(--lcm-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .035em;
+}
+
+.vehicle-toggle {
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 72%, var(--lcm-surface-accent) 28%);
+  border-radius: 0;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lcm-overlay) 94%, var(--lcm-accent) 6%), var(--lcm-overlay));
+}
+
+.vehicle-alert {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--lcm-border));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  font-size: 8px;
+}
+
 .home {
   animation: lcm-view-in 360ms cubic-bezier(.16,1,.3,1) both;
 }

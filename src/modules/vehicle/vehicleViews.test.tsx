@@ -100,6 +100,11 @@ describe('vehicle v2 views', () => {
 
     expect(markup).toContain('Tanque cheio agora')
     expect(markup).not.toContain('Confirme o tanque cheio')
+    expect(markup).toContain('class="vehicle-panel vehicle-panel--setup"')
+    expect(markup).toContain('data-icon="cog"')
+    expect(markup).toContain('<h2 id="setup-title">Começar</h2>')
+    expect(markup).toContain('class="vehicle-form"')
+    expect(markup).toContain('class="button-primary"')
   })
 
   it('removes manual liters and uses Completei o tanque in fuel form', () => {
