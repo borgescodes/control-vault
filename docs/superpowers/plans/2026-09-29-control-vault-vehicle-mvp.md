@@ -26,8 +26,8 @@
 - Persist money as integer cents.
 - Generate record IDs client-side with `crypto.randomUUID()`.
 - UI copy is short and operational. No explanatory helper text for obvious controls.
-- Visual system: graphite background, near-monochrome palette, off-white text, restrained borders, Inter-like sans, monospace metrics, short motion, no motorcycle-specific branding, no fintech/neon aesthetic.
-- Alethe visual reference: `https://github.com/Kc1t/alethe-agents`.
+- Visual system: literal source-to-source port from the authorized `lovable-credit-monitor` extension, as specified in `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`.
+- Use the extension's exact runtime tokens, principal monospace stack, SVG paths, status grammar and motion. The sole shape divergence is `border-radius: 0` for rectangular Control Vault surfaces.
 - Use Superpowers for execution discipline and Ponytail `full` for YAGNI/minimalism.
 - Use the connected Supabase plugin for current Supabase docs/configuration and the connected Cloudflare plugin for deployment operations.
 - Supabase implementation must verify current documentation before schema/auth changes because provider behavior changes over time.
@@ -685,30 +685,7 @@ Use `Intl.NumberFormat('pt-BR', ...)` in the view, not in domain logic.
 
 - [ ] **Step 4: Implement visual tokens**
 
-Start with:
-```css
---bg: #101114;
---surface: #1a1c1f;
---surface-elevated: #1f2125;
---fg: #f3f4f6;
---muted: #8b8b95;
---faint: #6b6b75;
---border: rgba(243, 244, 246, 0.08);
---danger: #ef4444;
---warning: #f59e0b;
---success: #10b981;
-```
-
-Typography:
-- general: `Inter, ui-sans-serif, system-ui, sans-serif`;
-- metrics: `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`.
-
-Do not add external font packages in the first visual pass.
-
-Motion:
-- 140-220 ms;
-- opacity/background/transform only;
-- respect `prefers-reduced-motion`.
+Follow `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md` and the dedicated redesign plan. The earlier approximate graphite/Inter token proposal is superseded by the audited extension implementation.
 
 - [ ] **Step 5: Implement Home**
 
@@ -851,7 +828,7 @@ git commit -m "feat: sync local vehicle data to Supabase"
 Manifest:
 - name: `Control Vault`
 - short_name: `Control Vault`
-- theme/background color: `#101114`
+- theme/background color: `#06090d`
 - display: `standalone`
 
 Cache the application shell/static assets.

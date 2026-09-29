@@ -350,22 +350,17 @@ If the app starts from an unknown fuel state, spending and odometer history may 
 
 ## 14. Visual direction
 
-The visual direction is inspired by the Alethe interface, translated to a quieter mobile utility.
+The approved visual authority is the real extension implementation in:
 
-Characteristics:
+`C:\Users\pedro.borges\vault\lovable-credit-monitor`
 
-- deep graphite background;
-- near-monochrome palette;
-- off-white primary text;
-- restrained borders;
-- minimal cards;
-- numbers as primary visual elements;
-- Inter or equivalent sans for general text;
-- a monospace family for metrics and technical values;
-- short, fluid interactions;
-- no decorative motorcycle-specific identity;
-- no fintech-dashboard aesthetic;
-- no neon/cyberpunk treatment.
+The port is source-to-source, not an Alethe-inspired interpretation. Exact tokens, typography, SVG paths, status grammar, interaction states, motion timings, easing and reduced-motion behavior come from the extension files named in:
+
+`docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`
+
+The one deliberate visual divergence is `border-radius: 0` for every rectangular Control Vault surface. Semantically circular status and measurement elements remain circular.
+
+Content and composition adapt to the vehicle domain, but Control Vault must remain visibly in the same product family as Credit Monitor. Do not add a second design system, generic cyberpunk/fintech/automotive styling or aesthetic modernization.
 
 The visual system belongs to Control Vault, not specifically to the vehicle module.
 

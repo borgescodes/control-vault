@@ -6,7 +6,9 @@ Before changing code, read these files in order:
 
 1. `docs/superpowers/specs/2026-09-29-control-vault-foundation-design.md`
 2. `docs/superpowers/plans/2026-09-29-control-vault-vehicle-mvp.md`
-3. `MODEL_ROUTING.md`
+3. `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md` for visual work
+4. `docs/superpowers/plans/2026-09-29-control-vault-source-visual-redesign.md` for visual work
+5. `MODEL_ROUTING.md`
 
 Treat the approved spec as the product/architecture source of truth, the implementation plan as the execution order, and `MODEL_ROUTING.md` as the capability/effort policy for each task.
 
@@ -98,20 +100,15 @@ Do not add Redux, Zustand, React Query, Tailwind, shadcn, a form library, a date
 
 ## UI direction
 
-The UI should follow the approved Alethe-inspired direction:
+The visual authority is the real extension implementation at:
 
-- deep graphite;
-- near-monochrome;
-- off-white primary text;
-- restrained borders;
-- minimal surfaces/cards;
-- metrics as primary visual elements;
-- sans-serif general text;
-- monospace metrics;
-- short motion;
-- no motorcycle-specific branding;
-- no fintech-dashboard look;
-- no neon/cyberpunk treatment.
+`C:\Users\pedro.borges\vault\lovable-credit-monitor`
+
+For visual work, read `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`. Copy the audited runtime tokens, monospace stack, SVG paths, status grammar, interaction states, keyframes, timings, easing and reduced-motion behavior literally where applicable.
+
+The only deliberate divergence is `border-radius: 0` for rectangular surfaces. Semantically circular status dots and measurement elements remain circular.
+
+Do not reinterpret the source as Alethe, cyberpunk, fintech, automotive or a generic dark dashboard. Do not alter or commit in the reference repository.
 
 Copy is short and operational.
 

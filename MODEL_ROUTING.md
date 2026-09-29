@@ -210,6 +210,25 @@ Recommended:
 
 Do not require Astra review for trivial documentation or mechanical changes.
 
+## Source-faithful visual redesign routing
+
+Default routing for:
+
+`docs/superpowers/plans/2026-09-29-control-vault-source-visual-redesign.md`
+
+| Task | Work | Model | Effort | Reason |
+| --- | --- | --- | --- | --- |
+| Planning | Source audit, spec and plan revision | Astra | Medium | Exact cross-repository adaptation and durable visual authority |
+| 1 | Source SVGs and token foundation | Sol | Medium | Exact but normal React/CSS implementation |
+| 2 | Count-up and progress motion | Sol | Medium | Small behavioral UI helper with deterministic tests |
+| 3 | Shell and authentication surface | Sol | Medium | Existing component restyle with behavior preserved |
+| 4 | Home telemetry dashboard | Sol | Medium | Primary UI composition and state presentation |
+| 5 | Setup surface | Sol | Medium | Bounded form presentation |
+| 6 | Odometer and fuel surfaces | Sol | Medium | Existing validated actions with new presentation |
+| 7 | History evidence rail | Sol | Medium | Bounded list presentation |
+| 8 | Integrated states, responsive and PWA chrome | Sol | Medium | Cross-view visual integration without data changes |
+| 9 | Visual verification and documentation | Astra | Medium | Whole-surface source comparison and integration review |
+
 ## Debug routing
 
 Start with the route appropriate to the failing subsystem.
