@@ -90,10 +90,11 @@ Only code genuinely reused across modules. No speculative shared abstractions.
 External and persistence concerns:
 
 - local IndexedDB persistence;
-- synchronization;
-- Supabase client;
+- synchronization queue;
 - connectivity state;
-- Cloudflare-facing integration when required.
+- client for the Control Vault sync endpoint.
+
+Supabase access belongs to the server-side Cloudflare Worker, not the browser bundle.
 
 ### `styles/`
 
@@ -109,7 +110,7 @@ Foundation:
 - PWA/service worker support;
 - IndexedDB for durable local state;
 - Supabase for cloud persistence;
-- Cloudflare for deployment and access control.
+- Cloudflare for deployment, access control and the minimal sync API.
 
 Dependency policy follows Ponytail:
 
@@ -122,13 +123,15 @@ Dependency policy follows Ponytail:
 
 There is no authentication or user-account feature inside Control Vault.
 
-The deployed application is personal and should be protected externally with Cloudflare Access.
+The deployed application is personal and is protected externally with Cloudflare Access.
 
-The browser must never contain privileged Supabase credentials.
+The browser must never contain privileged Supabase credentials and must not write directly to Supabase.
 
-Any public client credential used by the frontend must be limited to the minimum permissions required by the synchronization design. Server-side or privileged secrets must remain outside the browser.
+Online synchronization goes through a minimal Cloudflare Worker endpoint on the protected Control Vault origin. The Worker validates the request in the Cloudflare Access boundary and performs the required Supabase operations using server-side secrets.
 
-The exact Cloudflare and Supabase security configuration is an infrastructure task for the implementation plan, but the product requirement is fixed: no login flow inside the app.
+The Worker is not a general application backend. Its initial responsibility is limited to secure synchronization between the local-first client and Supabase.
+
+This keeps the product requirement fixed: no login flow inside the app, no Supabase Auth dependency in the MVP, and no privileged database credential shipped to the browser.
 
 ## 7. Local-first data flow
 
@@ -145,6 +148,8 @@ IndexedDB
  ↓
 sync queue
  ↓
+Cloudflare Worker
+ ↓
 Supabase
 ```
 
@@ -152,7 +157,7 @@ A successful user action is committed locally first.
 
 The UI must not wait for Supabase before confirming an odometer or fuel entry.
 
-When online, pending local mutations are synchronized to Supabase.
+When online, pending local mutations are sent to the protected Cloudflare Worker and synchronized to Supabase.
 
 When offline, the same operations remain available and are queued.
 
@@ -385,7 +390,7 @@ Important failures:
 - impossible negative amount/liters: block;
 - suspicious odometer jump: require confirmation;
 - local persistence failure: report failure and do not claim success;
-- Supabase sync failure: preserve local data, keep the item pending and surface only a minimal sync state;
+- sync API or Supabase failure: preserve local data, keep the item pending and surface only a minimal sync state;
 - duplicate synchronization: prevented by stable client-generated IDs and idempotent upsert behavior.
 
 Connectivity loss must never discard an accepted local record.
@@ -399,7 +404,8 @@ Requirements:
 - local record first;
 - pending/synced status kept locally;
 - stable client-generated IDs;
-- upsert to Supabase;
+- send pending mutations to the protected Cloudflare Worker;
+- Worker performs idempotent upsert to Supabase;
 - retry on later connectivity;
 - single-user conflict policy;
 - deleted-record synchronization only if delete is included in the first UI.
