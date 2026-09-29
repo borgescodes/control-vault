@@ -1,6 +1,11 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../infrastructure/supabase/client', () => ({
+  supabase: { auth: {} },
+}))
+
 import App from './App'
 
 describe('App', () => {
