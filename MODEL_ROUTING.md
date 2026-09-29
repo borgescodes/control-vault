@@ -233,15 +233,19 @@ For Cloudflare static deployment/configuration, Sol Medium is normally sufficien
 
 ## Operator/agent behavior
 
-Before starting each implementation-plan task:
+The operator selects the model and reasoning effort in the Codex GUI before each task.
+
+Before starting an implementation-plan task:
 
 1. Read the task.
 2. Read this file.
-3. Select the task's default model/effort.
-4. Check whether escalation criteria apply.
-5. If the task's scope changes materially, re-route before continuing.
+3. The operator selects the task's recommended model/effort in the Codex GUI.
+4. The agent checks whether the task still matches that routing.
+5. If execution reveals materially higher/lower complexity or risk, the agent reports the recommended re-route before continuing.
 
-If the execution environment does not allow the agent to switch its own model or reasoning effort, report the recommended route to the operator before beginning the task. Do not pretend a switch occurred.
+Model routing is an operator decision aid, not an agent-side capability gate.
+
+The agent should not block merely because it cannot inspect or change the GUI-selected model/effort. It should only flag a routing mismatch when the actual task profile has changed or when the operator explicitly asks for a routing check.
 
 ## Relationship to Superpowers and Ponytail
 
