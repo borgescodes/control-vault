@@ -26,7 +26,7 @@ const timestamp = '2026-09-29T12:00:00.000Z'
 
 function vehicleState(): VehicleState {
   return {
-    tankCapacityLiters: 14,
+    nominalTankCapacityLiters: 14,
     initialOdometerKm: 12_000,
     initialFullTankAt: timestamp,
     createdAt: timestamp,
@@ -53,7 +53,10 @@ function fuelEntry(id: string): FuelEntry {
     id,
     odometerKm: 12_100,
     amountCents: 7_500,
-    liters: 10,
+    estimatedLiters: 10,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
     fullTank: true,
     fueledAt: timestamp,
     createdAt: timestamp,
