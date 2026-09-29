@@ -407,3 +407,131 @@ describe('estimateFuelRemaining', () => {
     expect(entries.map(({ id }) => id)).toEqual(originalOrder)
   })
 })
+
+
+function estimatedFuelEntry(
+  id: string,
+  odometerKm: number,
+  estimatedLiters: number | null,
+  fullTank: boolean,
+  fueledAt: string,
+  legacyLiters = estimatedLiters ?? 0,
+): FuelEntry {
+  return {
+    id,
+    odometerKm,
+    amountCents: 1_000,
+    liters: legacyLiters,
+    estimatedLiters,
+    referencePricePerLiter: estimatedLiters === null ? null : 7.05,
+    referenceWeekStart: estimatedLiters === null ? null : '2026-09-20',
+    referenceWeekEnd: estimatedLiters === null ? null : '2026-09-26',
+    fullTank,
+    fueledAt,
+    createdAt: fueledAt,
+    updatedAt: fueledAt,
+  } as unknown as FuelEntry
+}
+
+describe('vehicle model v2 anchors and unknown fuel', () => {
+  it('starts consumption cycles at the first full entry when setup has no anchor', () => {
+    const entries = [
+      estimatedFuelEntry(
+        'first-full',
+        1_100,
+        2,
+        true,
+        '2026-01-02T10:00:00.000Z',
+      ),
+      estimatedFuelEntry(
+        'second-full',
+        1_180,
+        2,
+        true,
+        '2026-01-03T10:00:00.000Z',
+      ),
+    ]
+
+    expect(
+      buildConsumptionCycles(null as unknown as FullTankAnchor, entries),
+    ).toEqual([
+      {
+        startKm: 1_100,
+        endKm: 1_180,
+        distanceKm: 80,
+        fuelUsedLiters: 2,
+        kmPerLiter: 40,
+      },
+    ])
+  })
+
+  it('excludes a cycle containing a partial refill with unknown estimated liters', () => {
+    const entries = [
+      estimatedFuelEntry(
+        'unknown-partial',
+        1_040,
+        null,
+        false,
+        '2026-01-02T10:00:00.000Z',
+        1,
+      ),
+      estimatedFuelEntry(
+        'full',
+        1_120,
+        2,
+        true,
+        '2026-01-03T10:00:00.000Z',
+      ),
+    ]
+
+    expect(buildConsumptionCycles(initialAnchor, entries)).toEqual([])
+  })
+
+  it('returns no range after an unknown partial refill', () => {
+    expect(
+      estimateFuelRemaining({
+        tankCapacityLiters: 3,
+        consumptionKmPerLiter: 40,
+        initialAnchor,
+        fuelEntries: [
+          estimatedFuelEntry(
+            'unknown-partial',
+            1_020,
+            null,
+            false,
+            '2026-01-02T10:00:00.000Z',
+          ),
+        ],
+        currentOdometerKm: 1_040,
+      }),
+    ).toBeNull()
+  })
+
+  it('restores range at a later full tank after setup without an anchor', () => {
+    const estimate = estimateFuelRemaining({
+      tankCapacityLiters: 3,
+      consumptionKmPerLiter: 40,
+      initialAnchor: null as unknown as FullTankAnchor,
+      fuelEntries: [
+        estimatedFuelEntry(
+          'unknown-partial',
+          1_020,
+          null,
+          false,
+          '2026-01-02T10:00:00.000Z',
+        ),
+        estimatedFuelEntry(
+          'full',
+          1_040,
+          null,
+          true,
+          '2026-01-03T10:00:00.000Z',
+        ),
+      ],
+      currentOdometerKm: 1_080,
+    })
+
+    expect(estimate?.remainingLiters).toBe(2)
+    expect(estimate?.rangeKm).toBe(80)
+  })
+})
