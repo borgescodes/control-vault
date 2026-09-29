@@ -35,7 +35,7 @@
 
 ## Review Focus
 
-- Malformed/corrupt `localStorage` fuel-price JSON must be ignored safely and must not block fuel recording.
+- Malformed/corrupt `localStorage` fuel-price JSON or invalid API payloads must be ignored safely and must not block fuel recording.
 - Local calendar date boundaries must treat both `semanaInicio` and `semanaFim` as inclusive, independent of UTC midnight conversion.
 - A stale cached reference plus network failure must remain usable for estimation while setting a 12-hour recheck throttle.
 - Legacy IndexedDB and Supabase fuel rows must survive migration with their old liters copied to `estimatedLiters` and null reference snapshots.
@@ -149,6 +149,8 @@ Tests:
 - `keeps_same_expired_week_and_throttles_for_12_hours`
 - `stores_newer_week_and_clears_next_check`
 - `returns_null_when_no_cache_and_request_fails`
+- `returns_null_when_api_url_is_missing_and_no_cache_exists`
+- `rejects_invalid_api_payload_or_nonpositive_average_price`
 - `ignores_malformed_cache_json`
 - `compares_date_only_values_using_local_calendar_date`
 
@@ -187,7 +189,7 @@ Rules:
 - no cache + failed fetch -> null;
 - no cache + already-expired response -> cache it and set 12-hour recheck.
 
-Malformed/invalid cache is treated as absent.
+Malformed/invalid cache is treated as absent. A missing API URL, invalid response dates, non-finite/nonpositive `precoMedio`, or otherwise invalid response payload is treated as an unavailable reference. If a stale valid cache exists, retain it under the normal 12-hour throttle; otherwise return null.
 
 - [ ] **Step 4: Add environment contract**
 
