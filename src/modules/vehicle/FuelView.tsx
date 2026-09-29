@@ -19,7 +19,6 @@ function toCents(value: string): number {
 export default function FuelView({ onBack, onSaved }: FuelViewProps) {
   const [odometer, setOdometer] = useState('')
   const [amount, setAmount] = useState('')
-  const [liters, setLiters] = useState('')
   const [fullTank, setFullTank] = useState(false)
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -56,7 +55,6 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
     void save({
       odometerKm: Number(odometer),
       amountCents: toCents(amount),
-      liters: Number(liters.replace(',', '.')),
       fullTank,
       fueledAt: new Date().toISOString(),
     })
@@ -89,23 +87,12 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
         </label>
 
         <label>
-          Litros
-          <input
-            inputMode="decimal"
-            onChange={(event) => setLiters(event.target.value)}
-            required
-            type="text"
-            value={liters}
-          />
-        </label>
-
-        <label>
           <input
             checked={fullTank}
             onChange={(event) => setFullTank(event.target.checked)}
             type="checkbox"
           />
-          Tanque cheio
+          Completei o tanque
         </label>
 
         {error && <p role="alert">{error}</p>}
