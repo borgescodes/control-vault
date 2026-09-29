@@ -604,6 +604,16 @@ describe('authenticated vehicle sync', () => {
 
 
 describe('vehicle model v2 sync mappings', () => {
+  beforeEach(async () => {
+    await resetLocalDatabase()
+    supabaseStub.from.mockReset()
+    supabaseStub.getSession.mockReset()
+  })
+
+  afterAll(async () => {
+    await resetLocalDatabase()
+  })
+
   it('pushes estimated fuel fields without the legacy liters column', async () => {
     const remote = createRemote()
     const entry = {
