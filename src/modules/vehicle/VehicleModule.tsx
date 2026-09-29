@@ -12,7 +12,9 @@ import type {
 } from '../../infrastructure/local/db'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
+import HomeView from './HomeView'
 import OdometerView from './OdometerView'
+import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
 
 type View = 'home' | 'odometer' | 'fuel' | 'history'
@@ -50,53 +52,74 @@ export default function VehicleModule() {
   }
 
   if (vehicleState === undefined) {
-    return null
+    return <div className="vehicle-module" aria-busy="true" />
   }
 
   if (error) {
-    return <p role="alert">{error}</p>
+    return (
+      <div className="vehicle-module">
+        <p role="alert">{error}</p>
+      </div>
+    )
   }
 
   if (!vehicleState) {
-    return <SetupView onComplete={refresh} />
+    return (
+      <div className="vehicle-module">
+        <SetupView onComplete={refresh} />
+      </div>
+    )
   }
 
   if (view === 'odometer') {
     return (
-      <OdometerView
-        onBack={() => setView('home')}
-        onSaved={handleSaved}
-      />
+      <div className="vehicle-module">
+        <OdometerView
+          onBack={() => setView('home')}
+          onSaved={handleSaved}
+        />
+      </div>
     )
   }
 
   if (view === 'fuel') {
     return (
-      <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
+      <div className="vehicle-module">
+        <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
+      </div>
     )
   }
 
   if (view === 'history') {
     return (
-      <HistoryView
-        fuelEntries={fuelEntries}
-        odometerReadings={readings}
-        onBack={() => setView('home')}
-      />
+      <div className="vehicle-module">
+        <HistoryView
+          fuelEntries={fuelEntries}
+          odometerReadings={readings}
+          onBack={() => setView('home')}
+        />
+      </div>
     )
   }
 
+  const now = new Date()
+  const dashboard = getVehicleDashboard(
+    vehicleState,
+    readings,
+    fuelEntries,
+    now,
+  )
+
   return (
-    <section>
-      <button onClick={() => setView('odometer')} type="button">
-        Atualizar KM
-      </button>
-      <button onClick={() => setView('fuel')} type="button">
-        Abastecer
-      </button>
-      <button onClick={() => setView('history')} type="button">
-        Histórico
-      </button>
-    </section>
+    <div className="vehicle-module">
+      <HomeView
+        dashboard={dashboard}
+        now={now}
+        onFuel={() => setView('fuel')}
+        onHistory={() => setView('history')}
+        onHome={() => setView('home')}
+        onOdometer={() => setView('odometer')}
+      />
+    </div>
   )
 }

@@ -1,7 +1,18 @@
 :root {
+  --bg: #101114;
+  --surface: #1a1c1f;
+  --surface-elevated: #1f2125;
+  --fg: #f3f4f6;
+  --muted: #8b8b95;
+  --faint: #6b6b75;
+  --border: rgba(243, 244, 246, 0.08);
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+  color: var(--fg);
+  background: var(--bg);
+  color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  color: #f1f0ed;
-  background: #101114;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -10,10 +21,77 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background: var(--bg);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--fg);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out,
+    transform 180ms ease-out;
+}
+
+button:hover {
+  border-color: rgba(243, 244, 246, 0.16);
+  background: var(--surface-elevated);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  background: var(--surface);
+  caret-color: var(--fg);
+}
+
+input[type='checkbox'] {
+  width: 1.1rem;
+  min-height: auto;
+  accent-color: var(--fg);
+}
+
+::selection {
+  color: var(--bg);
+  background: var(--fg);
 }
 
 #root {
@@ -21,12 +99,258 @@ body {
 }
 
 .app {
+  position: relative;
+  width: min(100%, 42rem);
   min-height: 100vh;
-  padding: clamp(24px, 6vw, 72px);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2rem;
 }
 
-h1 {
+.app > h1 {
   margin: 0;
-  font-size: 1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app > button {
+  position: absolute;
+  top: 0.8rem;
+  right: 1.25rem;
+  min-height: 38px;
+  padding: 0.45rem 0.75rem;
+  color: var(--muted);
+  background: transparent;
+}
+
+.vehicle-module {
+  margin-top: 3.5rem;
+}
+
+.vehicle-module[aria-busy='true'] {
+  min-height: 22rem;
+  border-radius: 14px;
+  background: var(--surface);
+  opacity: 0.45;
+}
+
+.home__range h2 {
+  margin: 0 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.home__range-value,
+.home__range-empty {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 4.5rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+
+.home__range-empty {
+  color: var(--muted);
+  font-size: 3rem;
+}
+
+.home__fuel-state {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-height: 2rem;
+  margin-top: 1rem;
+}
+
+.home__fuel-percent {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.home__calibration {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.home__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 3rem 0 0;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.home__metrics div {
+  min-width: 0;
+}
+
+.home__metrics dt {
+  margin-bottom: 0.55rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.home__metrics dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.home__month {
+  text-transform: capitalize;
+}
+
+.home__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.home__actions button:first-child {
+  color: var(--bg);
+  background: var(--fg);
+}
+
+.home__actions button:first-child:hover {
+  background: #ffffff;
+}
+
+.home__navigation {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 2.5rem;
+}
+
+.home__navigation button {
+  min-height: 42px;
+  border-color: transparent;
+  color: var(--muted);
+  background: transparent;
+}
+
+.home__navigation button[aria-current='page'] {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+form {
+  display: grid;
+  gap: 1.1rem;
+}
+
+label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+}
+
+form button[type='submit'] {
+  color: var(--bg);
+  background: var(--fg);
+}
+
+[role='alert'] {
+  color: var(--danger);
+}
+
+.vehicle-module section > h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+.vehicle-module section > form + button,
+.vehicle-module section > ul + button,
+.vehicle-module section > div + button {
+  margin-top: 1.25rem;
+  color: var(--muted);
+  background: transparent;
+}
+
+.vehicle-module ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vehicle-module li {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.vehicle-module li strong {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.vehicle-module time {
+  display: block;
+  color: var(--faint);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 420px) {
+  .home__range-value {
+    font-size: 3.8rem;
+  }
+
+  .home__range-empty {
+    font-size: 2.5rem;
+  }
+
+  .home__metrics {
+    gap: 0.65rem;
+  }
+
+  .home__metrics dd {
+    font-size: 0.84rem;
+  }
+}
+
+@media (min-width: 720px) {
+  .app {
+    padding-top: 2rem;
+  }
+
+  .app > button {
+    top: 1.3rem;
+  }
+
+  .vehicle-module {
+    margin-top: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
