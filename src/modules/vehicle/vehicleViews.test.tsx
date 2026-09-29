@@ -7,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const actionStub = vi.hoisted(() => ({
   initializeVehicle: vi.fn().mockResolvedValue(undefined),
+  recordOdometer: vi.fn().mockResolvedValue({
+    kind: 'requires_confirmation',
+    deltaKm: 600,
+  }),
   recordFuel: vi.fn().mockResolvedValue({ kind: 'saved' }),
 }))
 
@@ -14,6 +18,7 @@ vi.mock('./vehicleActions', () => actionStub)
 
 import FuelView from './FuelView'
 import HomeView from './HomeView'
+import OdometerView from './OdometerView'
 import SetupView from './SetupView'
 import type { VehicleDashboard } from './selectors'
 
@@ -46,6 +51,7 @@ function dashboard(
 describe('vehicle v2 views', () => {
   beforeEach(() => {
     actionStub.initializeVehicle.mockClear()
+    actionStub.recordOdometer.mockClear()
     actionStub.recordFuel.mockClear()
   })
 
@@ -116,6 +122,39 @@ describe('vehicle v2 views', () => {
     expect(markup).toContain('Completei o tanque')
     expect(markup).toContain('Hodômetro')
     expect(markup).toContain('Valor')
+    expect(markup).toContain('class="vehicle-panel vehicle-panel--fuel"')
+    expect(markup).toContain('data-icon="check"')
+    expect(markup).toContain('class="vehicle-form"')
+    expect(markup).toContain('class="button-secondary')
+  })
+
+  it('uses the shared action and confirmation instrument for odometer updates', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(
+        <OdometerView onBack={() => undefined} onSaved={() => undefined} />,
+      )
+    })
+
+    expect(container.querySelector('.vehicle-panel--odometer')).not.toBeNull()
+    expect(container.querySelector('[data-icon="refresh"]')).not.toBeNull()
+    expect(container.querySelector('.vehicle-form')).not.toBeNull()
+
+    const input = container.querySelector('input') as HTMLInputElement
+    const form = container.querySelector('form') as HTMLFormElement
+    await act(async () => {
+      setInputValue(input, '1600')
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.vehicle-confirmation')).not.toBeNull()
+    expect(container.textContent).toContain('Confirmar salto de 600 km?')
+
+    await act(async () => root.unmount())
   })
 
   it('shows awaiting full tank distinctly from calibration', () => {

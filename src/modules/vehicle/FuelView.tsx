@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 
+import Icon from '../../shared/ui/Icon'
 import { recordFuel, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
@@ -61,9 +62,23 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
   }
 
   return (
-    <section>
-      <form onSubmit={handleSubmit}>
-        <label>
+    <section
+      aria-labelledby="fuel-title"
+      className="vehicle-panel vehicle-panel--fuel"
+    >
+      <header className="vehicle-panel__header">
+        <span className="vehicle-panel__icon">
+          <Icon name="check" />
+        </span>
+        <h2 id="fuel-title">Abastecer</h2>
+        <span className="vehicle-panel__state">
+          <span className="lcm-status-dot" data-status="estimated" />
+          Estimativa
+        </span>
+      </header>
+
+      <form className="vehicle-form" onSubmit={handleSubmit}>
+        <label className="vehicle-toggle">
           Hodômetro
           <input
             min="0"
@@ -95,30 +110,41 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
           Completei o tanque
         </label>
 
-        {error && <p role="alert">{error}</p>}
+        {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
-        <button disabled={submitting} type="submit">
+        <button className="button-primary" disabled={submitting} type="submit">
           Salvar
         </button>
       </form>
 
       {pending && (
-        <div>
+        <div className="vehicle-confirmation">
           <p>Confirmar salto de {pending.deltaKm} km?</p>
-          <button
-            disabled={submitting}
-            onClick={() => void save(pending.input, true)}
-            type="button"
-          >
-            Confirmar
-          </button>
-          <button onClick={() => setPending(null)} type="button">
-            Cancelar
-          </button>
+          <div className="vehicle-confirmation__actions">
+            <button
+              className="button-primary"
+              disabled={submitting}
+              onClick={() => void save(pending.input, true)}
+              type="button"
+            >
+              Confirmar
+            </button>
+            <button
+              className="button-secondary"
+              onClick={() => setPending(null)}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
-      <button onClick={onBack} type="button">
+      <button
+        className="button-secondary vehicle-panel__back"
+        onClick={onBack}
+        type="button"
+      >
         Voltar
       </button>
     </section>

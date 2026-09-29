@@ -348,6 +348,17 @@ form button[type='submit']:hover {
   background: color-mix(in srgb, var(--lcm-primary-bg) 90%, white 10%);
 }
 
+.button-secondary {
+  border-color: color-mix(in srgb, var(--lcm-border) 76%, var(--lcm-surface-accent) 24%);
+  color: var(--lcm-muted);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lcm-overlay) 94%, var(--lcm-accent) 6%), var(--lcm-overlay));
+}
+
+.button-secondary:hover {
+  color: var(--lcm-fg);
+  background: color-mix(in srgb, var(--lcm-overlay-hover) 82%, var(--lcm-surface-accent) 18%);
+}
+
 .vehicle-module[aria-busy='true'] {
   min-height: 22rem;
   border-radius: 0;
@@ -429,6 +440,36 @@ form button[type='submit']:hover {
   border-radius: 0;
   background: color-mix(in srgb, var(--danger) 8%, transparent);
   font-size: 8px;
+}
+
+.vehicle-confirmation {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--lcm-warning) 38%, var(--lcm-border));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--lcm-warning) 7%, var(--lcm-overlay));
+  animation: lcm-piece-in 340ms cubic-bezier(.16,1,.3,1) both;
+}
+
+.vehicle-confirmation p {
+  margin: 0;
+  color: var(--lcm-fg);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.vehicle-confirmation__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.vehicle-panel__back {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .home {
