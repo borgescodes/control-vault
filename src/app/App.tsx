@@ -12,6 +12,9 @@ import LoginView from './LoginView'
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [sessionReady, setSessionReady] = useState(false)
+  const [vehicleReadyForUser, setVehicleReadyForUser] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => {
     let active = true
@@ -47,18 +50,35 @@ export default function App() {
 
   useEffect(() => {
     if (!session) {
+      setVehicleReadyForUser(null)
       return
     }
 
+    let active = true
     const syncWhileOnline = () => {
       if (navigator.onLine) {
         void runSync(session.user.id).catch(() => undefined)
       }
     }
 
-    syncWhileOnline()
+    void (async () => {
+      try {
+        if (navigator.onLine) {
+          await runSync(session.user.id)
+        }
+      } catch {
+        // Local data remains authoritative when remote sync is unavailable.
+      } finally {
+        if (active) {
+          setVehicleReadyForUser(session.user.id)
+        }
+      }
+    })()
     window.addEventListener('online', syncWhileOnline)
-    return () => window.removeEventListener('online', syncWhileOnline)
+    return () => {
+      active = false
+      window.removeEventListener('online', syncWhileOnline)
+    }
   }, [session])
 
   async function handleSignOut() {
@@ -75,7 +95,7 @@ export default function App() {
             <button onClick={handleSignOut} type="button">
               Sair
             </button>
-            <VehicleModule />
+            {vehicleReadyForUser === session.user.id && <VehicleModule />}
           </>
         ) : (
           <LoginView />
