@@ -47,7 +47,7 @@ describe('vehicle actions', () => {
     await initializeVehicle(1_000, initialAt)
 
     await expect(getVehicleState()).resolves.toMatchObject({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       initialOdometerKm: 1_000,
       initialFullTankAt: initialAt,
       createdAt: initialAt,
@@ -157,7 +157,10 @@ describe('vehicle actions', () => {
       expect.objectContaining({
         odometerKm: 1_100,
         amountCents: 2_590,
-        liters: 1.5,
+        estimatedLiters: 1.5,
+        referencePricePerLiter: null,
+        referenceWeekStart: null,
+        referenceWeekEnd: null,
         fullTank: false,
         syncStatus: 'pending',
       }),
