@@ -14,7 +14,7 @@ The current implementation must remain intentionally small. Future modules are n
 
 ## 2. MVP scope
 
-The first release supports one vehicle and no in-app account system.
+The first release supports one vehicle and one personal authenticated account. Authentication exists only as a security boundary and does not make multi-user behavior part of the MVP.
 
 The vehicle module must provide:
 
@@ -92,9 +92,10 @@ External and persistence concerns:
 - local IndexedDB persistence;
 - synchronization queue;
 - connectivity state;
-- client for the Control Vault sync endpoint.
+- Supabase client;
+- authenticated session state.
 
-Supabase access belongs to the server-side Cloudflare Worker, not the browser bundle.
+The browser may access Supabase directly using the public client key and the authenticated user session. Authorization is enforced by RLS.
 
 ### `styles/`
 
@@ -109,8 +110,8 @@ Foundation:
 - Vite;
 - PWA/service worker support;
 - IndexedDB for durable local state;
-- Supabase for cloud persistence;
-- Cloudflare for deployment, access control and the minimal sync API.
+- Supabase for authentication and cloud persistence;
+- Cloudflare for frontend deployment.
 
 Dependency policy follows Ponytail:
 
@@ -121,17 +122,38 @@ Dependency policy follows Ponytail:
 
 ## 6. Access model
 
-There is no authentication or user-account feature inside Control Vault.
+Control Vault uses Supabase Auth as a security boundary.
 
-The deployed application is personal and is protected externally with Cloudflare Access.
+The MVP remains single-user:
 
-The browser must never contain privileged Supabase credentials and must not write directly to Supabase.
+- one personal account;
+- no public sign-up flow;
+- no user management UI;
+- no profiles;
+- no roles;
+- no collaboration;
+- no multi-user product behavior.
 
-Online synchronization goes through a minimal Cloudflare Worker endpoint on the protected Control Vault origin. The Worker validates the request in the Cloudflare Access boundary and performs the required Supabase operations using server-side secrets.
+The initial user account is created manually in Supabase during setup.
 
-The Worker is not a general application backend. Its initial responsibility is limited to secure synchronization between the local-first client and Supabase.
+The app exposes only a minimal sign-in/sign-out flow. Authentication is not a product module.
 
-This keeps the product requirement fixed: no login flow inside the app, no Supabase Auth dependency in the MVP, and no privileged database credential shipped to the browser.
+The browser uses only the Supabase publishable/public client key. Privileged keys such as `service_role` or secret keys must never be shipped to the browser.
+
+All exposed application tables use Row Level Security.
+
+Remote rows are owned by the authenticated user and policies must enforce ownership with `auth.uid()`, not merely `TO authenticated`.
+
+The expected policy shape is ownership-based:
+
+```sql
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id)
+```
+
+The exact SQL is implemented and verified during the Supabase setup task.
+
+Cloudflare is responsible for hosting the PWA. Cloudflare Access is not required for the MVP because Supabase Auth plus RLS protects application data directly.
 
 ## 7. Local-first data flow
 
@@ -148,16 +170,16 @@ IndexedDB
  ↓
 sync queue
  ↓
-Cloudflare Worker
+Supabase Auth + RLS
  ↓
-Supabase
+Supabase Postgres
 ```
 
 A successful user action is committed locally first.
 
 The UI must not wait for Supabase before confirming an odometer or fuel entry.
 
-When online, pending local mutations are sent to the protected Cloudflare Worker and synchronized to Supabase.
+When online and authenticated, pending local mutations are synchronized directly to Supabase under the current authenticated session.
 
 When offline, the same operations remain available and are queued.
 
@@ -167,7 +189,7 @@ Cloud synchronization is backup/continuity infrastructure, not the immediate sou
 
 ### Odometer reading
 
-Minimum record:
+Minimum local/domain record:
 
 ```text
 id
@@ -189,7 +211,7 @@ A future camera/OCR source may be added without changing the odometer model.
 
 ### Fuel entry
 
-Minimum record:
+Minimum local/domain record:
 
 ```text
 id
@@ -207,6 +229,8 @@ updated_at
 Money must not be represented using imprecise floating-point arithmetic in persisted domain data.
 
 IDs must be generated client-side so records can be created offline before synchronization.
+
+Remote Supabase rows additionally include a `user_id` ownership column used exclusively for authorization and RLS. This field is infrastructure/security data, not a multi-user product feature.
 
 ## 9. Odometer rules
 
@@ -390,7 +414,8 @@ Important failures:
 - impossible negative amount/liters: block;
 - suspicious odometer jump: require confirmation;
 - local persistence failure: report failure and do not claim success;
-- sync API or Supabase failure: preserve local data, keep the item pending and surface only a minimal sync state;
+- expired/missing auth session while online: preserve local data, keep pending mutations queued and require sign-in before cloud synchronization resumes;
+- Supabase failure: preserve local data, keep the item pending and surface only a minimal sync state;
 - duplicate synchronization: prevented by stable client-generated IDs and idempotent upsert behavior.
 
 Connectivity loss must never discard an accepted local record.
@@ -404,10 +429,10 @@ Requirements:
 - local record first;
 - pending/synced status kept locally;
 - stable client-generated IDs;
-- send pending mutations to the protected Cloudflare Worker;
-- Worker performs idempotent upsert to Supabase;
+- synchronize under the authenticated Supabase session;
+- idempotent upsert to Supabase;
 - retry on later connectivity;
-- single-user conflict policy;
+- single-account conflict policy;
 - deleted-record synchronization only if delete is included in the first UI.
 
 If deletion is not part of the first release, tombstones are unnecessary.
@@ -482,8 +507,10 @@ Do not implement now:
 
 - multiple vehicles;
 - vehicle profiles in the UI;
-- user accounts;
-- app-level authentication;
+- multiple users;
+- public registration;
+- account management;
+- roles or collaboration;
 - maintenance;
 - taxes;
 - insurance;
@@ -505,16 +532,17 @@ Do not implement now:
 
 The first usable version succeeds when the user can:
 
-1. open the installed PWA;
-2. record the current odometer without internet;
-3. record a fuel entry without internet;
-4. see those records immediately;
-5. reconnect and have pending data synchronize;
-6. complete enough full-tank cycles for consumption calibration;
-7. see a clearly labeled range estimate based on their own measured usage;
-8. see fuel spending for the current period;
-9. use the interface without explanatory clutter;
-10. continue using the application if Supabase is temporarily unavailable.
+1. sign in to the personal account when a valid session is not already available;
+2. open the installed PWA;
+3. record the current odometer without internet;
+4. record a fuel entry without internet;
+5. see those records immediately;
+6. reconnect while authenticated and have pending data synchronize;
+7. complete enough full-tank cycles for consumption calibration;
+8. see a clearly labeled range estimate based on their own measured usage;
+9. see fuel spending for the current period;
+10. use the interface without explanatory clutter;
+11. continue using the application if Supabase is temporarily unavailable.
 
 ## 24. Deferred decisions
 
