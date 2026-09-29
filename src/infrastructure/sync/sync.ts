@@ -22,7 +22,7 @@ type RemoteVehicleState = {
   user_id: string
   tank_capacity_liters: number
   initial_odometer_km: number
-  initial_full_tank_at: string
+  initial_full_tank_at: string | null
   created_at: string
   updated_at: string
 }
@@ -42,7 +42,10 @@ type RemoteFuelEntry = {
   user_id: string
   odometer_km: number
   amount_cents: number
-  liters: number
+  estimated_liters: number | null
+  reference_price_per_liter: number | null
+  reference_week_start: string | null
+  reference_week_end: string | null
   full_tank: boolean
   fueled_at: string
   created_at: string
@@ -59,7 +62,7 @@ function toRemoteVehicleState(
 ): RemoteVehicleState {
   return {
     user_id: userId,
-    tank_capacity_liters: record.record.tankCapacityLiters,
+    tank_capacity_liters: record.record.nominalTankCapacityLiters,
     initial_odometer_km: record.record.initialOdometerKm,
     initial_full_tank_at: record.record.initialFullTankAt,
     created_at: record.record.createdAt,
@@ -91,7 +94,10 @@ function toRemoteFuelEntry(
     user_id: userId,
     odometer_km: record.record.odometerKm,
     amount_cents: record.record.amountCents,
-    liters: record.record.liters,
+    estimated_liters: record.record.estimatedLiters,
+    reference_price_per_liter: record.record.referencePricePerLiter,
+    reference_week_start: record.record.referenceWeekStart,
+    reference_week_end: record.record.referenceWeekEnd,
     full_tank: record.record.fullTank,
     fueled_at: record.record.fueledAt,
     created_at: record.record.createdAt,
@@ -151,7 +157,7 @@ export async function syncPending(userId: string): Promise<SyncResult> {
 
 function fromRemoteVehicleState(row: RemoteVehicleState): VehicleState {
   return {
-    tankCapacityLiters: Number(row.tank_capacity_liters),
+    nominalTankCapacityLiters: Number(row.tank_capacity_liters),
     initialOdometerKm: Number(row.initial_odometer_km),
     initialFullTankAt: row.initial_full_tank_at,
     createdAt: row.created_at,
@@ -170,12 +176,19 @@ function fromRemoteOdometerReading(row: RemoteOdometerReading): OdometerReading 
   }
 }
 
+function nullableNumber(value: number | null): number | null {
+  return value === null ? null : Number(value)
+}
+
 function fromRemoteFuelEntry(row: RemoteFuelEntry): FuelEntry {
   return {
     id: row.id,
     odometerKm: Number(row.odometer_km),
     amountCents: Number(row.amount_cents),
-    liters: Number(row.liters),
+    estimatedLiters: nullableNumber(row.estimated_liters),
+    referencePricePerLiter: nullableNumber(row.reference_price_per_liter),
+    referenceWeekStart: row.reference_week_start,
+    referenceWeekEnd: row.reference_week_end,
     fullTank: row.full_tank,
     fueledAt: row.fueled_at,
     createdAt: row.created_at,
