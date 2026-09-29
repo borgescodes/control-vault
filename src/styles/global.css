@@ -55,11 +55,13 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
   background: var(--bg);
 }
 
 button,
 input {
+  min-width: 0;
   font: inherit;
 }
 
@@ -309,6 +311,9 @@ input[type='checkbox'] {
 }
 
 .vehicle-module {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 0;
 }
 
@@ -360,13 +365,41 @@ form button[type='submit']:hover {
 }
 
 .vehicle-module[aria-busy='true'] {
-  min-height: 22rem;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  min-height: 18rem;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 70%, var(--lcm-surface-accent) 30%);
   border-radius: 0;
-  background: var(--surface);
-  opacity: 0.45;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lcm-card) 96%, var(--lcm-accent) 4%), var(--lcm-card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+}
+
+.vehicle-module--error {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--lcm-warning) 38%, var(--lcm-border));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--lcm-warning) 7%, var(--lcm-card));
+  animation: lcm-view-in 360ms cubic-bezier(.16,1,.3,1) both;
+}
+
+.vehicle-module__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--lcm-muted);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: .075em;
+  text-transform: uppercase;
 }
 
 .vehicle-panel {
+  min-width: 0;
+  max-width: 100%;
   padding: 15px;
   border: 1px solid color-mix(in srgb, var(--lcm-border) 70%, var(--lcm-surface-accent) 30%);
   border-radius: 0;
@@ -536,6 +569,8 @@ form button[type='submit']:hover {
 }
 
 .history-row time {
+  max-width: 12ch;
+  overflow-wrap: anywhere;
   color: var(--lcm-faint);
   font-size: 6px;
   font-variant-numeric: tabular-nums;
@@ -555,6 +590,8 @@ form button[type='submit']:hover {
 }
 
 .home {
+  min-width: 0;
+  max-width: 100%;
   animation: lcm-view-in 360ms cubic-bezier(.16,1,.3,1) both;
 }
 
@@ -776,12 +813,6 @@ form button[type='submit'] {
   color: var(--danger);
 }
 
-.vehicle-module section > h2 {
-  margin: 0 0 1.5rem;
-  font-size: 1.35rem;
-  font-weight: 500;
-}
-
 @media (max-width: 420px) {
   .app__content {
     padding: 10px;
@@ -793,6 +824,12 @@ form button[type='submit'] {
 
   .home__metrics dd {
     font-size: 8px;
+  }
+
+  .history-row {
+    grid-template-columns: 22px minmax(0, 1fr) minmax(64px, auto);
+    gap: 6px;
+    padding: 9px 7px;
   }
 }
 

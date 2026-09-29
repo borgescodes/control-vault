@@ -13,14 +13,21 @@ const actionStub = vi.hoisted(() => ({
   }),
   recordFuel: vi.fn().mockResolvedValue({ kind: 'saved' }),
 }))
+const storeStub = vi.hoisted(() => ({
+  getVehicleState: vi.fn(),
+  listFuelEntries: vi.fn(),
+  listOdometerReadings: vi.fn(),
+}))
 
 vi.mock('./vehicleActions', () => actionStub)
+vi.mock('../../infrastructure/local/store', () => storeStub)
 
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
 import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import SetupView from './SetupView'
+import VehicleModule from './VehicleModule'
 import type { VehicleDashboard } from './selectors'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -32,6 +39,14 @@ function setInputValue(input: HTMLInputElement, value: string) {
   )?.set
   setter?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+async function waitForSelector(container: HTMLElement, selector: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (container.querySelector(selector)) return
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
+  }
+  throw new Error(`Timed out waiting for ${selector}`)
 }
 
 function dashboard(
@@ -54,6 +69,9 @@ describe('vehicle v2 views', () => {
     actionStub.initializeVehicle.mockClear()
     actionStub.recordOdometer.mockClear()
     actionStub.recordFuel.mockClear()
+    storeStub.getVehicleState.mockReset()
+    storeStub.listFuelEntries.mockReset()
+    storeStub.listOdometerReadings.mockReset()
   })
 
   afterEach(() => {
@@ -214,6 +232,79 @@ describe('vehicle v2 views', () => {
     expect(markup).toContain('Nenhum registro')
     expect(markup).toContain('class="history-empty"')
     expect(markup).not.toContain('class="history-rail"')
+  })
+
+  it('uses the source status grammar while vehicle data loads', async () => {
+    const pending = new Promise(() => undefined)
+    storeStub.getVehicleState.mockReturnValue(pending)
+    storeStub.listFuelEntries.mockReturnValue(pending)
+    storeStub.listOdometerReadings.mockReturnValue(pending)
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+
+    const loading = container.querySelector('.vehicle-module--loading')
+    expect(loading?.getAttribute('aria-busy')).toBe('true')
+    expect(loading?.textContent).toContain('Calibrando')
+    expect(loading?.querySelector('[data-status="calibrating"]')).not.toBeNull()
+
+    await act(async () => root.unmount())
+  })
+
+  it('keeps module errors visible as an instrument alert', async () => {
+    storeStub.getVehicleState.mockRejectedValue(new Error('offline'))
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '.vehicle-module--error')
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      'Falha ao carregar',
+    )
+    expect(container.querySelector('[data-status="stale"]')).not.toBeNull()
+
+    await act(async () => root.unmount())
+  })
+
+  it('keeps view switching and active home navigation discoverable', async () => {
+    storeStub.getVehicleState.mockResolvedValue({
+      nominalTankCapacityLiters: 3,
+      initialOdometerKm: 1_000,
+      initialFullTankAt: null,
+      createdAt: '2026-09-29T10:00:00.000Z',
+      updatedAt: '2026-09-29T10:00:00.000Z',
+    })
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '.home')
+
+    expect(container.querySelector('[aria-current="page"]')?.textContent).toContain(
+      'Início',
+    )
+    const odometerButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Atualizar KM'),
+    )
+    await act(async () => odometerButton?.click())
+    expect(container.querySelector('.vehicle-panel--odometer')).not.toBeNull()
+
+    const backButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Voltar',
+    )
+    await act(async () => backButton?.click())
+    expect(container.querySelector('.home')).not.toBeNull()
+
+    await act(async () => root.unmount())
   })
 
   it('shows awaiting full tank distinctly from calibration', () => {

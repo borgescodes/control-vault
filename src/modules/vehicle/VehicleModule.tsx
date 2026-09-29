@@ -52,20 +52,40 @@ export default function VehicleModule() {
   }
 
   if (vehicleState === undefined) {
-    return <div className="vehicle-module" aria-busy="true" />
+    return (
+      <div
+        aria-busy="true"
+        aria-live="polite"
+        className="vehicle-module vehicle-module--loading"
+      >
+        <div className="vehicle-module__status">
+          <span className="lcm-status-dot" data-status="calibrating" />
+          Calibrando
+        </div>
+        <div className="lcm-progress-track">
+          <div className="lcm-progress" style={{ width: '62%' }}>
+            <span className="lcm-progress-glow" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <div className="vehicle-module">
-        <p role="alert">{error}</p>
+      <div className="vehicle-module vehicle-module--error">
+        <div className="vehicle-module__status">
+          <span className="lcm-status-dot" data-status="stale" />
+          Indisponível
+        </div>
+        <p className="vehicle-alert" role="alert">{error}</p>
       </div>
     )
   }
 
   if (!vehicleState) {
     return (
-      <div className="vehicle-module">
+      <div className="vehicle-module" data-view="setup">
         <SetupView onComplete={refresh} />
       </div>
     )
@@ -73,7 +93,7 @@ export default function VehicleModule() {
 
   if (view === 'odometer') {
     return (
-      <div className="vehicle-module">
+      <div className="vehicle-module" data-view="odometer">
         <OdometerView
           onBack={() => setView('home')}
           onSaved={handleSaved}
@@ -84,7 +104,7 @@ export default function VehicleModule() {
 
   if (view === 'fuel') {
     return (
-      <div className="vehicle-module">
+      <div className="vehicle-module" data-view="fuel">
         <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
       </div>
     )
@@ -92,7 +112,7 @@ export default function VehicleModule() {
 
   if (view === 'history') {
     return (
-      <div className="vehicle-module">
+      <div className="vehicle-module" data-view="history">
         <HistoryView
           fuelEntries={fuelEntries}
           odometerReadings={readings}
@@ -111,7 +131,7 @@ export default function VehicleModule() {
   )
 
   return (
-    <div className="vehicle-module">
+    <div className="vehicle-module" data-view="home">
       <HomeView
         dashboard={dashboard}
         now={now}
