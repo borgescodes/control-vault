@@ -14,17 +14,15 @@ export default function SetupView({ onComplete }: SetupViewProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!fullTank) {
-      setError('Confirme o tanque cheio')
-      return
-    }
-
     setError(null)
     setSubmitting(true)
 
     try {
-      await initializeVehicle(Number(odometer), new Date().toISOString())
+      await initializeVehicle(
+        Number(odometer),
+        fullTank,
+        new Date().toISOString(),
+      )
       await onComplete()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao começar')
@@ -51,10 +49,9 @@ export default function SetupView({ onComplete }: SetupViewProps) {
         <input
           checked={fullTank}
           onChange={(event) => setFullTank(event.target.checked)}
-          required
           type="checkbox"
         />
-        Tanque cheio
+        Tanque cheio agora
       </label>
 
       {error && <p role="alert">{error}</p>}
