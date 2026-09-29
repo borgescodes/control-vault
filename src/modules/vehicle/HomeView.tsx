@@ -35,35 +35,42 @@ export default function HomeView({
   onHome,
   onOdometer,
 }: HomeViewProps) {
+  const rangeLabel =
+    dashboard.rangeState === 'awaiting_full_tank'
+      ? 'Aguardando tanque cheio'
+      : dashboard.rangeState === 'calibrating' || dashboard.rangeKm === null
+        ? 'Calibrando'
+        : `≈ ${integer.format(dashboard.rangeKm)} km`
+
   return (
     <section className="home" aria-labelledby="range-title">
       <div className="home__range">
         <h2 id="range-title">Autonomia</h2>
         <p
           className={
-            dashboard.rangeKm !== null
+            dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
               ? 'home__range-value'
               : 'home__range-empty'
           }
         >
-          {dashboard.rangeKm !== null
-            ? `${integer.format(dashboard.rangeKm)} km`
-            : 'Calibrando'}
+          {rangeLabel}
         </p>
 
-        {dashboard.rangeKm !== null && dashboard.fuelPercent !== null && (
-          <div className="home__fuel-state">
-            <p
-              aria-label={`Combustível estimado: ${integer.format(dashboard.fuelPercent)}%`}
-              className="home__fuel-percent"
-            >
-              {integer.format(dashboard.fuelPercent)}%
-            </p>
-            <p className={`home__calibration home__calibration--${dashboard.calibrationState}`}>
-              {calibrationLabels[dashboard.calibrationState]}
-            </p>
-          </div>
-        )}
+        {dashboard.rangeState === 'ready' &&
+          dashboard.rangeKm !== null &&
+          dashboard.fuelPercent !== null && (
+            <div className="home__fuel-state">
+              <p
+                aria-label={`Combustível estimado: ${integer.format(dashboard.fuelPercent)}%`}
+                className="home__fuel-percent"
+              >
+                {integer.format(dashboard.fuelPercent)}%
+              </p>
+              <p className={`home__calibration home__calibration--${dashboard.calibrationState}`}>
+                {calibrationLabels[dashboard.calibrationState]}
+              </p>
+            </div>
+          )}
       </div>
 
       <dl className="home__metrics">
@@ -72,7 +79,7 @@ export default function HomeView({
           <dd>
             {dashboard.consumptionKmPerLiter === null
               ? 'Calibrando'
-              : `${decimal.format(dashboard.consumptionKmPerLiter)} km/L`}
+              : `≈ ${decimal.format(dashboard.consumptionKmPerLiter)} km/L`}
           </dd>
         </div>
         <div>
