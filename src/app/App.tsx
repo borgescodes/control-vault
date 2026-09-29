@@ -5,6 +5,7 @@ import {
   signOut,
   subscribeToAuth,
 } from '../infrastructure/auth/session'
+import VehicleModule from '../modules/vehicle/VehicleModule'
 import LoginView from './LoginView'
 
 export default function App() {
@@ -53,9 +54,12 @@ export default function App() {
       <h1>Control Vault</h1>
       {sessionReady &&
         (session ? (
-          <button onClick={handleSignOut} type="button">
-            Sair
-          </button>
+          <>
+            <button onClick={handleSignOut} type="button">
+              Sair
+            </button>
+            <VehicleModule />
+          </>
         ) : (
           <LoginView />
         ))}
