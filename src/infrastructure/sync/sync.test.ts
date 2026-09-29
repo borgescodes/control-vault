@@ -500,6 +500,33 @@ describe('authenticated vehicle sync', () => {
     expect(remote.upserts).toHaveLength(1)
   })
 
+  it('runs another pass when a write requests sync in flight', async () => {
+    const remote = createRemote()
+    await saveVehicleState(vehicleState())
+    let release = () => {}
+    remote.holdUpserts(new Promise<void>((resolve) => {
+      release = () => resolve()
+    }))
+
+    const first = runSync(userId)
+    while (remote.upserts.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+
+    await saveFuelEntry(fuelEntry())
+    const second = runSync(userId)
+    expect(second).toBe(first)
+
+    release()
+    await first
+
+    expect(remote.upserts.map(({ table }) => table)).toEqual([
+      'vehicle_state',
+      'fuel_entries',
+    ])
+    await expect(listPending()).resolves.toEqual([])
+  })
+
   it('allows a new run after the prior run completes', async () => {
     const remote = createRemote()
     await saveVehicleState(vehicleState())

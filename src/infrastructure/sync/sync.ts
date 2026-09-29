@@ -231,15 +231,25 @@ export async function hydrateFromRemoteIfLocalEmpty(
 }
 
 let inFlight: Promise<SyncResult> | null = null
+let rerunRequested = false
 
 export function runSync(userId: string): Promise<SyncResult> {
   if (inFlight) {
+    rerunRequested = true
     return inFlight
   }
 
   const current = (async () => {
-    await hydrateFromRemoteIfLocalEmpty(userId)
-    return syncPending(userId)
+    const total: SyncResult = { synced: 0, pending: 0, failed: 0 }
+    do {
+      rerunRequested = false
+      await hydrateFromRemoteIfLocalEmpty(userId)
+      const pass = await syncPending(userId)
+      total.synced += pass.synced
+      total.pending = pass.pending
+      total.failed += pass.failed
+    } while (rerunRequested)
+    return total
   })()
   inFlight = current
   void current.then(
