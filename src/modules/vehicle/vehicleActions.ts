@@ -1,8 +1,7 @@
 import {
   initializeLocalVehicle,
-  listOdometerReadings,
-  saveFuelAndReading,
-  saveOdometerReading,
+  saveFuelAndReadingIfCurrent,
+  saveOdometerReadingIfCurrent,
 } from '../../infrastructure/local/store'
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { TANK_CAPACITY_LITERS } from './domain/config'
@@ -24,16 +23,6 @@ export type FuelInput = {
 
 function hasValidTimestamp(value: string): boolean {
   return Number.isFinite(Date.parse(value))
-}
-
-async function getLatestOdometerKm(): Promise<number | null> {
-  const readings = await listOdometerReadings()
-
-  if (readings.length === 0) {
-    return null
-  }
-
-  return Math.max(...readings.map(({ readingKm }) => readingKm))
 }
 
 export async function initializeVehicle(
@@ -81,27 +70,32 @@ export async function recordOdometer(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
-  const validation = validateOdometer(await getLatestOdometerKm(), readingKm)
-
-  if (validation.kind === 'invalid') {
-    return { kind: 'invalid', reason: 'Hodômetro menor que o atual' }
-  }
-
-  if (validation.kind === 'suspicious' && !confirmSuspicious) {
-    return {
-      kind: 'requires_confirmation',
-      deltaKm: validation.deltaKm,
-    }
-  }
-
-  await saveOdometerReading({
+  const reading: OdometerReading = {
     id: crypto.randomUUID(),
     readingKm,
     recordedAt,
     source: 'manual',
     createdAt: recordedAt,
     updatedAt: recordedAt,
+  }
+  let validation: ReturnType<typeof validateOdometer> | undefined
+  const saved = await saveOdometerReadingIfCurrent(reading, (latest) => {
+    validation = validateOdometer(latest, readingKm)
+    return (
+      validation.kind === 'valid' ||
+      (validation.kind === 'suspicious' && confirmSuspicious)
+    )
   })
+
+  if (!saved) {
+    if (validation?.kind === 'suspicious') {
+      return {
+        kind: 'requires_confirmation',
+        deltaKm: validation.deltaKm,
+      }
+    }
+    return { kind: 'invalid', reason: 'Hodômetro menor que o atual' }
+  }
   void syncCurrentSessionIfOnline().catch(() => undefined)
 
   return { kind: 'saved' }
@@ -127,22 +121,6 @@ export async function recordFuel(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
-  const validation = validateOdometer(
-    await getLatestOdometerKm(),
-    input.odometerKm,
-  )
-
-  if (validation.kind === 'invalid') {
-    return { kind: 'invalid', reason: 'Hodômetro menor que o atual' }
-  }
-
-  if (validation.kind === 'suspicious' && !confirmSuspicious) {
-    return {
-      kind: 'requires_confirmation',
-      deltaKm: validation.deltaKm,
-    }
-  }
-
   const entry: FuelEntry = {
     id: crypto.randomUUID(),
     ...input,
@@ -158,7 +136,29 @@ export async function recordFuel(
     updatedAt: input.fueledAt,
   }
 
-  await saveFuelAndReading(entry, reading)
+  let validation: ReturnType<typeof validateOdometer> | undefined
+  const saved = await saveFuelAndReadingIfCurrent(
+    entry,
+    reading,
+    (latest) => {
+      validation = validateOdometer(latest, input.odometerKm)
+      return (
+        validation.kind === 'valid' ||
+        (validation.kind === 'suspicious' && confirmSuspicious)
+      )
+    },
+  )
+
+  if (!saved) {
+    if (validation?.kind === 'suspicious') {
+      return {
+        kind: 'requires_confirmation',
+        deltaKm: validation.deltaKm,
+      }
+    }
+    return { kind: 'invalid', reason: 'Hodômetro menor que o atual' }
+  }
+
   void syncCurrentSessionIfOnline().catch(() => undefined)
 
   return { kind: 'saved' }

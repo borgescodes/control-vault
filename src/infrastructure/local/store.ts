@@ -58,6 +58,28 @@ export async function saveOdometerReading(
   await database.put('odometer_readings', { ...reading, ...pending })
 }
 
+export async function saveOdometerReadingIfCurrent(
+  reading: OdometerReading,
+  shouldSave: (latestOdometerKm: number | null) => boolean,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction('odometer_readings', 'readwrite')
+  const store = transaction.objectStore('odometer_readings')
+  const readings = await store.getAll()
+  const latestOdometerKm = readings.length
+    ? Math.max(...readings.map(({ readingKm }) => readingKm))
+    : null
+
+  if (!shouldSave(latestOdometerKm)) {
+    await transaction.done
+    return false
+  }
+
+  await store.put({ ...reading, ...pending })
+  await transaction.done
+  return true
+}
+
 export async function listOdometerReadings(): Promise<
   LocalOdometerReading[]
 > {
@@ -138,6 +160,51 @@ export async function saveFuelAndReading(
 
     await Promise.all(writes)
     await transaction.done
+  } catch (error) {
+    try {
+      transaction.abort()
+    } catch {
+      // A failed IndexedDB request may already have aborted the transaction.
+    }
+    await Promise.allSettled(writes)
+    await transaction.done.catch(() => undefined)
+    throw error
+  }
+}
+
+export async function saveFuelAndReadingIfCurrent(
+  entry: FuelEntry,
+  reading: OdometerReading,
+  shouldSave: (latestOdometerKm: number | null) => boolean,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['fuel_entries', 'odometer_readings'],
+    'readwrite',
+  )
+  const readingStore = transaction.objectStore('odometer_readings')
+  const readings = await readingStore.getAll()
+  const latestOdometerKm = readings.length
+    ? Math.max(...readings.map(({ readingKm }) => readingKm))
+    : null
+
+  if (!shouldSave(latestOdometerKm)) {
+    await transaction.done
+    return false
+  }
+
+  const writes: Promise<unknown>[] = []
+
+  try {
+    writes.push(
+      transaction
+        .objectStore('fuel_entries')
+        .put({ ...entry, ...pending }),
+    )
+    writes.push(readingStore.put({ ...reading, ...pending }))
+    await Promise.all(writes)
+    await transaction.done
+    return true
   } catch (error) {
     try {
       transaction.abort()
