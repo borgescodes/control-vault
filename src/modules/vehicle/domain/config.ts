@@ -1,0 +1,2 @@
+export const TANK_CAPACITY_LITERS = 3
+export const SUSPICIOUS_ODOMETER_DELTA_KM = 500
