@@ -472,6 +472,88 @@ form button[type='submit']:hover {
   margin-top: 10px;
 }
 
+.history-rail {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 72%, var(--lcm-surface-accent) 28%);
+  border-radius: 0;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lcm-overlay) 94%, var(--lcm-accent) 6%), var(--lcm-overlay));
+  list-style: none;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  animation: lcm-piece-in 340ms cubic-bezier(.16,1,.3,1) both;
+}
+
+.history-row + .history-row {
+  border-top: 1px solid color-mix(in srgb, var(--lcm-border) 62%, transparent);
+}
+
+.history-row__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--lcm-accent);
+  background: color-mix(in srgb, var(--lcm-surface-accent) 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lcm-accent) 18%, transparent);
+}
+
+.history-row__icon .lcm-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.history-row__content {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.history-row__content strong {
+  color: var(--lcm-muted);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.history-row__value {
+  overflow: hidden;
+  color: var(--lcm-fg);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row time {
+  color: var(--lcm-faint);
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.history-empty {
+  margin: 0;
+  padding: 24px 10px;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 72%, var(--lcm-surface-accent) 28%);
+  border-radius: 0;
+  color: var(--lcm-muted);
+  background: var(--lcm-overlay);
+  font-size: 9px;
+  text-align: center;
+}
+
 .home {
   animation: lcm-view-in 360ms cubic-bezier(.16,1,.3,1) both;
 }
@@ -698,41 +780,6 @@ form button[type='submit'] {
   margin: 0 0 1.5rem;
   font-size: 1.35rem;
   font-weight: 500;
-}
-
-.vehicle-module section > form + button,
-.vehicle-module section > ul + button,
-.vehicle-module section > div + button {
-  margin-top: 1.25rem;
-  color: var(--muted);
-  background: transparent;
-}
-
-.vehicle-module ul {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vehicle-module li {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border);
-  line-height: 1.5;
-}
-
-.vehicle-module li strong {
-  display: block;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 500;
-}
-
-.vehicle-module time {
-  display: block;
-  color: var(--faint);
-  font-size: 0.75rem;
 }
 
 @media (max-width: 420px) {

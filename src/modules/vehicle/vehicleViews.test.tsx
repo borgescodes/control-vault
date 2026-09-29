@@ -17,6 +17,7 @@ const actionStub = vi.hoisted(() => ({
 vi.mock('./vehicleActions', () => actionStub)
 
 import FuelView from './FuelView'
+import HistoryView from './HistoryView'
 import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import SetupView from './SetupView'
@@ -155,6 +156,64 @@ describe('vehicle v2 views', () => {
     expect(container.textContent).toContain('Confirmar salto de 600 km?')
 
     await act(async () => root.unmount())
+  })
+
+  it('renders history as reverse-chronological evidence rows', () => {
+    const markup = renderToStaticMarkup(
+      <HistoryView
+        fuelEntries={[
+          {
+            id: 'fuel-1',
+            odometerKm: 1_200,
+            amountCents: 8_000,
+            estimatedLiters: 12.5,
+            referencePricePerLiter: null,
+            referenceWeekStart: null,
+            referenceWeekEnd: null,
+            fullTank: true,
+            fueledAt: '2026-09-29T12:00:00.000Z',
+            createdAt: '2026-09-29T12:00:00.000Z',
+            updatedAt: '2026-09-29T12:00:00.000Z',
+          },
+        ]}
+        odometerReadings={[
+          {
+            id: 'odometer-1',
+            readingKm: 1_240,
+            recordedAt: '2026-09-30T12:00:00.000Z',
+            source: 'manual',
+            createdAt: '2026-09-30T12:00:00.000Z',
+            updatedAt: '2026-09-30T12:00:00.000Z',
+          },
+        ]}
+        onBack={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('class="vehicle-panel vehicle-panel--history"')
+    expect(markup).toContain('class="history-rail"')
+    expect(markup).toContain('data-icon="time"')
+    expect(markup).toContain('data-icon="check"')
+    expect(markup.indexOf('Hodômetro')).toBeLessThan(
+      markup.indexOf('Abastecimento'),
+    )
+    expect(markup).toContain('class="button-secondary vehicle-panel__back"')
+    expect(markup).not.toContain('Editar')
+    expect(markup).not.toContain('Excluir')
+  })
+
+  it('renders the short history empty state without evidence rows', () => {
+    const markup = renderToStaticMarkup(
+      <HistoryView
+        fuelEntries={[]}
+        odometerReadings={[]}
+        onBack={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('Nenhum registro')
+    expect(markup).toContain('class="history-empty"')
+    expect(markup).not.toContain('class="history-rail"')
   })
 
   it('shows awaiting full tank distinctly from calibration', () => {
