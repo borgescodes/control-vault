@@ -335,14 +335,16 @@ git commit -m "feat: add personal auth boundary"
 - Produces domain types: `VehicleState`, `OdometerReading`, `FuelEntry`.
 - Produces local wrapper type: `SyncStatus = 'pending' | 'synced'`.
 - Produces:
-  - `saveVehicleState(state): Promise<void>`
+  - `saveVehicleState(state: VehicleState): Promise<void>`
   - `getVehicleState(): Promise<LocalVehicleState | null>`
-  - `saveOdometerReading(reading): Promise<void>`
+  - `saveOdometerReading(reading: OdometerReading): Promise<void>`
   - `listOdometerReadings(): Promise<LocalOdometerReading[]>`
-  - `saveFuelEntry(entry): Promise<void>`
+  - `saveFuelEntry(entry: FuelEntry): Promise<void>`
   - `listFuelEntries(): Promise<LocalFuelEntry[]>`
+  - `initializeLocalVehicle(state: VehicleState, reading: OdometerReading): Promise<void>`
+  - `saveFuelAndReading(entry: FuelEntry, reading: OdometerReading): Promise<void>`
   - `listPending(): Promise<PendingRecord[]>`
-  - `markSynced(kind, id): Promise<void>`
+  - `markSynced(kind: PendingRecord['kind'], id: string): Promise<void>`
   - `isLocalDatabaseEmpty(): Promise<boolean>`
 
 - [ ] **Step 1: Define domain records**
@@ -380,7 +382,9 @@ Using `fake-indexeddb`, assert:
 - `markSynced` changes only the targeted record;
 - records survive closing and reopening the DB;
 - `listPending` returns pending state/readings/fuel entries;
-- stable IDs are preserved.
+- stable IDs are preserved;
+- `initializeLocalVehicle` commits state + initial reading in one IndexedDB transaction;
+- `saveFuelAndReading` commits fuel entry + generated odometer reading in one IndexedDB transaction and rolls the whole transaction back on failure.
 
 - [ ] **Step 3: Run tests and confirm failure**
 
@@ -401,6 +405,8 @@ Object stores:
 - `fuel_entries` keyed by `id`.
 
 Keep `syncStatus` as local persistence metadata. Do not create a separate sync-queue store.
+
+Use native IndexedDB transactions for the two compound writes. Do not emulate atomicity with sequential writes and cleanup code.
 
 - [ ] **Step 5: Verify**
 
@@ -430,10 +436,15 @@ git commit -m "feat: add local-first persistence"
 **Interfaces:**
 - Produces: `TANK_CAPACITY_LITERS = 3`
 - Produces: `SUSPICIOUS_ODOMETER_DELTA_KM = 500`
+- Produces: `type FullTankAnchor = { odometerKm: number; at: string }`
+- Produces: `type ConsumptionCycle = { startKm: number; endKm: number; distanceKm: number; fuelUsedLiters: number; kmPerLiter: number }`
+- Produces: `type CalibrationState = 'calibrating' | 'estimated' | 'calibrated'`
+- Produces: `type ConsumptionEstimate = { kmPerLiter: number; calibrationState: CalibrationState; cycleCount: number }`
+- Produces: `type FuelEstimate = { remainingLiters: number; rangeKm: number; fuelPercent: number }`
 - Produces: `validateOdometer(latestKm: number | null, nextKm: number): OdometerValidation`
-- Produces: `buildConsumptionCycles(initialAnchor, fuelEntries): ConsumptionCycle[]`
-- Produces: `learnConsumption(cycles): ConsumptionEstimate | null`
-- Produces: `estimateFuelRemaining(input): FuelEstimate | null`
+- Produces: `buildConsumptionCycles(initialAnchor: FullTankAnchor, fuelEntries: FuelEntry[]): ConsumptionCycle[]`
+- Produces: `learnConsumption(cycles: ConsumptionCycle[]): ConsumptionEstimate | null`
+- Produces: `estimateFuelRemaining(input: { tankCapacityLiters: number; consumptionKmPerLiter: number | null; initialAnchor: FullTankAnchor; fuelEntries: FuelEntry[]; currentOdometerKm: number }): FuelEstimate | null`
 
 - [ ] **Step 1: Write odometer tests**
 
@@ -545,9 +556,11 @@ git commit -m "feat: add vehicle calculation engine"
 - Modify: `src/app/App.tsx`
 
 **Interfaces:**
+- Produces: `type RecordResult = { kind: 'saved' } | { kind: 'requires_confirmation'; deltaKm: number } | { kind: 'invalid'; reason: string }`
+- Produces: `type FuelInput = { odometerKm: number; amountCents: number; liters: number; fullTank: boolean; fueledAt: string }`
 - Produces: `initializeVehicle(initialOdometerKm: number, now: string): Promise<void>`
 - Produces: `recordOdometer(readingKm: number, recordedAt: string, confirmSuspicious?: boolean): Promise<RecordResult>`
-- Produces: `recordFuel(input: FuelInput): Promise<RecordResult>`
+- Produces: `recordFuel(input: FuelInput, confirmSuspicious?: boolean): Promise<RecordResult>`
 
 - [ ] **Step 1: Write action tests**
 
@@ -577,9 +590,9 @@ Use `crypto.randomUUID()`.
 
 Use ISO timestamps.
 
-When a fuel entry and its odometer reading are created, persist both locally before returning success.
+Use `initializeLocalVehicle` for setup and `saveFuelAndReading` for refueling so compound local writes are atomic.
 
-If either local write fails, surface failure and do not claim success.
+If an IndexedDB transaction fails, surface failure and do not claim success.
 
 - [ ] **Step 4: Implement minimal screens**
 
@@ -743,6 +756,7 @@ git commit -m "feat: add minimal vehicle dashboard"
 - Modify: `src/infrastructure/local/store.ts`
 
 **Interfaces:**
+- Produces: `type SyncResult = { synced: number; pending: number; failed: number }`
 - Produces: `syncPending(userId: string): Promise<SyncResult>`
 - Produces: `hydrateFromRemoteIfLocalEmpty(userId: string): Promise<void>`
 - Produces: `runSync(userId: string): Promise<SyncResult>`
