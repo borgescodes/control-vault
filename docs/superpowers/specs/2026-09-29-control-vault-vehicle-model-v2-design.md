@@ -35,13 +35,53 @@ If the user starts without a full tank:
 
 If the user starts with a full tank, setup creates the initial full-tank anchor at that odometer and timestamp.
 
-### 2.2 Tank capacity
+### 2.2 Nominal tank capacity and operational range
 
-The nominal tank capacity remains `3 L`.
+The manufacturer reference remains `3 L`, but v2 treats it explicitly as a nominal capacity, not as an exact measured usable volume.
+
+Rename the domain field to:
+
+```ts
+nominalTankCapacityLiters: number
+```
+
+Default:
+
+```ts
+nominalTankCapacityLiters = 3
+```
 
 Do not model reserve capacity separately in v2.
 
-This value is a calculation reference, not a claim that the app knows the exact usable fuel volume under all physical conditions.
+A full-tank event means the tank is known to be `full` relative to the nominal model. It does not mean Control Vault claims there are exactly `3.000 L` physically available.
+
+The internal fuel ledger continues to use the nominal capacity as its upper bound. Consumption learning remains independent from any safety discount.
+
+For displayed autonomy, apply a separate operational safety factor:
+
+```ts
+RANGE_SAFETY_FACTOR = 0.90
+```
+
+The displayed range is:
+
+```
+displayRangeKm =
+  theoreticalRangeKm * RANGE_SAFETY_FACTOR
+```
+
+The safety factor applies only to displayed operational range. It must not alter:
+
+- estimated remaining liters;
+- full-to-full cycle fuel totals;
+- learned consumption;
+- tank-capacity clamping.
+
+The UI presents autonomy as approximate, for example:
+
+`≈ 108 km`
+
+Do not present the nominal `3 L` as a precise physical measurement.
 
 ### 2.3 Fuel entry UX
 
@@ -189,7 +229,7 @@ Change:
 
 ```ts
 type VehicleState = {
-  tankCapacityLiters: number
+  nominalTankCapacityLiters: number
   initialOdometerKm: number
   initialFullTankAt: string | null
   createdAt: string
@@ -324,13 +364,13 @@ A reliable anchor exists when either:
 
 If no reliable anchor exists, remaining fuel and autonomy are unknown.
 
-After a full-tank event, remaining fuel resets to nominal capacity regardless of `estimatedLiters`.
+After a full-tank event, the internal estimated balance resets to `nominalTankCapacityLiters` regardless of `estimatedLiters`.
 
 For partial refills with known `estimatedLiters`, retain the sequential ledger behavior already fixed in the domain:
 
 1. consume fuel for distance since previous event;
 2. add estimated liters;
-3. clamp to tank capacity at that event;
+3. clamp to `nominalTankCapacityLiters` at that event;
 4. continue to the next event.
 
 Events are ordered by:
@@ -390,7 +430,18 @@ Calibrando
 
 ### Learned estimate available
 
-Show estimated autonomy and consumption normally, with restrained approximation semantics.
+Show estimated autonomy and consumption with explicit approximation semantics.
+
+The domain may compute a theoretical range from the internal nominal fuel ledger. The selector/view applies `RANGE_SAFETY_FACTOR = 0.90` only to the displayed operational autonomy.
+
+Example:
+
+```
+Autonomia
+≈ 108 km
+```
+
+Do not display the undiscounted theoretical range as if it were a guaranteed usable distance.
 
 Do not introduce confidence scores, gauges or extra dashboards.
 
@@ -450,6 +501,7 @@ Do not add:
 - background scheduler;
 - service-worker runtime caching for the price API;
 - separate reserve-capacity model;
+- user-configurable safety factor in v2;
 - confidence scoring;
 - maintenance, insurance or general finance features.
 
@@ -468,7 +520,8 @@ Tests must cover at minimum:
 - stale API response is retained and recheck is throttled for 12 hours;
 - API failure uses stale cache;
 - no cache + API failure still permits fuel recording;
-- full tank resets remaining fuel to nominal capacity;
+- full tank resets internal remaining fuel to nominal capacity;
+- displayed autonomy applies the 0.90 safety factor while internal remaining liters and learned consumption do not;
 - unknown partial refill invalidates range until a later full anchor;
 - same-odometer later refill remains ordered by timestamp;
 - per-event tank-capacity clamp remains correct;
@@ -484,7 +537,7 @@ Implement with TDD and explicit migration tests.
 
 Recommended sequencing:
 
-1. schema/domain types;
+1. schema/domain types and nominal-capacity rename;
 2. IndexedDB migration;
 3. Supabase migration;
 4. price-reference client + localStorage cache;
