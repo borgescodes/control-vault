@@ -39,6 +39,7 @@ vi.mock('../infrastructure/auth/session', () => authStub)
 vi.mock('../infrastructure/sync/sync', () => syncStub)
 
 import App from './App'
+import LoginView from './LoginView'
 
 describe('App', () => {
   afterEach(async () => {
@@ -48,7 +49,24 @@ describe('App', () => {
   })
 
   it('renders the Control Vault shell', () => {
-    expect(renderToStaticMarkup(createElement(App))).toContain('<h1>Control Vault</h1>')
+    const markup = renderToStaticMarkup(createElement(App))
+
+    expect(markup).toContain('class="app__instrument"')
+    expect(markup).toContain('class="app__header"')
+    expect(markup).toContain('class="lcm-brand-mark')
+    expect(markup).toContain('<h1>Control Vault</h1>')
+  })
+
+  it('keeps authentication minimal inside the instrument system', () => {
+    const markup = renderToStaticMarkup(createElement(LoginView))
+
+    expect(markup).toContain('class="auth-panel')
+    expect(markup).toContain('>Email<')
+    expect(markup).toContain('>Senha<')
+    expect(markup).toContain('>Entrar<')
+    expect(markup).not.toContain('Cadastrar')
+    expect(markup).not.toContain('Redefinir')
+    expect(markup).not.toContain('Google')
   })
 
   it('shows hydrated vehicle data without a manual reload', async () => {

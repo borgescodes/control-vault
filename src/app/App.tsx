@@ -7,6 +7,7 @@ import {
 } from '../infrastructure/auth/session'
 import { runSync } from '../infrastructure/sync/sync'
 import VehicleModule from '../modules/vehicle/VehicleModule'
+import BrandMark from '../shared/ui/BrandMark'
 import LoginView from './LoginView'
 
 export default function App() {
@@ -88,18 +89,36 @@ export default function App() {
 
   return (
     <main className="app">
-      <h1>Control Vault</h1>
-      {sessionReady &&
-        (session ? (
-          <>
+      <section className="app__instrument">
+        <header className="app__header">
+          <div className="app__brand">
+            <BrandMark />
+            <div className="app__brand-copy">
+              <h1>Control Vault</h1>
+              <span className="app__module">
+                <span
+                  className="lcm-status-dot"
+                  data-status={session ? 'live' : 'unavailable'}
+                />
+                Vehicle
+              </span>
+            </div>
+          </div>
+          {session && (
             <button onClick={handleSignOut} type="button">
               Sair
             </button>
-            {vehicleReadyForUser === session.user.id && <VehicleModule />}
-          </>
-        ) : (
-          <LoginView />
-        ))}
+          )}
+        </header>
+        <div className="app__content">
+          {sessionReady &&
+            (session ? (
+              vehicleReadyForUser === session.user.id && <VehicleModule />
+            ) : (
+              <LoginView />
+            ))}
+        </div>
+      </section>
     </main>
   )
 }
