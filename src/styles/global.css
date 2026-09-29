@@ -1,18 +1,43 @@
 :root {
-  --bg: #101114;
-  --surface: #1a1c1f;
-  --surface-elevated: #1f2125;
-  --fg: #f3f4f6;
-  --muted: #8b8b95;
-  --faint: #6b6b75;
-  --border: rgba(243, 244, 246, 0.08);
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --success: #10b981;
+  --lcm-bg: rgba(10, 15, 23, 0.96);
+  --lcm-bg-2: #101927;
+  --lcm-card: rgba(21, 31, 45, 0.82);
+  --lcm-overlay: rgba(255, 255, 255, 0.045);
+  --lcm-overlay-hover: rgba(255, 255, 255, 0.075);
+  --lcm-fg: #f7faff;
+  --lcm-muted: #9dacc0;
+  --lcm-faint: #6f7f94;
+  --lcm-border: #2b3b51;
+  --lcm-track: #1c2a3c;
+  --lcm-accent: #27ceff;
+  --lcm-accent-2: #4773ff;
+  --lcm-progress-end: #91ebff;
+  --lcm-progress-gradient: linear-gradient(90deg, #4773ff 0%, #27ceff 62%, #91ebff 100%);
+  --lcm-primary-bg: #22c8ff;
+  --lcm-primary-fg: #051219;
+  --lcm-focus: #72e7ff;
+  --lcm-shadow: rgba(0, 0, 0, 0.45);
+  --lcm-success: #38d996;
+  --lcm-warning: #f5b95d;
+  --lcm-surface-accent: #27ceff;
+  --lcm-surface-accent-2: #4773ff;
+  --lcm-logo-base: #4773ff;
+  --lcm-logo-secondary: #27ceff;
+  --lcm-logo-needle: #91ebff;
+  --bg: #06090d;
+  --surface: var(--lcm-bg);
+  --surface-elevated: var(--lcm-bg-2);
+  --fg: var(--lcm-fg);
+  --muted: var(--lcm-muted);
+  --faint: var(--lcm-faint);
+  --border: var(--lcm-border);
+  --danger: #ff6577;
+  --warning: var(--lcm-warning);
+  --success: var(--lcm-success);
   color: var(--fg);
   background: var(--bg);
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -23,6 +48,7 @@
 
 html {
   background: var(--bg);
+  scrollbar-color: var(--lcm-border) var(--bg);
 }
 
 body {
@@ -39,25 +65,24 @@ input {
 
 button {
   min-height: 44px;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--lcm-border) 76%, var(--lcm-surface-accent) 24%);
+  border-radius: 0;
   color: var(--fg);
-  background: var(--surface);
+  background: var(--lcm-bg);
   cursor: pointer;
-  transition:
-    background 180ms ease-out,
-    border-color 180ms ease-out,
-    transform 180ms ease-out;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
 button:hover {
-  border-color: rgba(243, 244, 246, 0.16);
-  background: var(--surface-elevated);
+  border-color: color-mix(in srgb, var(--lcm-border) 70%, var(--lcm-surface-accent) 30%);
+  background: color-mix(in srgb, var(--lcm-overlay-hover) 82%, var(--lcm-surface-accent) 18%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lcm-surface-accent) 16%, transparent);
+  transform: translateY(-1px);
 }
 
 button:active {
-  transform: translateY(1px);
+  transform: scale(.98);
 }
 
 button:disabled {
@@ -68,8 +93,8 @@ button:disabled {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 3px;
+  outline: 2px solid var(--lcm-focus);
+  outline-offset: 2px;
 }
 
 input {
@@ -77,10 +102,10 @@ input {
   min-height: 46px;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   color: var(--fg);
-  background: var(--surface);
-  caret-color: var(--fg);
+  background: var(--lcm-bg-2);
+  caret-color: var(--lcm-focus);
 }
 
 input[type='checkbox'] {
@@ -90,8 +115,34 @@ input[type='checkbox'] {
 }
 
 ::selection {
-  color: var(--bg);
-  background: var(--fg);
+  color: var(--lcm-primary-fg);
+  background: var(--lcm-accent);
+}
+
+.lcm-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
+.lcm-brand-mark {
+  display: block;
+  width: 35px;
+  height: 35px;
+  overflow: visible;
+}
+
+.lcm-brand-main {
+  fill: var(--lcm-logo-base);
+}
+
+.lcm-brand-secondary {
+  fill: var(--lcm-logo-secondary);
+}
+
+.lcm-brand-needle {
+  fill: var(--lcm-logo-needle);
 }
 
 #root {
@@ -131,7 +182,7 @@ input[type='checkbox'] {
 
 .vehicle-module[aria-busy='true'] {
   min-height: 22rem;
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--surface);
   opacity: 0.45;
 }
@@ -350,7 +401,8 @@ form button[type='submit'] {
   *,
   *::before,
   *::after {
+    animation: none !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0.001ms !important;
   }
 }
