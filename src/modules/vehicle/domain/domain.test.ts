@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { buildConsumptionCycles, learnConsumption } from './consumption'
 import {
+  NOMINAL_TANK_CAPACITY_LITERS,
+  RANGE_SAFETY_FACTOR,
   SUSPICIOUS_ODOMETER_DELTA_KM,
-  TANK_CAPACITY_LITERS,
 } from './config'
 import { estimateFuelRemaining } from './fuelEstimate'
 import { validateOdometer } from './odometer'
@@ -29,7 +30,10 @@ function fuelEntry(
     id,
     odometerKm,
     amountCents: 1_000,
-    liters,
+    estimatedLiters: liters,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
     fullTank,
     fueledAt,
     createdAt: fueledAt,
@@ -49,7 +53,8 @@ function cycle(kmPerLiter: number): ConsumptionCycle {
 
 describe('vehicle domain configuration', () => {
   it('uses the approved tank capacity and suspicious delta', () => {
-    expect(TANK_CAPACITY_LITERS).toBe(3)
+    expect(NOMINAL_TANK_CAPACITY_LITERS).toBe(3)
+    expect(RANGE_SAFETY_FACTOR).toBe(0.9)
     expect(SUSPICIOUS_ODOMETER_DELTA_KM).toBe(500)
   })
 })
@@ -240,7 +245,7 @@ describe('learnConsumption', () => {
 describe('estimateFuelRemaining', () => {
   it('estimates remaining fuel, range and percentage from the anchor', () => {
     const estimate = estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor,
       fuelEntries: [],
@@ -254,7 +259,7 @@ describe('estimateFuelRemaining', () => {
 
   it('adds partial fills after the anchor', () => {
     const estimate = estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor,
       fuelEntries: [
@@ -268,7 +273,7 @@ describe('estimateFuelRemaining', () => {
 
   it('clamps a partial refill before later consumption', () => {
     const estimate = estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor,
       fuelEntries: [
@@ -284,7 +289,7 @@ describe('estimateFuelRemaining', () => {
 
   it('clamps fuel at each partial refill before consuming later distance', () => {
     const estimate = estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor,
       fuelEntries: [
@@ -301,7 +306,7 @@ describe('estimateFuelRemaining', () => {
   it('clamps exhausted fuel to zero', () => {
     expect(
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [],
@@ -313,7 +318,7 @@ describe('estimateFuelRemaining', () => {
   it('returns null without learned consumption', () => {
     expect(
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: null,
         initialAnchor,
         fuelEntries: [],
@@ -325,7 +330,7 @@ describe('estimateFuelRemaining', () => {
   it.each([0, -1])('rejects consumption %s', (consumptionKmPerLiter) => {
     expect(() =>
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter,
         initialAnchor,
         fuelEntries: [],
@@ -349,7 +354,7 @@ describe('estimateFuelRemaining', () => {
   it('rejects an odometer below the latest full-tank anchor', () => {
     expect(() =>
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [
@@ -363,7 +368,7 @@ describe('estimateFuelRemaining', () => {
   it('resets to capacity at the latest full tank without adding its liters', () => {
     expect(
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [
@@ -377,7 +382,7 @@ describe('estimateFuelRemaining', () => {
   it('excludes partial fills before the latest full tank', () => {
     expect(
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [
@@ -397,7 +402,7 @@ describe('estimateFuelRemaining', () => {
     const originalOrder = entries.map(({ id }) => id)
 
     estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor,
       fuelEntries: entries,
@@ -415,13 +420,11 @@ function estimatedFuelEntry(
   estimatedLiters: number | null,
   fullTank: boolean,
   fueledAt: string,
-  legacyLiters = estimatedLiters ?? 0,
 ): FuelEntry {
   return {
     id,
     odometerKm,
     amountCents: 1_000,
-    liters: legacyLiters,
     estimatedLiters,
     referencePricePerLiter: estimatedLiters === null ? null : 7.05,
     referenceWeekStart: estimatedLiters === null ? null : '2026-09-20',
@@ -473,7 +476,6 @@ describe('vehicle model v2 anchors and unknown fuel', () => {
         null,
         false,
         '2026-01-02T10:00:00.000Z',
-        1,
       ),
       estimatedFuelEntry(
         'full',
@@ -490,7 +492,7 @@ describe('vehicle model v2 anchors and unknown fuel', () => {
   it('returns no range after an unknown partial refill', () => {
     expect(
       estimateFuelRemaining({
-        tankCapacityLiters: 3,
+        nominalTankCapacityLiters: 3,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [
@@ -509,7 +511,7 @@ describe('vehicle model v2 anchors and unknown fuel', () => {
 
   it('restores range at a later full tank after setup without an anchor', () => {
     const estimate = estimateFuelRemaining({
-      tankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
       initialAnchor: null as unknown as FullTankAnchor,
       fuelEntries: [
