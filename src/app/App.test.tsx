@@ -52,7 +52,7 @@ describe('App', () => {
   })
 
   it('shows hydrated vehicle data without a manual reload', async () => {
-    let finishHydration = () => undefined
+    let finishHydration: () => void = () => {}
     const hydrationGate = new Promise<void>((resolve) => {
       finishHydration = resolve
     })
