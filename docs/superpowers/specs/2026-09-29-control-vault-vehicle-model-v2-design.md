@@ -146,7 +146,7 @@ type FuelPriceCache = {
 
 ### 4.2 Freshness rule
 
-If local calendar date is less than or equal to cached `semanaFim`:
+If local calendar date is inside the cached interval, inclusive (`semanaInicio <= today <= semanaFim`):
 
 - use the cached reference immediately;
 - do not call the API.
@@ -171,8 +171,9 @@ This avoids repeated requests while still picking up a newly published weekly su
 If there is no cache:
 
 - try the API;
-- if it succeeds, cache and use it;
-- if it fails, continue without a price reference.
+- if it succeeds, cache and use the returned latest reference;
+- if that returned reference is already expired for the local date, set `nextCheckAt` to 12 hours after the attempt;
+- if the request fails, continue without a price reference.
 
 ### 4.3 Historical stability
 
@@ -239,7 +240,7 @@ Make:
 
 ### 6.2 fuel_entries
 
-Replace or migrate the existing `liters` contract to support the v2 model.
+Add the v2 estimation columns and migrate the existing `liters` data.
 
 Target columns:
 
@@ -250,7 +251,16 @@ Target columns:
 
 Existing `amount_cents`, `odometer_km`, `full_tank`, timestamps, IDs and ownership remain.
 
-Migration must preserve existing development data where practical. Existing `liters` values may be copied into `estimated_liters`; historical rows without a price snapshot keep reference fields null.
+Migration sequence:
+
+1. add the four nullable v2 columns;
+2. backfill `estimated_liters = liters` for existing rows;
+3. leave the three reference snapshot fields null for those historical rows;
+4. keep the legacy `liters` column temporarily during rollout so the currently deployed v1 frontend is not broken before the v2 frontend is live;
+5. stop reading/writing `liters` in v2 code;
+6. remove the legacy column only in a later cleanup migration after v2 production verification.
+
+This compatibility column is transitional only and must not remain part of the v2 domain type.
 
 Do not change the RLS ownership model or grants.
 
