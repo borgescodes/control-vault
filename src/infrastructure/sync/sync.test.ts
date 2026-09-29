@@ -601,3 +601,91 @@ describe('authenticated vehicle sync', () => {
     expect(remote.rows.vehicle_state).toEqual([remoteVehicle()])
   })
 })
+
+
+describe('vehicle model v2 sync mappings', () => {
+  it('pushes estimated fuel fields without the legacy liters column', async () => {
+    const remote = createRemote()
+    const entry = {
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      odometerKm: 1_050.5,
+      amountCents: 2_000,
+      estimatedLiters: 2.837,
+      referencePricePerLiter: 7.05,
+      referenceWeekStart: '2026-09-20',
+      referenceWeekEnd: '2026-09-26',
+      fullTank: false,
+      fueledAt: updatedAt,
+      createdAt,
+      updatedAt,
+    } as unknown as FuelEntry
+    await saveFuelEntry(entry)
+
+    await syncPending(userId)
+
+    expect(remote.upserts[0].payload).toEqual({
+      id: entry.id,
+      user_id: userId,
+      odometer_km: 1_050.5,
+      amount_cents: 2_000,
+      estimated_liters: 2.837,
+      reference_price_per_liter: 7.05,
+      reference_week_start: '2026-09-20',
+      reference_week_end: '2026-09-26',
+      full_tank: false,
+      fueled_at: updatedAt,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    })
+    expect(remote.upserts[0].payload).not.toHaveProperty('liters')
+  })
+
+  it('hydrates nullable estimated fuel fields without coercing null to zero', async () => {
+    createRemote({
+      fuel_entries: [
+        {
+          id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+          user_id: userId,
+          odometer_km: 1_050.5,
+          amount_cents: 2_000,
+          estimated_liters: null,
+          reference_price_per_liter: null,
+          reference_week_start: null,
+          reference_week_end: null,
+          full_tank: true,
+          fueled_at: updatedAt,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        },
+      ],
+    })
+
+    await hydrateFromRemoteIfLocalEmpty(userId)
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        estimatedLiters: null,
+        referencePricePerLiter: null,
+        referenceWeekStart: null,
+        referenceWeekEnd: null,
+      }),
+    ])
+  })
+
+  it('round-trips a nullable initial full-tank anchor', async () => {
+    createRemote({
+      vehicle_state: [
+        {
+          ...remoteVehicle(),
+          initial_full_tank_at: null,
+        },
+      ],
+    })
+
+    await hydrateFromRemoteIfLocalEmpty(userId)
+
+    await expect(getVehicleState()).resolves.toEqual(
+      expect.objectContaining({ initialFullTankAt: null }),
+    )
+  })
+})
