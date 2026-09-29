@@ -342,7 +342,7 @@ describe('estimateFuelRemaining', () => {
   it.each([0, -1])('rejects tank capacity %s', (tankCapacityLiters) => {
     expect(() =>
       estimateFuelRemaining({
-        tankCapacityLiters,
+        nominalTankCapacityLiters: tankCapacityLiters,
         consumptionKmPerLiter: 40,
         initialAnchor,
         fuelEntries: [],
