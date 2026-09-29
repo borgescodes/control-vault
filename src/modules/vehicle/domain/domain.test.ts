@@ -92,6 +92,38 @@ describe('buildConsumptionCycles', () => {
     ])
   })
 
+  it('includes a later partial fill at the anchor odometer', () => {
+    const entries = [
+      fuelEntry('partial', 1_000, 0.5, false, '2026-01-01T10:05:00.000Z'),
+      fuelEntry('full', 1_020, 2, true, '2026-01-02T10:00:00.000Z'),
+    ]
+
+    expect(buildConsumptionCycles(initialAnchor, entries)).toEqual([
+      {
+        startKm: 1_000,
+        endKm: 1_020,
+        distanceKm: 20,
+        fuelUsedLiters: 2.5,
+        kmPerLiter: 8,
+      },
+    ])
+  })
+
+  it.each([
+    '2026-01-01T09:59:00.000Z',
+    '2026-01-01T10:00:00.000Z',
+  ])('ignores a same-odometer partial at %s before or at the anchor', (fueledAt) => {
+    const entries = [
+      fuelEntry('partial', 1_000, 0.5, false, fueledAt),
+      fuelEntry('full', 1_020, 2, true, '2026-01-02T10:00:00.000Z'),
+    ]
+
+    expect(buildConsumptionCycles(initialAnchor, entries)[0]).toMatchObject({
+      fuelUsedLiters: 2,
+      kmPerLiter: 10,
+    })
+  })
+
   it('produces independent full-to-full cycles', () => {
     const entries = [
       fuelEntry('partial-1', 1_040, 1, false, '2026-01-02T10:00:00.000Z'),

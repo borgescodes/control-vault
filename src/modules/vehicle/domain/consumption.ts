@@ -31,11 +31,14 @@ export function buildConsumptionCycles(
       left.fueledAt.localeCompare(right.fueledAt),
   )
   const cycles: ConsumptionCycle[] = []
-  let anchorKm = initialAnchor.odometerKm
+  let anchor = initialAnchor
   let fuelUsedLiters = 0
 
   for (const entry of entries) {
-    if (entry.odometerKm <= anchorKm) {
+    if (
+      entry.odometerKm < anchor.odometerKm ||
+      (entry.odometerKm === anchor.odometerKm && entry.fueledAt <= anchor.at)
+    ) {
       continue
     }
 
@@ -45,7 +48,7 @@ export function buildConsumptionCycles(
       continue
     }
 
-    const distanceKm = entry.odometerKm - anchorKm
+    const distanceKm = entry.odometerKm - anchor.odometerKm
     const kmPerLiter = distanceKm / fuelUsedLiters
 
     if (
@@ -54,7 +57,7 @@ export function buildConsumptionCycles(
       Number.isFinite(kmPerLiter)
     ) {
       cycles.push({
-        startKm: anchorKm,
+        startKm: anchor.odometerKm,
         endKm: entry.odometerKm,
         distanceKm,
         fuelUsedLiters,
@@ -62,7 +65,7 @@ export function buildConsumptionCycles(
       })
     }
 
-    anchorKm = entry.odometerKm
+    anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
     fuelUsedLiters = 0
   }
 
