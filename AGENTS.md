@@ -6,14 +6,18 @@ Before changing code, read these files in order:
 
 1. `docs/superpowers/specs/2026-09-29-control-vault-foundation-design.md`
 2. `docs/superpowers/plans/2026-09-29-control-vault-vehicle-mvp.md`
+3. `MODEL_ROUTING.md`
 
-Treat the approved spec as the product/architecture source of truth and the implementation plan as the execution order.
+Treat the approved spec as the product/architecture source of truth, the implementation plan as the execution order, and `MODEL_ROUTING.md` as the capability/effort policy for each task.
 
 ## Required workflow
 
 - Use Superpowers before implementation work.
 - Keep Ponytail in `full` mode for the whole implementation.
 - Execute the implementation plan task-by-task, in order.
+- Before every task, consult `MODEL_ROUTING.md` and select the recommended model/reasoning effort or an explicitly justified escalation.
+- If the current execution environment cannot switch model/effort, report the recommended route before starting instead of claiming it was applied.
+- Re-route if the task materially changes scope while executing.
 - Use TDD for non-trivial domain, persistence and synchronization behavior.
 - Make one meaningful commit per task.
 - Run the task verification commands before claiming a task is complete.
