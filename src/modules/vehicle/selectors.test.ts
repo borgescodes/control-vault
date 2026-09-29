@@ -8,7 +8,7 @@ import type {
 import { getVehicleDashboard } from './selectors'
 
 const state: VehicleState = {
-  tankCapacityLiters: 3,
+  nominalTankCapacityLiters: 3,
   initialOdometerKm: 1_000,
   initialFullTankAt: '2026-06-01T10:00:00.000Z',
   createdAt: '2026-06-01T10:00:00.000Z',
@@ -44,7 +44,10 @@ function fuel(
     id,
     odometerKm,
     amountCents,
-    liters,
+    estimatedLiters: liters,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
     fullTank,
     fueledAt,
     createdAt: fueledAt,
@@ -174,7 +177,7 @@ describe('getVehicleDashboard', () => {
       now,
     )
 
-    expect(dashboard.rangeKm).toBe(80)
+    expect(dashboard.rangeKm).toBe(72)
     expect(dashboard.fuelPercent).toBeCloseTo(200 / 3)
   })
 
@@ -189,7 +192,7 @@ describe('getVehicleDashboard', () => {
       now,
     )
 
-    expect(dashboard.rangeKm).toBe(100)
+    expect(dashboard.rangeKm).toBe(90)
     expect(dashboard.fuelPercent).toBeCloseTo(250 / 3)
   })
 
@@ -206,7 +209,7 @@ describe('getVehicleDashboard', () => {
     )
 
     expect(dashboard.consumptionKmPerLiter).toBe(40)
-    expect(dashboard.rangeKm).toBe(80)
+    expect(dashboard.rangeKm).toBe(72)
   })
 
   it('does not mutate fuel entries', () => {
