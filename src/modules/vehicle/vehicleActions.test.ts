@@ -5,8 +5,12 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 const syncStub = vi.hoisted(() => ({
   syncCurrentSessionIfOnline: vi.fn().mockResolvedValue(undefined),
 }))
+const priceStub = vi.hoisted(() => ({
+  getFuelPriceReference: vi.fn(),
+}))
 
 vi.mock('../../infrastructure/sync/sync', () => syncStub)
+vi.mock('../../infrastructure/fuelPrice/fuelPrice', () => priceStub)
 
 import {
   getVehicleState,
@@ -23,6 +27,17 @@ import {
 const initialAt = '2026-09-29T10:00:00.000Z'
 const laterAt = '2026-09-30T10:00:00.000Z'
 const randomUUID = vi.spyOn(globalThis.crypto, 'randomUUID')
+const priceReference = {
+  uf: 'PA',
+  municipio: 'PARAGOMINAS',
+  produto: 'GASOLINA COMUM',
+  semanaInicio: '2026-09-27',
+  semanaFim: '2026-10-03',
+  precoMedio: 7.05,
+  precoMinimo: 6.79,
+  precoMaximo: 7.22,
+  postosPesquisados: 37,
+}
 
 function nextUuid(sequence: number): ReturnType<Crypto['randomUUID']> {
   return `00000000-0000-4000-8000-${String(sequence).padStart(12, '0')}`
@@ -34,6 +49,8 @@ describe('vehicle actions', () => {
   beforeEach(async () => {
     await resetLocalDatabase()
     syncStub.syncCurrentSessionIfOnline.mockClear()
+    priceStub.getFuelPriceReference.mockReset()
+    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
     sequence = 0
     randomUUID.mockImplementation(() => nextUuid(++sequence))
   })
@@ -43,21 +60,30 @@ describe('vehicle actions', () => {
     await resetLocalDatabase()
   })
 
-  it('initializes the vehicle with the configured tank capacity', async () => {
-    await initializeVehicle(1_000, initialAt)
+  it('initializes without a full-tank anchor when setup starts not full', async () => {
+    await initializeVehicle(1_000, false, initialAt)
 
     await expect(getVehicleState()).resolves.toMatchObject({
       nominalTankCapacityLiters: 3,
       initialOdometerKm: 1_000,
-      initialFullTankAt: initialAt,
+      initialFullTankAt: null,
       createdAt: initialAt,
       updatedAt: initialAt,
     })
     expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledOnce()
   })
 
+  it('initializes with a full-tank anchor when setup starts full', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(getVehicleState()).resolves.toMatchObject({
+      nominalTankCapacityLiters: 3,
+      initialFullTankAt: initialAt,
+    })
+  })
+
   it('creates the initial manual odometer reading', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, false, initialAt)
 
     await expect(listOdometerReadings()).resolves.toEqual([
       expect.objectContaining({
@@ -74,20 +100,22 @@ describe('vehicle actions', () => {
       undefined as unknown as ReturnType<Crypto['randomUUID']>,
     )
 
-    await expect(initializeVehicle(1_000, initialAt)).rejects.toBeDefined()
+    await expect(
+      initializeVehicle(1_000, false, initialAt),
+    ).rejects.toBeDefined()
     await expect(getVehicleState()).resolves.toBeNull()
     await expect(listOdometerReadings()).resolves.toEqual([])
   })
 
   it('rejects a negative initial odometer', async () => {
-    await expect(initializeVehicle(-1, initialAt)).rejects.toBeInstanceOf(
-      RangeError,
-    )
+    await expect(
+      initializeVehicle(-1, false, initialAt),
+    ).rejects.toBeInstanceOf(RangeError)
     await expect(getVehicleState()).resolves.toBeNull()
   })
 
   it('saves a normal odometer reading', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     await expect(recordOdometer(1_100, laterAt)).resolves.toEqual({
       kind: 'saved',
@@ -97,7 +125,7 @@ describe('vehicle actions', () => {
   })
 
   it('rejects a concurrent odometer write that becomes regressive', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     const [higher, lower] = await Promise.all([
       recordOdometer(1_100, '2026-09-30T10:00:00.000Z'),
@@ -112,7 +140,7 @@ describe('vehicle actions', () => {
   })
 
   it('does not write an odometer regression', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     await expect(recordOdometer(999.9, laterAt)).resolves.toMatchObject({
       kind: 'invalid',
@@ -121,7 +149,7 @@ describe('vehicle actions', () => {
   })
 
   it('requires confirmation before a suspicious odometer jump', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     const result = await recordOdometer(1_500.1, laterAt)
 
@@ -132,7 +160,7 @@ describe('vehicle actions', () => {
   })
 
   it('saves a confirmed suspicious odometer jump', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     await expect(recordOdometer(1_500.1, laterAt, true)).resolves.toEqual({
       kind: 'saved',
@@ -140,14 +168,13 @@ describe('vehicle actions', () => {
     await expect(listOdometerReadings()).resolves.toHaveLength(2)
   })
 
-  it('saves a valid fuel entry and matching odometer reading', async () => {
-    await initializeVehicle(1_000, initialAt)
+  it('derives estimated liters and snapshots the weekly reference', async () => {
+    await initializeVehicle(1_000, true, initialAt)
 
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_590,
-        liters: 1.5,
+        amountCents: 2_000,
         fullTank: false,
         fueledAt: laterAt,
       }),
@@ -156,34 +183,93 @@ describe('vehicle actions', () => {
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
         odometerKm: 1_100,
-        amountCents: 2_590,
-        estimatedLiters: 1.5,
-        referencePricePerLiter: null,
-        referenceWeekStart: null,
-        referenceWeekEnd: null,
+        amountCents: 2_000,
+        estimatedLiters: 2.837,
+        referencePricePerLiter: 7.05,
+        referenceWeekStart: '2026-09-27',
+        referenceWeekEnd: '2026-10-03',
         fullTank: false,
         syncStatus: 'pending',
       }),
     ])
-    await expect(listOdometerReadings()).resolves.toHaveLength(2)
-    expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledTimes(2)
+    expect(priceStub.getFuelPriceReference).toHaveBeenCalledOnce()
+  })
+
+  it('stores null estimation fields when no price reference is available', async () => {
+    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 2_000,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        estimatedLiters: null,
+        referencePricePerLiter: null,
+        referenceWeekStart: null,
+        referenceWeekEnd: null,
+      }),
+    ])
+  })
+
+  it('does not fail local recording when price lookup throws', async () => {
+    priceStub.getFuelPriceReference.mockRejectedValueOnce(new Error('offline'))
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 2_000,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({ estimatedLiters: null }),
+    ])
+  })
+
+  it('saves a full-tank entry even when the price reference is unavailable', async () => {
+    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    await initializeVehicle(1_000, false, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 2_000,
+        fullTank: true,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        fullTank: true,
+        estimatedLiters: null,
+      }),
+    ])
   })
 
   it('rejects a concurrent fuel write that becomes regressive', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     const [higher, lower] = await Promise.all([
       recordFuel({
         odometerKm: 1_100,
         amountCents: 2_000,
-        liters: 1,
         fullTank: false,
         fueledAt: '2026-09-30T10:00:00.000Z',
       }),
       recordFuel({
         odometerKm: 1_050,
         amountCents: 2_000,
-        liters: 1,
         fullTank: false,
         fueledAt: '2026-09-30T10:01:00.000Z',
       }),
@@ -200,11 +286,10 @@ describe('vehicle actions', () => {
   })
 
   it('marks the odometer reading generated by fuel as fuel_entry', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
     await recordFuel({
       odometerKm: 1_100,
-      amountCents: 2_590,
-      liters: 1.5,
+      amountCents: 2_000,
       fullTank: true,
       fueledAt: laterAt,
     })
@@ -219,11 +304,10 @@ describe('vehicle actions', () => {
   })
 
   it('commits the fuel entry and reading together', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
     await recordFuel({
       odometerKm: 1_100,
-      amountCents: 2_590,
-      liters: 1.5,
+      amountCents: 2_000,
       fullTank: true,
       fueledAt: laterAt,
     })
@@ -237,12 +321,12 @@ describe('vehicle actions', () => {
       recordFuel({
         odometerKm: 1_000,
         amountCents,
-        liters: 1,
         fullTank: false,
         fueledAt: laterAt,
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('rejects a non-integer amount in cents', async () => {
@@ -250,35 +334,21 @@ describe('vehicle actions', () => {
       recordFuel({
         odometerKm: 1_000,
         amountCents: 10.5,
-        liters: 1,
         fullTank: false,
         fueledAt: laterAt,
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
-  })
-
-  it.each([0, -1])('rejects liters=%s', async (liters) => {
-    await expect(
-      recordFuel({
-        odometerKm: 1_000,
-        amountCents: 1_000,
-        liters,
-        fullTank: false,
-        fueledAt: laterAt,
-      }),
-    ).resolves.toMatchObject({ kind: 'invalid' })
-    await expect(listFuelEntries()).resolves.toEqual([])
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('rejects a regressive fuel odometer without writing', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     await expect(
       recordFuel({
         odometerKm: 999,
         amountCents: 1_000,
-        liters: 1,
         fullTank: false,
         fueledAt: laterAt,
       }),
@@ -288,12 +358,11 @@ describe('vehicle actions', () => {
   })
 
   it('requires confirmation for a suspicious fuel odometer', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
 
     const result = await recordFuel({
       odometerKm: 1_500.1,
       amountCents: 1_000,
-      liters: 1,
       fullTank: false,
       fueledAt: laterAt,
     })
@@ -306,7 +375,7 @@ describe('vehicle actions', () => {
   })
 
   it('does not report success when the fuel transaction fails', async () => {
-    await initializeVehicle(1_000, initialAt)
+    await initializeVehicle(1_000, true, initialAt)
     randomUUID
       .mockReturnValueOnce(nextUuid(100))
       .mockReturnValueOnce(
@@ -317,7 +386,6 @@ describe('vehicle actions', () => {
       recordFuel({
         odometerKm: 1_100,
         amountCents: 1_000,
-        liters: 1,
         fullTank: false,
         fueledAt: laterAt,
       }),
@@ -326,16 +394,16 @@ describe('vehicle actions', () => {
     await expect(listOdometerReadings()).resolves.toHaveLength(1)
   })
 
-  it('rejects malformed fuel values before persistence', async () => {
+  it('rejects malformed fuel values before price lookup or persistence', async () => {
     await expect(
       recordFuel({
         odometerKm: Number.NaN,
         amountCents: 1_000,
-        liters: 1,
         fullTank: false,
         fueledAt: 'not-a-date',
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 })
