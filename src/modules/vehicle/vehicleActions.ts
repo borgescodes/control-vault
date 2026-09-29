@@ -4,7 +4,7 @@ import {
   saveOdometerReadingIfCurrent,
 } from '../../infrastructure/local/store'
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
-import { TANK_CAPACITY_LITERS } from './domain/config'
+import { NOMINAL_TANK_CAPACITY_LITERS } from './domain/config'
 import { validateOdometer } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
 
@@ -38,7 +38,7 @@ export async function initializeVehicle(
   }
 
   const state: VehicleState = {
-    tankCapacityLiters: TANK_CAPACITY_LITERS,
+    nominalTankCapacityLiters: NOMINAL_TANK_CAPACITY_LITERS,
     initialOdometerKm,
     initialFullTankAt: now,
     createdAt: now,
@@ -123,7 +123,14 @@ export async function recordFuel(
 
   const entry: FuelEntry = {
     id: crypto.randomUUID(),
-    ...input,
+    odometerKm: input.odometerKm,
+    amountCents: input.amountCents,
+    estimatedLiters: input.liters,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
+    fullTank: input.fullTank,
+    fueledAt: input.fueledAt,
     createdAt: input.fueledAt,
     updatedAt: input.fueledAt,
   }
