@@ -49,7 +49,7 @@ const updatedAt = '2026-09-29T11:00:00.000Z'
 
 function vehicleState(overrides: Partial<VehicleState> = {}): VehicleState {
   return {
-    tankCapacityLiters: 3,
+    nominalTankCapacityLiters: 3,
     initialOdometerKm: 1_000,
     initialFullTankAt: createdAt,
     createdAt,
@@ -81,7 +81,10 @@ function fuelEntry(
     id,
     odometerKm: 1_050.5,
     amountCents: 2_640,
-    liters: 1.5,
+    estimatedLiters: 1.5,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
     fullTank: true,
     fueledAt: updatedAt,
     createdAt,
@@ -125,7 +128,10 @@ function remoteFuel(
     user_id: owner,
     odometer_km: 1_050.5,
     amount_cents: 2_640,
-    liters: 1.5,
+    estimated_liters: 1.5,
+    reference_price_per_liter: null,
+    reference_week_start: null,
+    reference_week_end: null,
     full_tank: true,
     fueled_at: updatedAt,
     created_at: createdAt,
