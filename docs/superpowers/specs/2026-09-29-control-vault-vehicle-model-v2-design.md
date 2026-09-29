@@ -1,6 +1,6 @@
 # Control Vault - Vehicle Model v2 Design
 
-Status: Draft for user review
+Status: Approved
 Date: 2026-09-29
 Branch: `codex/foundation-task-1`
 
@@ -296,9 +296,10 @@ Migration sequence:
 1. add the four nullable v2 columns;
 2. backfill `estimated_liters = liters` for existing rows;
 3. leave the three reference snapshot fields null for those historical rows;
-4. keep the legacy `liters` column temporarily during rollout so the currently deployed v1 frontend is not broken before the v2 frontend is live;
-5. stop reading/writing `liters` in v2 code;
-6. remove the legacy column only in a later cleanup migration after v2 production verification.
+4. drop the `NOT NULL` constraint from the legacy `liters` column so v2 inserts can omit it;
+5. keep that legacy column temporarily during rollout so the currently deployed v1 frontend is not broken before the v2 frontend is live;
+6. stop reading/writing `liters` in v2 code;
+7. remove the legacy column only in a later cleanup migration after v2 production verification.
 
 This compatibility column is transitional only and must not remain part of the v2 domain type.
 
