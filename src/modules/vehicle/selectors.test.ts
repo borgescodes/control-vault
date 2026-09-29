@@ -226,3 +226,33 @@ describe('getVehicleDashboard', () => {
     expect(fuelEntries.map(({ id }) => id)).toEqual(originalOrder)
   })
 })
+
+
+describe('vehicle model v2 dashboard states', () => {
+  it('waits for a full-tank anchor when setup started without one', () => {
+    const noAnchorState = {
+      ...state,
+      initialFullTankAt: null,
+    } as unknown as VehicleState
+
+    expect(getVehicleDashboard(noAnchorState, [], [], now)).toMatchObject({
+      rangeState: 'awaiting_full_tank',
+      rangeKm: null,
+      fuelPercent: null,
+    })
+  })
+
+  it('applies the range safety factor only to displayed range', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('current', 1_160, '2026-09-20T10:00:00.000Z')],
+      [fuel('full', 1_120, 3, true, '2026-09-10T10:00:00.000Z')],
+      now,
+    )
+
+    expect(dashboard.rangeState).toBe('ready')
+    expect(dashboard.rangeKm).toBe(72)
+    expect(dashboard.fuelPercent).toBeCloseTo(200 / 3)
+    expect(dashboard.consumptionKmPerLiter).toBe(40)
+  })
+})
