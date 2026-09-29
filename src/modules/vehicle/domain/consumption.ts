@@ -22,7 +22,7 @@ export type ConsumptionEstimate = {
 }
 
 export function buildConsumptionCycles(
-  initialAnchor: FullTankAnchor,
+  initialAnchor: FullTankAnchor | null,
   fuelEntries: FuelEntry[],
 ): ConsumptionCycle[] {
   const entries = [...fuelEntries].sort(
@@ -33,8 +33,16 @@ export function buildConsumptionCycles(
   const cycles: ConsumptionCycle[] = []
   let anchor = initialAnchor
   let fuelUsedLiters = 0
+  let hasKnownFuel = true
 
   for (const entry of entries) {
+    if (!anchor) {
+      if (entry.fullTank) {
+        anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
+      }
+      continue
+    }
+
     if (
       entry.odometerKm < anchor.odometerKm ||
       (entry.odometerKm === anchor.odometerKm && entry.fueledAt <= anchor.at)
@@ -42,7 +50,11 @@ export function buildConsumptionCycles(
       continue
     }
 
-    fuelUsedLiters += entry.liters
+    if (entry.estimatedLiters === null) {
+      hasKnownFuel = false
+    } else {
+      fuelUsedLiters += entry.estimatedLiters
+    }
 
     if (!entry.fullTank) {
       continue
@@ -52,6 +64,7 @@ export function buildConsumptionCycles(
     const kmPerLiter = distanceKm / fuelUsedLiters
 
     if (
+      hasKnownFuel &&
       distanceKm > 0 &&
       fuelUsedLiters > 0 &&
       Number.isFinite(kmPerLiter)
@@ -67,6 +80,7 @@ export function buildConsumptionCycles(
 
     anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
     fuelUsedLiters = 0
+    hasKnownFuel = true
   }
 
   return cycles
