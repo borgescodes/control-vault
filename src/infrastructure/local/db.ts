@@ -12,7 +12,7 @@ import type {
 } from '../../modules/vehicle/domain/types'
 
 export const LOCAL_DATABASE_NAME = 'control-vault'
-export const LOCAL_DATABASE_VERSION = 1
+export const LOCAL_DATABASE_VERSION = 2
 export const VEHICLE_STATE_KEY = 'primary'
 
 export type SyncStatus = 'pending' | 'synced'
@@ -43,10 +43,55 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
     LOCAL_DATABASE_NAME,
     LOCAL_DATABASE_VERSION,
     {
-      upgrade(database) {
-        database.createObjectStore('vehicle_state')
-        database.createObjectStore('odometer_readings', { keyPath: 'id' })
-        database.createObjectStore('fuel_entries', { keyPath: 'id' })
+      upgrade(database, oldVersion, _newVersion, transaction) {
+        if (oldVersion < 1) {
+          database.createObjectStore('vehicle_state')
+          database.createObjectStore('odometer_readings', { keyPath: 'id' })
+          database.createObjectStore('fuel_entries', { keyPath: 'id' })
+        }
+
+        if (oldVersion === 1) {
+          const stateStore = transaction.objectStore('vehicle_state')
+          void stateStore.get(VEHICLE_STATE_KEY).then((stored) => {
+            const legacy = stored as unknown as Record<string, unknown> | undefined
+            if (!legacy || !('tankCapacityLiters' in legacy)) return
+
+            const {
+              tankCapacityLiters,
+              ...rest
+            } = legacy
+
+            return stateStore.put(
+              {
+                ...rest,
+                nominalTankCapacityLiters: tankCapacityLiters,
+              } as unknown as LocalVehicleState,
+              VEHICLE_STATE_KEY,
+            )
+          })
+
+          const fuelStore = transaction.objectStore('fuel_entries')
+          void fuelStore.openCursor().then(function migrate(cursor): Promise<void> | void {
+            if (!cursor) return
+
+            const legacy = cursor.value as unknown as Record<string, unknown>
+            if ('liters' in legacy) {
+              const {
+                liters,
+                ...rest
+              } = legacy
+              void cursor.update({
+                ...rest,
+                estimatedLiters: liters,
+                referencePricePerLiter: null,
+                referenceWeekStart: null,
+                referenceWeekEnd: null,
+              } as unknown as LocalFuelEntry)
+            }
+
+            return cursor.continue().then(migrate)
+          })
+        }
       },
     },
   )
