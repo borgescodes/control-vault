@@ -1,3 +1,4 @@
+import { getFuelPriceReference } from '../../infrastructure/fuelPrice/fuelPrice'
 import {
   initializeLocalVehicle,
   saveFuelAndReadingIfCurrent,
@@ -16,7 +17,6 @@ export type RecordResult =
 export type FuelInput = {
   odometerKm: number
   amountCents: number
-  liters: number
   fullTank: boolean
   fueledAt: string
 }
@@ -25,8 +25,13 @@ function hasValidTimestamp(value: string): boolean {
   return Number.isFinite(Date.parse(value))
 }
 
+function roundLiters(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
 export async function initializeVehicle(
   initialOdometerKm: number,
+  initialFullTank: boolean,
   now: string,
 ): Promise<void> {
   if (!Number.isFinite(initialOdometerKm) || initialOdometerKm < 0) {
@@ -40,7 +45,7 @@ export async function initializeVehicle(
   const state: VehicleState = {
     nominalTankCapacityLiters: NOMINAL_TANK_CAPACITY_LITERS,
     initialOdometerKm,
-    initialFullTankAt: now,
+    initialFullTankAt: initialFullTank ? now : null,
     createdAt: now,
     updatedAt: now,
   }
@@ -113,22 +118,29 @@ export async function recordFuel(
     return { kind: 'invalid', reason: 'Valor inválido' }
   }
 
-  if (!Number.isFinite(input.liters) || input.liters <= 0) {
-    return { kind: 'invalid', reason: 'Litros inválidos' }
-  }
-
   if (!hasValidTimestamp(input.fueledAt)) {
     return { kind: 'invalid', reason: 'Data inválida' }
   }
+
+  let reference: Awaited<ReturnType<typeof getFuelPriceReference>> = null
+  try {
+    reference = await getFuelPriceReference(new Date(input.fueledAt))
+  } catch {
+    reference = null
+  }
+
+  const estimatedLiters = reference
+    ? roundLiters((input.amountCents / 100) / reference.precoMedio)
+    : null
 
   const entry: FuelEntry = {
     id: crypto.randomUUID(),
     odometerKm: input.odometerKm,
     amountCents: input.amountCents,
-    estimatedLiters: input.liters,
-    referencePricePerLiter: null,
-    referenceWeekStart: null,
-    referenceWeekEnd: null,
+    estimatedLiters,
+    referencePricePerLiter: reference?.precoMedio ?? null,
+    referenceWeekStart: reference?.semanaInicio ?? null,
+    referenceWeekEnd: reference?.semanaFim ?? null,
     fullTank: input.fullTank,
     fueledAt: input.fueledAt,
     createdAt: input.fueledAt,
