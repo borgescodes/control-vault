@@ -63,7 +63,7 @@ describe('App', () => {
       await hydrationGate
       await saveHydratedVehicleData({
         vehicleState: {
-          tankCapacityLiters: 3,
+          nominalTankCapacityLiters: 3,
           initialOdometerKm: 1_000,
           initialFullTankAt: '2026-09-29T10:00:00.000Z',
           createdAt: '2026-09-29T10:00:00.000Z',
