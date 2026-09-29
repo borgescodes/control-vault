@@ -22,7 +22,11 @@ export default function HistoryView({
       id: `fuel-${entry.id}`,
       at: entry.fueledAt,
       label: 'Abastecimento',
-      value: `${entry.liters} L · ${(entry.amountCents / 100).toLocaleString('pt-BR', {
+      value: `${
+        entry.estimatedLiters === null
+          ? ''
+          : `≈ ${entry.estimatedLiters} L · `
+      }${(entry.amountCents / 100).toLocaleString('pt-BR', {
         style: 'currency',
         currency: 'BRL',
       })}`,
