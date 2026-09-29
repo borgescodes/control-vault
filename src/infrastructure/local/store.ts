@@ -29,6 +29,13 @@ export type PendingRecord =
     }
 
 const pending = { syncStatus: 'pending' as const }
+const synced = { syncStatus: 'synced' as const }
+
+export type HydratedVehicleData = {
+  vehicleState: VehicleState | null
+  odometerReadings: OdometerReading[]
+  fuelEntries: FuelEntry[]
+}
 
 export async function saveVehicleState(state: VehicleState): Promise<void> {
   const database = await openLocalDatabase()
@@ -237,4 +244,37 @@ export async function isLocalDatabaseEmpty(): Promise<boolean> {
   await transaction.done
 
   return counts.every((count) => count === 0)
+}
+
+export async function saveHydratedVehicleData(
+  data: HydratedVehicleData,
+): Promise<void> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['vehicle_state', 'odometer_readings', 'fuel_entries'],
+    'readwrite',
+  )
+  const writes: Promise<unknown>[] = []
+
+  if (data.vehicleState) {
+    writes.push(
+      transaction.objectStore('vehicle_state').put(
+        { ...data.vehicleState, ...synced },
+        VEHICLE_STATE_KEY,
+      ),
+    )
+  }
+
+  writes.push(
+    ...data.odometerReadings.map((reading) =>
+      transaction
+        .objectStore('odometer_readings')
+        .put({ ...reading, ...synced }),
+    ),
+    ...data.fuelEntries.map((entry) =>
+      transaction.objectStore('fuel_entries').put({ ...entry, ...synced }),
+    ),
+  )
+  await Promise.all(writes)
+  await transaction.done
 }

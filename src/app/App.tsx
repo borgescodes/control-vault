@@ -5,6 +5,7 @@ import {
   signOut,
   subscribeToAuth,
 } from '../infrastructure/auth/session'
+import { runSync } from '../infrastructure/sync/sync'
 import VehicleModule from '../modules/vehicle/VehicleModule'
 import LoginView from './LoginView'
 
@@ -43,6 +44,22 @@ export default function App() {
       unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+
+    const syncWhileOnline = () => {
+      if (navigator.onLine) {
+        void runSync(session.user.id).catch(() => undefined)
+      }
+    }
+
+    syncWhileOnline()
+    window.addEventListener('online', syncWhileOnline)
+    return () => window.removeEventListener('online', syncWhileOnline)
+  }, [session])
 
   async function handleSignOut() {
     await signOut()

@@ -4,6 +4,7 @@ import {
   saveFuelAndReading,
   saveOdometerReading,
 } from '../../infrastructure/local/store'
+import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { TANK_CAPACITY_LITERS } from './domain/config'
 import { validateOdometer } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
@@ -64,6 +65,7 @@ export async function initializeVehicle(
   }
 
   await initializeLocalVehicle(state, reading)
+  void syncCurrentSessionIfOnline().catch(() => undefined)
 }
 
 export async function recordOdometer(
@@ -100,6 +102,7 @@ export async function recordOdometer(
     createdAt: recordedAt,
     updatedAt: recordedAt,
   })
+  void syncCurrentSessionIfOnline().catch(() => undefined)
 
   return { kind: 'saved' }
 }
@@ -156,6 +159,7 @@ export async function recordFuel(
   }
 
   await saveFuelAndReading(entry, reading)
+  void syncCurrentSessionIfOnline().catch(() => undefined)
 
   return { kind: 'saved' }
 }
