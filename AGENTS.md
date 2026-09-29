@@ -13,6 +13,7 @@ Treat the approved spec as the product/architecture source of truth, the impleme
 ## Required workflow
 
 - Use Superpowers before implementation work.
+- Never commit `.env` files, provider credentials, or privileged keys.
 - Keep Ponytail in `full` mode for the whole implementation.
 - Execute the implementation plan task-by-task, in order.
 - Before every task, consult `MODEL_ROUTING.md` and select the recommended model/reasoning effort or an explicitly justified escalation.

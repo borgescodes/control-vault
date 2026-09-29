@@ -1,0 +1,32 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #f1f0ed;
+  background: #101114;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  padding: clamp(24px, 6vw, 72px);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
