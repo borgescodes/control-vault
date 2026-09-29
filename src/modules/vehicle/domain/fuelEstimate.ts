@@ -8,21 +8,24 @@ export type FuelEstimate = {
 }
 
 type FuelEstimateInput = {
-  tankCapacityLiters: number
+  nominalTankCapacityLiters: number
   consumptionKmPerLiter: number | null
-  initialAnchor: FullTankAnchor
+  initialAnchor: FullTankAnchor | null
   fuelEntries: FuelEntry[]
   currentOdometerKm: number
 }
 
 export function estimateFuelRemaining({
-  tankCapacityLiters,
+  nominalTankCapacityLiters,
   consumptionKmPerLiter,
   initialAnchor,
   fuelEntries,
   currentOdometerKm,
 }: FuelEstimateInput): FuelEstimate | null {
-  if (!Number.isFinite(tankCapacityLiters) || tankCapacityLiters <= 0) {
+  if (
+    !Number.isFinite(nominalTankCapacityLiters) ||
+    nominalTankCapacityLiters <= 0
+  ) {
     throw new RangeError('Tank capacity must be greater than zero')
   }
 
@@ -47,12 +50,17 @@ export function estimateFuelRemaining({
   for (const entry of entries) {
     if (
       entry.fullTank &&
-      (entry.odometerKm > anchor.odometerKm ||
+      (!anchor ||
+        entry.odometerKm > anchor.odometerKm ||
         (entry.odometerKm === anchor.odometerKm &&
           entry.fueledAt > anchor.at))
     ) {
       anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
     }
+  }
+
+  if (!anchor) {
+    return null
   }
 
   if (
@@ -62,12 +70,14 @@ export function estimateFuelRemaining({
     throw new RangeError('Current odometer cannot precede the latest full tank')
   }
 
-  let remainingLiters = tankCapacityLiters
+  let remainingLiters = nominalTankCapacityLiters
   let previousOdometerKm = anchor.odometerKm
+
   for (const entry of entries) {
     const followsAnchor =
       entry.odometerKm > anchor.odometerKm ||
       (entry.odometerKm === anchor.odometerKm && entry.fueledAt > anchor.at)
+
     if (
       entry.fullTank ||
       !followsAnchor ||
@@ -76,14 +86,18 @@ export function estimateFuelRemaining({
       continue
     }
 
+    if (entry.estimatedLiters === null) {
+      return null
+    }
+
     remainingLiters = Math.min(
-      tankCapacityLiters,
+      nominalTankCapacityLiters,
       Math.max(
         0,
         remainingLiters -
           (entry.odometerKm - previousOdometerKm) /
             consumptionKmPerLiter,
-      ) + entry.liters,
+      ) + entry.estimatedLiters,
     )
     previousOdometerKm = entry.odometerKm
   }
@@ -97,6 +111,6 @@ export function estimateFuelRemaining({
   return {
     remainingLiters,
     rangeKm: remainingLiters * consumptionKmPerLiter,
-    fuelPercent: (remainingLiters / tankCapacityLiters) * 100,
+    fuelPercent: (remainingLiters / nominalTankCapacityLiters) * 100,
   }
 }
