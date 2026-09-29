@@ -234,7 +234,7 @@ describe('estimateFuelRemaining', () => {
     expect(estimate?.remainingLiters).toBe(2.5)
   })
 
-  it('clamps remaining fuel to tank capacity', () => {
+  it('clamps a partial refill before later consumption', () => {
     const estimate = estimateFuelRemaining({
       tankCapacityLiters: 3,
       consumptionKmPerLiter: 40,
@@ -245,11 +245,25 @@ describe('estimateFuelRemaining', () => {
       currentOdometerKm: 1_040,
     })
 
-    expect(estimate).toEqual({
-      remainingLiters: 3,
-      rangeKm: 120,
-      fuelPercent: 100,
+    expect(estimate?.remainingLiters).toBe(2.5)
+    expect(estimate?.rangeKm).toBe(100)
+    expect(estimate?.fuelPercent).toBeCloseTo(250 / 3)
+  })
+
+  it('clamps fuel at each partial refill before consuming later distance', () => {
+    const estimate = estimateFuelRemaining({
+      tankCapacityLiters: 3,
+      consumptionKmPerLiter: 40,
+      initialAnchor,
+      fuelEntries: [
+        fuelEntry('partial', 1_040, 3, false, '2026-01-02T10:00:00.000Z'),
+      ],
+      currentOdometerKm: 1_080,
     })
+
+    expect(estimate?.remainingLiters).toBe(2)
+    expect(estimate?.rangeKm).toBe(80)
+    expect(estimate?.fuelPercent).toBeCloseTo(200 / 3)
   })
 
   it('clamps exhausted fuel to zero', () => {

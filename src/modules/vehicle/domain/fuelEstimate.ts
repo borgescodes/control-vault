@@ -62,20 +62,36 @@ export function estimateFuelRemaining({
     throw new RangeError('Current odometer cannot precede the latest full tank')
   }
 
-  const partialLiters = entries
-    .filter(
-      (entry) =>
-        !entry.fullTank &&
-        (entry.odometerKm > anchor.odometerKm ||
-          (entry.odometerKm === anchor.odometerKm &&
-            entry.fueledAt > anchor.at)),
+  let remainingLiters = tankCapacityLiters
+  let previousOdometerKm = anchor.odometerKm
+  for (const entry of entries) {
+    const followsAnchor =
+      entry.odometerKm > anchor.odometerKm ||
+      (entry.odometerKm === anchor.odometerKm && entry.fueledAt > anchor.at)
+    if (
+      entry.fullTank ||
+      !followsAnchor ||
+      entry.odometerKm > currentOdometerKm
+    ) {
+      continue
+    }
+
+    remainingLiters = Math.min(
+      tankCapacityLiters,
+      Math.max(
+        0,
+        remainingLiters -
+          (entry.odometerKm - previousOdometerKm) /
+            consumptionKmPerLiter,
+      ) + entry.liters,
     )
-    .reduce((total, entry) => total + entry.liters, 0)
-  const distanceKm = currentOdometerKm - anchor.odometerKm
-  const consumedLiters = distanceKm / consumptionKmPerLiter
-  const remainingLiters = Math.min(
-    tankCapacityLiters,
-    Math.max(0, tankCapacityLiters - consumedLiters + partialLiters),
+    previousOdometerKm = entry.odometerKm
+  }
+
+  remainingLiters = Math.max(
+    0,
+    remainingLiters -
+      (currentOdometerKm - previousOdometerKm) / consumptionKmPerLiter,
   )
 
   return {
