@@ -71,26 +71,26 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
           })
 
           const fuelStore = transaction.objectStore('fuel_entries')
-          void fuelStore.openCursor().then(function migrate(cursor): Promise<void> | void {
-            if (!cursor) return
+          void fuelStore.getAll().then((storedEntries) =>
+            Promise.all(
+              storedEntries.map((stored) => {
+                const legacy = stored as unknown as Record<string, unknown>
+                if (!('liters' in legacy)) return undefined
 
-            const legacy = cursor.value as unknown as Record<string, unknown>
-            if ('liters' in legacy) {
-              const {
-                liters,
-                ...rest
-              } = legacy
-              void cursor.update({
-                ...rest,
-                estimatedLiters: liters,
-                referencePricePerLiter: null,
-                referenceWeekStart: null,
-                referenceWeekEnd: null,
-              } as unknown as LocalFuelEntry)
-            }
-
-            return cursor.continue().then(migrate)
-          })
+                const {
+                  liters,
+                  ...rest
+                } = legacy
+                return fuelStore.put({
+                  ...rest,
+                  estimatedLiters: liters,
+                  referencePricePerLiter: null,
+                  referenceWeekStart: null,
+                  referenceWeekEnd: null,
+                } as unknown as LocalFuelEntry)
+              }),
+            ),
+          )
         }
       },
     },
