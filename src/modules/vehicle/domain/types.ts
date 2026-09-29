@@ -1,7 +1,7 @@
 export type VehicleState = {
-  tankCapacityLiters: number
+  nominalTankCapacityLiters: number
   initialOdometerKm: number
-  initialFullTankAt: string
+  initialFullTankAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -19,7 +19,10 @@ export type FuelEntry = {
   id: string
   odometerKm: number
   amountCents: number
-  liters: number
+  estimatedLiters: number | null
+  referencePricePerLiter: number | null
+  referenceWeekStart: string | null
+  referenceWeekEnd: string | null
   fullTank: boolean
   fueledAt: string
   createdAt: string
