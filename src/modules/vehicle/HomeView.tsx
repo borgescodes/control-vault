@@ -1,4 +1,6 @@
 import type { VehicleDashboard } from './selectors'
+import AnimatedMetric from '../../shared/ui/AnimatedMetric'
+import Icon from '../../shared/ui/Icon'
 
 type HomeViewProps = {
   dashboard: VehicleDashboard
@@ -35,60 +37,111 @@ export default function HomeView({
   onHome,
   onOdometer,
 }: HomeViewProps) {
-  const rangeLabel =
-    dashboard.rangeState === 'awaiting_full_tank'
-      ? 'Aguardando tanque cheio'
-      : dashboard.rangeState === 'calibrating' || dashboard.rangeKm === null
-        ? 'Calibrando'
-        : `≈ ${integer.format(dashboard.rangeKm)} km`
+  const ready = dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
+  const rangeLabel = dashboard.rangeState === 'awaiting_full_tank'
+    ? 'Aguardando tanque cheio'
+    : 'Calibrando'
+  const status = dashboard.rangeState === 'awaiting_full_tank'
+    ? 'unavailable'
+    : ready
+      ? dashboard.calibrationState
+      : 'calibrating'
+  const statusLabel = dashboard.rangeState === 'awaiting_full_tank'
+    ? 'Sem âncora'
+    : ready
+      ? calibrationLabels[dashboard.calibrationState]
+      : 'Calibrando'
+  const fuelPercent = dashboard.fuelPercent === null
+    ? null
+    : Math.max(0, Math.min(100, dashboard.fuelPercent))
 
   return (
     <section className="home" aria-labelledby="range-title">
-      <div className="home__range">
-        <h2 id="range-title">Autonomia</h2>
-        <p
-          className={
-            dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
-              ? 'home__range-value'
-              : 'home__range-empty'
-          }
-        >
-          {rangeLabel}
-        </p>
+      <div className="home__instrument">
+        <div className="home__instrument-header">
+          <h2 id="range-title">Autonomia</h2>
+          <span className="home__status">
+            <span className="lcm-status-dot" data-status={status} />
+            {statusLabel}
+          </span>
+        </div>
 
-        {dashboard.rangeState === 'ready' &&
-          dashboard.rangeKm !== null &&
-          dashboard.fuelPercent !== null && (
-            <div className="home__fuel-state">
-              <p
-                aria-label={`Combustível estimado: ${integer.format(dashboard.fuelPercent)}%`}
-                className="home__fuel-percent"
-              >
-                {integer.format(dashboard.fuelPercent)}%
-              </p>
-              <p className={`home__calibration home__calibration--${dashboard.calibrationState}`}>
-                {calibrationLabels[dashboard.calibrationState]}
-              </p>
-            </div>
+        <div className="home__range">
+          {ready ? (
+            <p className="home__range-value">
+              <AnimatedMetric
+                format={(value) => `≈ ${integer.format(value)} km`}
+                value={dashboard.rangeKm ?? 0}
+              />
+            </p>
+          ) : (
+            <p className="home__range-empty">{rangeLabel}</p>
           )}
+
+          {ready && fuelPercent !== null && (
+            <>
+              <div className="home__fuel-state">
+                <p
+                  aria-label={`Combustível estimado: ${integer.format(fuelPercent)}%`}
+                  className="home__fuel-percent"
+                >
+                  <AnimatedMetric
+                    format={(value) => `${integer.format(value)}%`}
+                    value={fuelPercent}
+                  />
+                </p>
+                <p className={`home__calibration home__calibration--${dashboard.calibrationState}`}>
+                  {calibrationLabels[dashboard.calibrationState]}
+                </p>
+              </div>
+              <div
+                aria-label={`Combustível estimado: ${integer.format(fuelPercent)}%`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={Math.round(fuelPercent)}
+                className="lcm-progress-track home__progress"
+                role="progressbar"
+              >
+                <div className="lcm-progress" style={{ width: `${fuelPercent}%` }}>
+                  <span className="lcm-progress-glow" />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <dl className="home__metrics">
-        <div>
+        <div className="home__metric">
           <dt>Consumo</dt>
           <dd>
             {dashboard.consumptionKmPerLiter === null
               ? 'Calibrando'
-              : `≈ ${decimal.format(dashboard.consumptionKmPerLiter)} km/L`}
+              : (
+                <AnimatedMetric
+                  format={(value) => `≈ ${decimal.format(value)} km/L`}
+                  value={dashboard.consumptionKmPerLiter}
+                />
+              )}
           </dd>
         </div>
-        <div>
+        <div className="home__metric">
           <dt>Hodômetro</dt>
-          <dd>{decimal.format(dashboard.odometerKm)} km</dd>
+          <dd>
+            <AnimatedMetric
+              format={(value) => `${decimal.format(value)} km`}
+              value={dashboard.odometerKm}
+            />
+          </dd>
         </div>
-        <div>
+        <div className="home__metric">
           <dt className="home__month">{month.format(now)}</dt>
-          <dd>{currency.format(dashboard.monthSpendCents / 100)}</dd>
+          <dd>
+            <AnimatedMetric
+              format={(value) => currency.format(value / 100)}
+              value={dashboard.monthSpendCents}
+            />
+          </dd>
         </div>
       </dl>
 
@@ -103,10 +156,12 @@ export default function HomeView({
 
       <nav className="home__navigation" aria-label="Navegação principal">
         <button aria-current="page" onClick={onHome} type="button">
-          Início
+          <Icon name="layer" />
+          <span>Início</span>
         </button>
         <button onClick={onHistory} type="button">
-          Histórico
+          <Icon name="time" />
+          <span>Histórico</span>
         </button>
       </nav>
     </section>

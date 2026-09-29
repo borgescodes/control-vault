@@ -127,6 +127,8 @@ describe('vehicle v2 views', () => {
 
     expect(markup).toContain('Aguardando tanque cheio')
     expect(markup).not.toContain('>Calibrando</p>')
+    expect(markup).toContain('data-status="unavailable"')
+    expect(markup).not.toContain('role="progressbar"')
   })
 
   it('shows calibrating when a full-tank anchor exists but range is unavailable', () => {
@@ -143,6 +145,8 @@ describe('vehicle v2 views', () => {
 
     expect(markup).toContain('Calibrando')
     expect(markup).not.toContain('Aguardando tanque cheio')
+    expect(markup).toContain('data-status="calibrating"')
+    expect(markup).not.toContain('role="progressbar"')
   })
 
   it('renders ready range and learned consumption as approximate', () => {
@@ -165,5 +169,11 @@ describe('vehicle v2 views', () => {
 
     expect(markup).toContain('≈ 72 km')
     expect(markup).toContain('≈ 40 km/L')
+    expect(markup).toContain('class="home__instrument"')
+    expect(markup).toContain('role="progressbar"')
+    expect(markup).toContain('aria-valuenow="67"')
+    expect(markup).toContain('data-status="estimated"')
+    expect(markup).toContain('data-icon="layer"')
+    expect(markup).toContain('data-icon="time"')
   })
 })

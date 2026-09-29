@@ -23,7 +23,7 @@ export default function AnimatedMetric({
   reducedMotion,
 }: AnimatedMetricProps) {
   const reduce = reducedMotion ?? prefersReducedMotion()
-  const [displayed, setDisplayed] = useState(reduce ? value : 0)
+  const [displayed, setDisplayed] = useState(value)
 
   useEffect(() => {
     if (reduce) {

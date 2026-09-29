@@ -22,6 +22,7 @@ export default function Icon({ name, className = '', ...props }: IconProps) {
     <svg
       aria-hidden="true"
       className={`lcm-icon ${className}`.trim()}
+      data-icon={name}
       dangerouslySetInnerHTML={{ __html: ICON_PATHS[name] }}
       focusable="false"
       viewBox="0 0 24 24"
