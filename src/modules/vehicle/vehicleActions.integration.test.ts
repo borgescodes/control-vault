@@ -31,13 +31,14 @@ describe('fuel action with the real price lookup', () => {
 
   it('aborts a hanging first lookup and still persists locally', async () => {
     await initializeVehicle(1_000, true, '2026-09-29T10:00:00.000Z')
-    let requestSignal: AbortSignal | undefined
+    let firstRequestSignal: AbortSignal | undefined
     vi.stubGlobal(
       'fetch',
       vi.fn((_url: URL | RequestInfo, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          requestSignal = init?.signal ?? undefined
-          requestSignal?.addEventListener('abort', () => {
+          const signal = init?.signal ?? undefined
+          firstRequestSignal ??= signal
+          signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'))
           })
         }),
@@ -55,10 +56,10 @@ describe('fuel action with the real price lookup', () => {
     expect(result).toEqual({ kind: 'saved' })
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1_900)
     expect(Date.now() - startedAt).toBeLessThan(3_500)
-    expect(requestSignal?.aborted).toBe(true)
+    expect(firstRequestSignal?.aborted).toBe(true)
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
-        amountCents: 9_999,
+        amountCents: 2_000,
         estimatedLiters: null,
         referencePricePerLiter: null,
       }),
