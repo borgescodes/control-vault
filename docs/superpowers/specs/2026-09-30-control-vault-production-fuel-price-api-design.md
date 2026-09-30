@@ -37,9 +37,9 @@ A stale cache is returned without waiting for the network. UI background refresh
 The mask and the business rule remain separate:
 
 - structural input ceiling: R$ 99,99;
-- dynamic Save ceiling: `ceil((3 L + 1 L) * precoMedio * 100)` cents.
+- dynamic Save ceiling: round `precoMedio` to the displayed BRL cent, then multiply that integer-cent price by `(3 L + 1 L)`.
 
-At R$ 7,05/L, R$ 28,20 is valid and R$ 28,21 through R$ 99,99 remain typeable but disable Save. Without a current or stale reference, no dynamic ceiling is invented and a valid local entry remains recordable.
+The ANP/API value `7.053` is therefore presented and validated as R$ 7,05/L: R$ 28,20 is valid and R$ 28,21 through R$ 99,99 remain typeable but disable Save. Without a current or stale reference, no dynamic ceiling is invented and a valid local entry remains recordable.
 
 ## API and data
 

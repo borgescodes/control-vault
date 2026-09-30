@@ -104,7 +104,7 @@
 - [ ] RED: prove first-run hanging fetch is aborted after 2 seconds and returns `null`.
 - [ ] RED: prove `recordFuel()` persists locally after the bounded no-reference path.
 - [ ] GREEN: implement the minimum native timeout/stale-first change; keep background UI refresh non-blocking.
-- [ ] Verify R$ 28,20/R$ 28,21/R$ 45,45/R$ 99,99 behavior and no-reference fallback without changing the mask.
+- [ ] Verify that ANP `7.053` is normalized to the displayed R$ 7,05 before enforcing R$ 28,20/R$ 28,21/R$ 45,45/R$ 99,99 behavior and the no-reference fallback, without changing the mask.
 - [ ] Run focused tests, full `npm test`, `npm run build`, and `git diff --check`.
 - [ ] Commit as `fix: keep fuel saves independent of price API latency`.
 
