@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react'
 
+import OutlineIcon from '../../shared/ui/OutlineIcon'
 import {
-  digitsOnly,
   formatOdometerInput,
   formatOdometerValue,
+  limitOdometerDigits,
+  odometerDigitsFromKm,
   parseOdometerKm,
 } from './inputFormatters'
 import { recordOdometer } from './vehicleActions'
 
 type OdometerViewProps = {
+  currentOdometerKm: number
   onBack: () => void
   onSaved: () => void | Promise<void>
 }
@@ -20,16 +23,23 @@ type PendingReading = {
 }
 
 export default function OdometerView({
+  currentOdometerKm,
   onBack,
   onSaved,
 }: OdometerViewProps) {
-  const [odometerDigits, setOdometerDigits] = useState('')
+  const [odometerDigits, setOdometerDigits] = useState(() =>
+    odometerDigitsFromKm(currentOdometerKm),
+  )
   const [pending, setPending] = useState<PendingReading | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const readingKm = parseOdometerKm(odometerDigits)
+  const readingValid =
+    odometerDigits.length > 0 && readingKm >= currentOdometerKm
+
   async function save(
-    readingKm: number,
+    nextReadingKm: number,
     recordedAt: string,
     confirmSuspicious = false,
   ) {
@@ -38,13 +48,13 @@ export default function OdometerView({
 
     try {
       const result = await recordOdometer(
-        readingKm,
+        nextReadingKm,
         recordedAt,
         confirmSuspicious,
       )
 
       if (result.kind === 'requires_confirmation') {
-        setPending({ readingKm, recordedAt, deltaKm: result.deltaKm })
+        setPending({ readingKm: nextReadingKm, recordedAt, deltaKm: result.deltaKm })
         return
       }
 
@@ -64,16 +74,26 @@ export default function OdometerView({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    void save(parseOdometerKm(odometerDigits), new Date().toISOString())
+    if (!readingValid) return
+
+    void save(readingKm, new Date().toISOString())
   }
 
   return (
     <section className="vehicle-view" aria-labelledby="odometer-title">
       <header className="view-header">
-        <button aria-label="Voltar" className="view-back" onClick={onBack} type="button">
-          ←
+        <button
+          aria-label="Voltar"
+          className="view-back"
+          onClick={onBack}
+          type="button"
+        >
+          <OutlineIcon name="back" />
         </button>
-        <h2 id="odometer-title">Atualizar KM</h2>
+        <div>
+          <p className="ui-label">Leitura manual</p>
+          <h2 id="odometer-title">Atualizar KM</h2>
+        </div>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
@@ -83,23 +103,37 @@ export default function OdometerView({
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
-            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onChange={(event) =>
+              setOdometerDigits((current) =>
+                limitOdometerDigits(current, event.target.value),
+              )
+            }
+            onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
                 event.preventDefault()
                 setOdometerDigits((value) => value.slice(0, -1))
               }
             }}
-            placeholder="0.0"
             required
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
+          <small className={readingValid ? 'field-hint' : 'field-error'}>
+            {readingValid
+              ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
+              : `Não pode ser menor que ${formatOdometerValue(currentOdometerKm)} km`}
+          </small>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
-        <button className="button-primary" disabled={submitting} type="submit">
+        <button
+          className="button-primary button-with-icon"
+          disabled={submitting || !readingValid}
+          type="submit"
+        >
+          <OutlineIcon name="gauge" />
           Salvar hodômetro
         </button>
       </form>
@@ -107,7 +141,8 @@ export default function OdometerView({
       {pending && (
         <div className="vehicle-confirmation" role="status">
           <p>
-            O novo valor adiciona <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
+            O novo valor adiciona{' '}
+            <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
           </p>
           <div className="vehicle-confirmation__actions">
             <button
