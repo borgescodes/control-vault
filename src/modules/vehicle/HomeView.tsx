@@ -1,4 +1,5 @@
 import AnimatedMetric from '../../shared/ui/AnimatedMetric'
+import OutlineIcon from '../../shared/ui/OutlineIcon'
 import { formatOdometerValue } from './inputFormatters'
 import type { VehicleDashboard } from './selectors'
 
@@ -28,7 +29,7 @@ function formatRangeDays(value: number | null): string | null {
 }
 
 function formatMonthDistance(dashboard: VehicleDashboard): string {
-  if (dashboard.monthDistanceKm === null) return '—'
+  if (dashboard.monthDistanceKm === null) return 'Sem base'
   const prefix = dashboard.monthDistanceState === 'partial' ? '≥ ' : ''
   return `${prefix}${integer.format(dashboard.monthDistanceKm)} km`
 }
@@ -40,11 +41,17 @@ export default function HomeView({
 }: HomeViewProps) {
   const ready = dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
   const rangeDays = formatRangeDays(dashboard.rangeDays)
+  const rangeState =
+    dashboard.rangeState === 'awaiting_full_tank'
+      ? 'Sem estimativa'
+      : dashboard.rangeState === 'calibrating'
+        ? 'Calibrando'
+        : null
   const rangeNote =
     dashboard.rangeState === 'awaiting_full_tank'
       ? 'Complete um tanque para iniciar a estimativa'
       : dashboard.rangeState === 'calibrating'
-        ? 'Calibrando consumo'
+        ? 'A autonomia aparece após um ciclo completo'
         : rangeDays ?? 'Ritmo recente insuficiente'
 
   const fuelPercent =
@@ -64,7 +71,7 @@ export default function HomeView({
             />
           </p>
         ) : (
-          <p className="home__range-value">—</p>
+          <p className="home__range-state">{rangeState}</p>
         )}
         <p className="home__range-note">{rangeNote}</p>
       </header>
@@ -73,13 +80,15 @@ export default function HomeView({
         <div className="home__section-heading">
           <span className="ui-label">Combustível</span>
           <span className="home__fuel-percent">
-            {fuelPercent === null ? '—' : `${integer.format(fuelPercent)}%`}
+            {fuelPercent === null
+              ? 'Sem leitura'
+              : `${integer.format(fuelPercent)}%`}
           </span>
         </div>
 
         <p className="home__fuel-volume">
           {dashboard.remainingLiters === null ? (
-            '—'
+            <span className="home__muted-value">Estimativa indisponível</span>
           ) : (
             <AnimatedMetric
               format={(value) => `≈ ${decimal.format(value)} L`}
@@ -129,7 +138,7 @@ export default function HomeView({
             <dt>Média</dt>
             <dd>
               {dashboard.monthAverageRefuelCents === null
-                ? '—'
+                ? 'Sem dados'
                 : currency.format(dashboard.monthAverageRefuelCents / 100)}
             </dd>
           </div>
@@ -141,7 +150,7 @@ export default function HomeView({
           <dt>Consumo</dt>
           <dd>
             {dashboard.consumptionKmPerLiter === null
-              ? '—'
+              ? 'Calibrando'
               : `≈ ${decimal.format(dashboard.consumptionKmPerLiter)} km/L`}
           </dd>
         </div>
@@ -152,10 +161,20 @@ export default function HomeView({
       </dl>
 
       <div className="home__actions" aria-label="Ações rápidas">
-        <button className="button-secondary" onClick={onOdometer} type="button">
+        <button
+          className="button-secondary button-with-icon"
+          onClick={onOdometer}
+          type="button"
+        >
+          <OutlineIcon name="gauge" />
           Atualizar KM
         </button>
-        <button className="button-primary" onClick={onFuel} type="button">
+        <button
+          className="button-primary button-with-icon"
+          onClick={onFuel}
+          type="button"
+        >
+          <OutlineIcon name="fuel" />
           Abastecer
         </button>
       </div>
