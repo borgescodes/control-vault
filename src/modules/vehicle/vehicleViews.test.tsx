@@ -298,21 +298,21 @@ describe('vehicle views', () => {
 
   it.each([
     {
-      refreshedPrice: 7,
+      refreshedMaximum: 7,
       amountDigits: '2801',
-      expectedMaximum: '≤ R$ 28,88',
+      expectedMaximum: '≤ R$ 28,00',
       saveDisabled: true,
     },
     {
-      refreshedPrice: 7.1,
+      refreshedMaximum: 7.1,
       amountDigits: '2821',
-      expectedMaximum: '≤ R$ 28,88',
+      expectedMaximum: '≤ R$ 28,40',
       saveDisabled: false,
     },
   ])(
-    'updates the open form after a background refresh to R$ $refreshedPrice/L',
+    'updates the open form after a background retail maximum refresh',
     async ({
-      refreshedPrice,
+      refreshedMaximum,
       amountDigits,
       expectedMaximum,
       saveDisabled,
@@ -352,7 +352,7 @@ describe('vehicle views', () => {
 
       await act(async () => {
         setInputValue(amount, amountDigits)
-        publishRefresh?.({ ...priceReference, precoMedio: refreshedPrice })
+        publishRefresh?.({ ...priceReference, precoMaximo: refreshedMaximum })
         await Promise.resolve()
       })
 
@@ -592,10 +592,10 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup).toContain('Sem estimativa')
-    expect(markup).toContain('Complete um tanque para iniciar a estimativa')
-    expect(markup).not.toContain('—')
-    expect(markup).not.toContain('Aguardando tanque cheio')
+    expect(markup).toContain('Calibração')
+    expect(markup).toContain('0/3')
+    expect(markup).not.toContain('Sem estimativa')
+    expect(markup).not.toContain('Complete um tanque')
     expect(markup).not.toContain('role="progressbar"')
   })
 
