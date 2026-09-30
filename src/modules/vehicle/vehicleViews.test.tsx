@@ -310,9 +310,7 @@ describe('vehicle views', () => {
     expect(markup).toContain('1240.0 km')
     expect(markup).toContain('R$ 25,72')
     expect(markup).toContain('tanque cheio')
-    expect(markup).toContain('data-icon="gauge"')
-    expect(markup).toContain('data-icon="fuel"')
-    expect(markup).not.toContain('—')
+    expect(markup).not.toContain('data-icon=')
   })
 
   it('renders the short history empty state', () => {
@@ -423,7 +421,7 @@ describe('vehicle views', () => {
     expect(markup).not.toContain('data-status=')
   })
 
-  it('renders ready autonomy, fuel and monthly context without decorative icons', () => {
+  it('renders ready autonomy with sparse outline action icons', () => {
     const markup = renderToStaticMarkup(
       <HomeView
         dashboard={dashboard({
@@ -451,6 +449,8 @@ describe('vehicle views', () => {
     expect(markup).toContain('238 km')
     expect(markup).toContain('3</dd>')
     expect(markup).toContain('1240.0 km')
-    expect(markup).not.toContain('data-icon=')
+    expect(markup).toContain('data-icon="gauge"')
+    expect(markup).toContain('data-icon="fuel"')
+    expect(markup).not.toContain('—')
   })
 })
