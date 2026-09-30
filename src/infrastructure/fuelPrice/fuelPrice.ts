@@ -122,15 +122,15 @@ async function refreshCachedReference(
   cached: FuelPriceCache,
   now: Date,
   today: string,
-): Promise<void> {
+): Promise<FuelPriceReference | null> {
   const fresh = await fetchReference()
-  if (!fresh) return
+  if (!fresh) return null
 
   if (
     fresh.semanaFim <= cached.reference.semanaFim &&
     today > fresh.semanaFim
   ) {
-    return
+    return null
   }
 
   writeCache({
@@ -138,10 +138,12 @@ async function refreshCachedReference(
     fetchedAt: now.toISOString(),
     nextCheckAt: today > fresh.semanaFim ? nextCheckAt(now) : null,
   })
+  return fresh
 }
 
 export async function getFuelPriceReference(
   now: Date,
+  onRefresh?: (reference: FuelPriceReference) => void,
 ): Promise<FuelPriceReference | null> {
   const today = localDate(now)
   const cached = readCache()
@@ -167,9 +169,11 @@ export async function getFuelPriceReference(
       nextCheckAt: nextCheckAt(now),
     }
     writeCache(throttledCache)
-    void refreshCachedReference(throttledCache, now, today).catch(
-      () => undefined,
-    )
+    void refreshCachedReference(throttledCache, now, today)
+      .then((fresh) => {
+        if (fresh) onRefresh?.(fresh)
+      })
+      .catch(() => undefined)
     return cached.reference
   }
 

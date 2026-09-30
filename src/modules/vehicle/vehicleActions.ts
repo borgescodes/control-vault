@@ -1,4 +1,7 @@
-import { getFuelPriceReference } from '../../infrastructure/fuelPrice/fuelPrice'
+import {
+  getFuelPriceReference,
+  type FuelPriceReference,
+} from '../../infrastructure/fuelPrice/fuelPrice'
 import {
   initializeLocalVehicle,
   saveFuelAndReadingIfCurrent,
@@ -25,6 +28,7 @@ export type FuelInput = {
   amountCents: number
   fullTank: boolean
   fueledAt: string
+  priceReference?: FuelPriceReference | null
 }
 
 function hasValidTimestamp(value: string): boolean {
@@ -144,11 +148,15 @@ export async function recordFuel(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
-  let reference: Awaited<ReturnType<typeof getFuelPriceReference>> = null
-  try {
-    reference = await getFuelPriceReference(new Date(input.fueledAt))
-  } catch {
-    reference = null
+  let reference: FuelPriceReference | null = null
+  if (Object.hasOwn(input, 'priceReference')) {
+    reference = input.priceReference ?? null
+  } else {
+    try {
+      reference = await getFuelPriceReference(new Date(input.fueledAt))
+    } catch {
+      reference = null
+    }
   }
 
   if (

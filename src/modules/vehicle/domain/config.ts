@@ -7,7 +7,7 @@ export const MAX_FUEL_INPUT_CENTS = 9_999
 
 export function getMaxFuelAmountCents(referencePricePerLiter: number): number {
   const referencePriceCents = Math.round(
-    (referencePricePerLiter + Number.EPSILON) * 100,
+    Number(`${referencePricePerLiter}e2`),
   )
 
   return (

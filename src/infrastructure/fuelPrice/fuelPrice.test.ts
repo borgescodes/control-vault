@@ -78,10 +78,12 @@ describe('weekly fuel price reference', () => {
   it('returns stale immediately and refreshes it in the background', async () => {
     cacheReference(currentReference)
     const fetchMock = vi.fn().mockResolvedValue(okResponse(newerReference))
+    const onRefresh = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await getFuelPriceReference(
       new Date(2026, 8, 27, 8, 0, 0),
+      onRefresh,
     )
 
     expect(result).toEqual(currentReference)
@@ -92,6 +94,7 @@ describe('weekly fuel price reference', () => {
       expect(cached.reference).toEqual(newerReference)
       expect(cached.nextCheckAt).toBeNull()
     })
+    expect(onRefresh).toHaveBeenCalledWith(newerReference)
   })
 
   it('does not wait for a hanging refresh when stale cache exists', async () => {

@@ -15,6 +15,8 @@ describe('dynamic fuel amount limit', () => {
   it('rounds the reference price to the displayed cent before applying four liters', () => {
     expect(getMaxFuelAmountCents(7.001)).toBe(2_800)
     expect(getMaxFuelAmountCents(7.005)).toBe(2_804)
+    expect(getMaxFuelAmountCents(8.075)).toBe(3_232)
+    expect(getMaxFuelAmountCents(8.165)).toBe(3_268)
   })
 
   it.each([

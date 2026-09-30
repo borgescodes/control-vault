@@ -30,7 +30,7 @@ current-week cache
   -> null
 ```
 
-A stale cache is returned without waiting for the network. UI background refresh may update the cache, but `recordFuel()` never waits through a Render cold start. When no cache exists, the remote attempt is bounded to 2 seconds. Failure, latency, timeout, malformed payload, missing configuration, or CORS failure must not block local persistence when no usable reference exists. Use browser-native timeout/abort primitives and add no dependency.
+A stale cache is returned without waiting for the network. UI background refresh may update the cache and the open form, while a submitted entry retains the same reference snapshot that enabled Save. `recordFuel()` never waits through a Render cold start. When no cache exists, the remote attempt is bounded to 2 seconds. Failure, latency, timeout, malformed payload, missing configuration, or CORS failure must not block local persistence when no usable reference exists. Use browser-native timeout/abort primitives and add no dependency.
 
 ## Money rules
 
