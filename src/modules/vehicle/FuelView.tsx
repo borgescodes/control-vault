@@ -1,16 +1,21 @@
 import { useState, type FormEvent } from 'react'
 
+import OutlineIcon from '../../shared/ui/OutlineIcon'
 import {
-  digitsOnly,
   formatMoneyInput,
   formatOdometerInput,
   formatOdometerValue,
+  limitMoneyDigits,
+  limitOdometerDigits,
+  odometerDigitsFromKm,
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
+import { MAX_FUEL_AMOUNT_CENTS } from './domain/config'
 import { recordFuel, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
+  currentOdometerKm: number
   onBack: () => void
   onSaved: () => void | Promise<void>
 }
@@ -20,13 +25,26 @@ type PendingFuel = {
   deltaKm: number
 }
 
-export default function FuelView({ onBack, onSaved }: FuelViewProps) {
-  const [odometerDigits, setOdometerDigits] = useState('')
+export default function FuelView({
+  currentOdometerKm,
+  onBack,
+  onSaved,
+}: FuelViewProps) {
+  const [odometerDigits, setOdometerDigits] = useState(() =>
+    odometerDigitsFromKm(currentOdometerKm),
+  )
   const [amountDigits, setAmountDigits] = useState('')
   const [fullTank, setFullTank] = useState(false)
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const odometerKm = parseOdometerKm(odometerDigits)
+  const amountCents = parseMoneyCents(amountDigits)
+  const odometerValid =
+    odometerDigits.length > 0 && odometerKm >= currentOdometerKm
+  const amountValid =
+    amountCents > 0 && amountCents <= MAX_FUEL_AMOUNT_CENTS
 
   async function save(input: FuelInput, confirmSuspicious = false) {
     setError(null)
@@ -56,9 +74,11 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!odometerValid || !amountValid) return
+
     void save({
-      odometerKm: parseOdometerKm(odometerDigits),
-      amountCents: parseMoneyCents(amountDigits),
+      odometerKm,
+      amountCents,
       fullTank,
       fueledAt: new Date().toISOString(),
     })
@@ -67,10 +87,18 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
   return (
     <section className="vehicle-view" aria-labelledby="fuel-title">
       <header className="view-header">
-        <button aria-label="Voltar" className="view-back" onClick={onBack} type="button">
-          ←
+        <button
+          aria-label="Voltar"
+          className="view-back"
+          onClick={onBack}
+          type="button"
+        >
+          <OutlineIcon name="back" />
         </button>
-        <h2 id="fuel-title">Abastecer</h2>
+        <div>
+          <p className="ui-label">Registro rápido</p>
+          <h2 id="fuel-title">Abastecer</h2>
+        </div>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
@@ -80,18 +108,27 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
-            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onChange={(event) =>
+              setOdometerDigits((current) =>
+                limitOdometerDigits(current, event.target.value),
+              )
+            }
+            onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
                 event.preventDefault()
                 setOdometerDigits((value) => value.slice(0, -1))
               }
             }}
-            placeholder="0.0"
             required
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
+          <small className={odometerValid ? 'field-hint' : 'field-error'}>
+            {odometerValid
+              ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
+              : `Mínimo: ${formatOdometerValue(currentOdometerKm)} km`}
+          </small>
         </label>
 
         <label>
@@ -100,7 +137,11 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
             autoComplete="off"
             inputMode="numeric"
             name="amount"
-            onChange={(event) => setAmountDigits(digitsOnly(event.target.value))}
+            onChange={(event) =>
+              setAmountDigits((current) =>
+                limitMoneyDigits(current, event.target.value),
+              )
+            }
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
                 event.preventDefault()
@@ -112,6 +153,7 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
             type="text"
             value={formatMoneyInput(amountDigits)}
           />
+          <small className="field-hint">Máximo R$ 30,00</small>
         </label>
 
         <label className="vehicle-toggle">
@@ -125,7 +167,12 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
-        <button className="button-primary" disabled={submitting} type="submit">
+        <button
+          className="button-primary button-with-icon"
+          disabled={submitting || !odometerValid || !amountValid}
+          type="submit"
+        >
+          <OutlineIcon name="fuel" />
           Salvar abastecimento
         </button>
       </form>
@@ -133,7 +180,8 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
       {pending && (
         <div className="vehicle-confirmation" role="status">
           <p>
-            O novo valor adiciona <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
+            O novo valor adiciona{' '}
+            <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
           </p>
           <div className="vehicle-confirmation__actions">
             <button
