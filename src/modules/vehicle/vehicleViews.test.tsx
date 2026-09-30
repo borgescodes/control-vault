@@ -205,12 +205,36 @@ describe('vehicle views', () => {
     expect(container.textContent).toContain('R$ 7,05/L')
     expect(container.textContent).toContain('R$ 28,20')
 
+    const submit = container.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement
+
     await act(async () => {
       setInputValue(amount, '2820')
-      setInputValue(amount, '28201')
       await Promise.resolve()
     })
     expect(amount.value).toBe('R$ 28,20')
+    expect(submit.disabled).toBe(false)
+
+    await act(async () => {
+      setInputValue(amount, '2821')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 28,21')
+    expect(submit.disabled).toBe(true)
+
+    await act(async () => {
+      setInputValue(amount, '9999')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 99,99')
+    expect(submit.disabled).toBe(true)
+
+    await act(async () => {
+      setInputValue(amount, '99990')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 99,99')
 
     await act(async () => root.unmount())
   })

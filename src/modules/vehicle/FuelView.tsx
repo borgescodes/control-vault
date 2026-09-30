@@ -64,14 +64,6 @@ export default function FuelView({
     referencePricePerLiter === null
       ? null
       : getMaxFuelAmountCents(referencePricePerLiter)
-  useEffect(() => {
-    if (maxAmountCents === null) return
-
-    setAmountDigits((current) =>
-      Number(current || 0) > maxAmountCents ? String(maxAmountCents) : current,
-    )
-  }, [maxAmountCents])
-
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =
@@ -187,7 +179,7 @@ export default function FuelView({
             name="amount"
             onChange={(event) =>
               setAmountDigits((current) =>
-                limitMoneyDigits(current, event.target.value, maxAmountCents),
+                limitMoneyDigits(current, event.target.value),
               )
             }
             onKeyDown={(event) => {
