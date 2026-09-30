@@ -55,7 +55,6 @@ export default function SetupView({ onComplete }: SetupViewProps) {
         <label>
           Hodômetro atual
           <input
-            aria-describedby="setup-odometer-hint"
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
@@ -75,9 +74,6 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          <small className="field-hint" id="setup-odometer-hint">
-            Máximo 999999.0 km
-          </small>
         </label>
 
         <label className="vehicle-toggle">
@@ -86,10 +82,7 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             onChange={(event) => setFullTank(event.target.checked)}
             type="checkbox"
           />
-          <span>
-            Tanque cheio agora
-            <small>Tanque cheio neste momento.</small>
-          </span>
+          <span>Tanque cheio agora</span>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
