@@ -434,6 +434,17 @@ describe('vehicle practical limits', () => {
     })
   })
 
+  it('accepts an equal odometer and the technical maximum', async () => {
+    await initializeVehicle(12_345.6, true, initialAt)
+
+    await expect(recordOdometer(12_345.6, laterAt)).resolves.toEqual({
+      kind: 'saved',
+    })
+    await expect(
+      recordOdometer(999_999, '2026-10-01T10:00:00.000Z', true),
+    ).resolves.toEqual({ kind: 'saved' })
+  })
+
   it('accepts the exact dynamic fuel limit', async () => {
     await initializeVehicle(1_000, true, initialAt)
 

@@ -27,14 +27,17 @@ describe('createUuid', () => {
       configurable: true,
       value: undefined,
     })
-    vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) => {
-      const bytes = array as Uint8Array
-      bytes.fill(0x11)
-      return array
-    })
+    const getRandomValues = vi
+      .spyOn(globalThis.crypto, 'getRandomValues')
+      .mockImplementation((array) => {
+        const bytes = array as Uint8Array
+        bytes.fill(0x11)
+        return array
+      })
 
     expect(createUuid()).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     )
+    expect(getRandomValues).toHaveBeenCalledOnce()
   })
 })

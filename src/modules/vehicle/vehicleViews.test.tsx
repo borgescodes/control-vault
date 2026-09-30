@@ -213,7 +213,7 @@ describe('vehicle views', () => {
     await act(async () => root.unmount())
   })
 
-  it('prevents saving an odometer lower than the current reading', async () => {
+  it('enforces the current and technical odometer bounds in the form', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -239,13 +239,35 @@ describe('vehicle views', () => {
     expect(submit.disabled).toBe(false)
 
     await act(async () => {
-      setInputValue(input, '123450')
+      setInputValue(input, '123455')
       await Promise.resolve()
     })
 
-    expect(input.value).toBe('12345.0')
+    expect(input.value).toBe('12345.5')
     expect(submit.disabled).toBe(true)
     expect(container.textContent).toContain('Não pode ser menor que 12345.6 km')
+
+    await act(async () => {
+      setInputValue(input, '123456')
+      await Promise.resolve()
+    })
+    expect(input.value).toBe('12345.6')
+    expect(submit.disabled).toBe(false)
+
+    await act(async () => {
+      setInputValue(input, '123457')
+      await Promise.resolve()
+    })
+    expect(input.value).toBe('12345.7')
+    expect(submit.disabled).toBe(false)
+
+    await act(async () => {
+      setInputValue(input, '9999990')
+      setInputValue(input, '9999991')
+      await Promise.resolve()
+    })
+    expect(input.value).toBe('999999.0')
+    expect(submit.disabled).toBe(false)
 
     await act(async () => root.unmount())
   })
