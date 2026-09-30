@@ -55,16 +55,23 @@ function dashboard(
   return {
     odometerKm: 1_240,
     monthSpendCents: 8_000,
+    monthFuelEntryCount: 2,
+    monthAverageRefuelCents: 4_000,
+    monthDistanceKm: 240,
+    monthDistanceState: 'complete',
     consumptionKmPerLiter: null,
     calibrationState: 'calibrating',
+    remainingLiters: null,
     fuelPercent: null,
     rangeKm: null,
+    recentDailyDistanceKm: null,
+    rangeDays: null,
     rangeState: 'calibrating',
     ...overrides,
   }
 }
 
-describe('vehicle v2 views', () => {
+describe('vehicle views', () => {
   beforeEach(() => {
     actionStub.initializeVehicle.mockClear()
     actionStub.recordOdometer.mockClear()
@@ -78,7 +85,7 @@ describe('vehicle v2 views', () => {
     document.body.innerHTML = ''
   })
 
-  it('submits setup successfully without checking full tank', async () => {
+  it('submits setup with the implicit odometer decimal and optional full tank', async () => {
     const onComplete = vi.fn()
     const container = document.createElement('div')
     document.body.append(container)
@@ -89,7 +96,7 @@ describe('vehicle v2 views', () => {
     })
 
     const odometer = container.querySelector(
-      'input[type="number"]',
+      'input[name="odometer"]',
     ) as HTMLInputElement
     const checkbox = container.querySelector(
       'input[type="checkbox"]',
@@ -100,16 +107,20 @@ describe('vehicle v2 views', () => {
     expect(checkbox.required).toBe(false)
 
     await act(async () => {
-      setInputValue(odometer, '1000')
+      setInputValue(odometer, '124830')
+      await Promise.resolve()
+    })
+    expect(odometer.value).toBe('12483.0')
+
+    await act(async () => {
       form.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
       )
       await Promise.resolve()
     })
 
-    expect(actionStub.initializeVehicle).toHaveBeenCalledOnce()
     expect(actionStub.initializeVehicle).toHaveBeenCalledWith(
-      1000,
+      12_483,
       false,
       expect.any(String),
     )
@@ -118,36 +129,50 @@ describe('vehicle v2 views', () => {
     await act(async () => root.unmount())
   })
 
-  it('labels the optional setup checkbox as Tanque cheio agora', () => {
-    const markup = renderToStaticMarkup(
-      <SetupView onComplete={() => undefined} />,
+  it('uses shifted cents for fuel amount and keeps liters out of the form', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(<FuelView onBack={() => undefined} onSaved={() => undefined} />)
+    })
+
+    const odometer = container.querySelector(
+      'input[name="odometer"]',
+    ) as HTMLInputElement
+    const amount = container.querySelector(
+      'input[name="amount"]',
+    ) as HTMLInputElement
+    const form = container.querySelector('form') as HTMLFormElement
+
+    await act(async () => {
+      setInputValue(odometer, '124830')
+      setInputValue(amount, '2572')
+      await Promise.resolve()
+    })
+
+    expect(odometer.value).toBe('12483.0')
+    expect(amount.value).toBe('R$ 25,72')
+    expect(container.textContent).not.toContain('Litros')
+
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+
+    expect(actionStub.recordFuel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        odometerKm: 12_483,
+        amountCents: 2_572,
+      }),
+      false,
     )
 
-    expect(markup).toContain('Tanque cheio agora')
-    expect(markup).not.toContain('Confirme o tanque cheio')
-    expect(markup).toContain('class="vehicle-panel vehicle-panel--setup"')
-    expect(markup).toContain('data-icon="cog"')
-    expect(markup).toContain('<h2 id="setup-title">Começar</h2>')
-    expect(markup).toContain('class="vehicle-form"')
-    expect(markup).toContain('class="button-primary"')
+    await act(async () => root.unmount())
   })
 
-  it('removes manual liters and uses Completei o tanque in fuel form', () => {
-    const markup = renderToStaticMarkup(
-      <FuelView onBack={() => undefined} onSaved={() => undefined} />,
-    )
-
-    expect(markup).not.toContain('Litros')
-    expect(markup).toContain('Completei o tanque')
-    expect(markup).toContain('Hodômetro')
-    expect(markup).toContain('Valor')
-    expect(markup).toContain('class="vehicle-panel vehicle-panel--fuel"')
-    expect(markup).toContain('data-icon="check"')
-    expect(markup).toContain('class="vehicle-form"')
-    expect(markup).toContain('class="button-secondary')
-  })
-
-  it('uses the shared action and confirmation instrument for odometer updates', async () => {
+  it('formats suspicious odometer confirmation without raw floats', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -158,223 +183,26 @@ describe('vehicle v2 views', () => {
       )
     })
 
-    expect(container.querySelector('.vehicle-panel--odometer')).not.toBeNull()
-    expect(container.querySelector('[data-icon="refresh"]')).not.toBeNull()
-    expect(container.querySelector('.vehicle-form')).not.toBeNull()
-
-    const input = container.querySelector('input') as HTMLInputElement
+    const input = container.querySelector(
+      'input[name="odometer"]',
+    ) as HTMLInputElement
     const form = container.querySelector('form') as HTMLFormElement
+
     await act(async () => {
-      setInputValue(input, '1600')
+      setInputValue(input, '16000')
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
       await Promise.resolve()
     })
 
     expect(container.querySelector('.vehicle-confirmation')).not.toBeNull()
-    expect(container.textContent).toContain('Confirmar salto de 600 km?')
+    expect(container.textContent).toContain('600.0 km')
+    expect(container.textContent).toContain('Corrigir')
+    expect(container.textContent).toContain('Confirmar mesmo assim')
 
     await act(async () => root.unmount())
   })
 
-  it('renders history as reverse-chronological evidence rows', () => {
-    const markup = renderToStaticMarkup(
-      <HistoryView
-        fuelEntries={[
-          {
-            id: 'fuel-1',
-            odometerKm: 1_200,
-            amountCents: 8_000,
-            estimatedLiters: 12.5,
-            referencePricePerLiter: null,
-            referenceWeekStart: null,
-            referenceWeekEnd: null,
-            fullTank: true,
-            fueledAt: '2026-09-29T12:00:00.000Z',
-            createdAt: '2026-09-29T12:00:00.000Z',
-            updatedAt: '2026-09-29T12:00:00.000Z',
-          },
-        ]}
-        odometerReadings={[
-          {
-            id: 'odometer-1',
-            readingKm: 1_240,
-            recordedAt: '2026-09-30T12:00:00.000Z',
-            source: 'manual',
-            createdAt: '2026-09-30T12:00:00.000Z',
-            updatedAt: '2026-09-30T12:00:00.000Z',
-          },
-        ]}
-        onBack={() => undefined}
-      />,
-    )
-
-    expect(markup).toContain('class="vehicle-panel vehicle-panel--history"')
-    expect(markup).toContain('class="history-rail"')
-    expect(markup).toContain('data-icon="time"')
-    expect(markup).toContain('data-icon="check"')
-    expect(markup.indexOf('Hodômetro')).toBeLessThan(
-      markup.indexOf('Abastecimento'),
-    )
-    expect(markup).toContain('class="button-secondary vehicle-panel__back"')
-    expect(markup).not.toContain('Editar')
-    expect(markup).not.toContain('Excluir')
-  })
-
-  it('renders the short history empty state without evidence rows', () => {
-    const markup = renderToStaticMarkup(
-      <HistoryView
-        fuelEntries={[]}
-        odometerReadings={[]}
-        onBack={() => undefined}
-      />,
-    )
-
-    expect(markup).toContain('Nenhum registro')
-    expect(markup).toContain('class="history-empty"')
-    expect(markup).not.toContain('class="history-rail"')
-  })
-
-  it('uses the source status grammar while vehicle data loads', async () => {
-    const pending = new Promise(() => undefined)
-    storeStub.getVehicleState.mockReturnValue(pending)
-    storeStub.listFuelEntries.mockReturnValue(pending)
-    storeStub.listOdometerReadings.mockReturnValue(pending)
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
-
-    await act(async () => root.render(<VehicleModule />))
-
-    const loading = container.querySelector('.vehicle-module--loading')
-    expect(loading?.getAttribute('aria-busy')).toBe('true')
-    expect(loading?.textContent).toContain('Calibrando')
-    expect(loading?.querySelector('[data-status="calibrating"]')).not.toBeNull()
-
-    await act(async () => root.unmount())
-  })
-
-  it('keeps module errors visible as an instrument alert', async () => {
-    storeStub.getVehicleState.mockRejectedValue(new Error('offline'))
-    storeStub.listFuelEntries.mockResolvedValue([])
-    storeStub.listOdometerReadings.mockResolvedValue([])
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
-
-    await act(async () => root.render(<VehicleModule />))
-    await waitForSelector(container, '.vehicle-module--error')
-
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      'Falha ao carregar',
-    )
-    expect(container.querySelector('[data-status="stale"]')).not.toBeNull()
-
-    await act(async () => root.unmount())
-  })
-
-  it('keeps view switching and active home navigation discoverable', async () => {
-    storeStub.getVehicleState.mockResolvedValue({
-      nominalTankCapacityLiters: 3,
-      initialOdometerKm: 1_000,
-      initialFullTankAt: null,
-      createdAt: '2026-09-29T10:00:00.000Z',
-      updatedAt: '2026-09-29T10:00:00.000Z',
-    })
-    storeStub.listFuelEntries.mockResolvedValue([])
-    storeStub.listOdometerReadings.mockResolvedValue([])
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
-
-    await act(async () => root.render(<VehicleModule />))
-    await waitForSelector(container, '.home')
-
-    expect(container.querySelector('[aria-current="page"]')?.textContent).toContain(
-      'Início',
-    )
-    const odometerButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Atualizar KM'),
-    )
-    await act(async () => odometerButton?.click())
-    expect(container.querySelector('.vehicle-panel--odometer')).not.toBeNull()
-
-    const backButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Voltar',
-    )
-    await act(async () => backButton?.click())
-    expect(container.querySelector('.home')).not.toBeNull()
-
-    await act(async () => root.unmount())
-  })
-
-  it('shows awaiting full tank distinctly from calibration', () => {
-    const markup = renderToStaticMarkup(
-      <HomeView
-        dashboard={dashboard({ rangeState: 'awaiting_full_tank' })}
-        now={new Date(2026, 8, 29, 12)}
-        onFuel={() => undefined}
-        onHistory={() => undefined}
-        onHome={() => undefined}
-        onOdometer={() => undefined}
-      />,
-    )
-
-    expect(markup).toContain('Aguardando tanque cheio')
-    expect(markup).not.toContain('>Calibrando</p>')
-    expect(markup).toContain('data-status="unavailable"')
-    expect(markup).not.toContain('role="progressbar"')
-  })
-
-  it('shows calibrating when a full-tank anchor exists but range is unavailable', () => {
-    const markup = renderToStaticMarkup(
-      <HomeView
-        dashboard={dashboard({ rangeState: 'calibrating' })}
-        now={new Date(2026, 8, 29, 12)}
-        onFuel={() => undefined}
-        onHistory={() => undefined}
-        onHome={() => undefined}
-        onOdometer={() => undefined}
-      />,
-    )
-
-    expect(markup).toContain('Calibrando')
-    expect(markup).not.toContain('Aguardando tanque cheio')
-    expect(markup).toContain('data-status="calibrating"')
-    expect(markup).not.toContain('role="progressbar"')
-  })
-
-  it('renders ready range and learned consumption as approximate', () => {
-    const markup = renderToStaticMarkup(
-      <HomeView
-        dashboard={dashboard({
-          rangeState: 'ready',
-          rangeKm: 72,
-          fuelPercent: 200 / 3,
-          consumptionKmPerLiter: 40,
-          calibrationState: 'estimated',
-        })}
-        now={new Date(2026, 8, 29, 12)}
-        onFuel={() => undefined}
-        onHistory={() => undefined}
-        onHome={() => undefined}
-        onOdometer={() => undefined}
-      />,
-    )
-
-    expect(markup).toContain('≈ 72 km')
-    expect(markup).toContain('≈ 40 km/L')
-    expect(markup).toContain('class="home__instrument"')
-    expect(markup).toContain('role="progressbar"')
-    expect(markup).toContain('aria-valuenow="67"')
-    expect(markup).toContain('data-status="estimated"')
-    expect(markup).toContain('data-icon="layer"')
-    expect(markup).toContain('data-icon="time"')
-  })
-})
-
-
-describe('distilled vehicle UX contract', () => {
-  it('does not duplicate fuel-generated odometer readings in history', () => {
+  it('consolidates history and omits fuel-generated odometer events', () => {
     const markup = renderToStaticMarkup(
       <HistoryView
         fuelEntries={[
@@ -401,13 +229,158 @@ describe('distilled vehicle UX contract', () => {
             createdAt: '2026-09-29T12:00:00.000Z',
             updatedAt: '2026-09-29T12:00:00.000Z',
           },
+          {
+            id: 'manual-reading',
+            readingKm: 1_240,
+            recordedAt: '2026-09-30T12:00:00.000Z',
+            source: 'manual',
+            createdAt: '2026-09-30T12:00:00.000Z',
+            updatedAt: '2026-09-30T12:00:00.000Z',
+          },
         ]}
-        onBack={() => undefined}
       />,
     )
 
-    expect(markup).not.toContain('Hodômetro atualizado')
+    expect(markup.match(/Hodômetro atualizado/g)).toHaveLength(1)
     expect(markup).toContain('1200.0 km')
+    expect(markup).toContain('1240.0 km')
     expect(markup).toContain('R$ 25,72')
+    expect(markup).toContain('tanque cheio')
+    expect(markup).not.toContain('data-icon=')
+  })
+
+  it('renders the short history empty state', () => {
+    const markup = renderToStaticMarkup(
+      <HistoryView fuelEntries={[]} odometerReadings={[]} />,
+    )
+
+    expect(markup).toContain('Nenhum registro ainda.')
+  })
+
+  it('keeps loading and errors simple and accessible', async () => {
+    const pending = new Promise(() => undefined)
+    storeStub.getVehicleState.mockReturnValue(pending)
+    storeStub.listFuelEntries.mockReturnValue(pending)
+    storeStub.listOdometerReadings.mockReturnValue(pending)
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    expect(container.querySelector('[aria-busy="true"]')?.textContent).toContain(
+      'Carregando',
+    )
+
+    await act(async () => root.unmount())
+
+    const errorContainer = document.createElement('div')
+    document.body.append(errorContainer)
+    const errorRoot = createRoot(errorContainer)
+    storeStub.getVehicleState.mockRejectedValue(new Error('offline'))
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+
+    await act(async () => errorRoot.render(<VehicleModule />))
+    await waitForSelector(errorContainer, '.vehicle-error')
+    expect(errorContainer.querySelector('[role="alert"]')?.textContent).toBe(
+      'Falha ao carregar',
+    )
+
+    await act(async () => errorRoot.unmount())
+  })
+
+  it('uses a shared text navigation for home and history', async () => {
+    storeStub.getVehicleState.mockResolvedValue({
+      nominalTankCapacityLiters: 3,
+      initialOdometerKm: 1_000,
+      initialFullTankAt: null,
+      createdAt: '2026-09-29T10:00:00.000Z',
+      updatedAt: '2026-09-29T10:00:00.000Z',
+    })
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '.home')
+
+    const nav = container.querySelector('.vehicle-navigation')
+    expect(nav?.querySelector('[aria-current="page"]')?.textContent).toBe('Início')
+    expect(nav?.querySelector('[data-icon]')).toBeNull()
+
+    const historyButton = Array.from(nav?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent === 'Histórico',
+    )
+    await act(async () => historyButton?.click())
+    expect(container.querySelector('.history')).not.toBeNull()
+    expect(
+      container.querySelector('.vehicle-navigation [aria-current="page"]')
+        ?.textContent,
+    ).toBe('Histórico')
+
+    await act(async () => root.unmount())
+  })
+
+  it('shows awaiting full tank as guidance, not as a hero value', () => {
+    const markup = renderToStaticMarkup(
+      <HomeView
+        dashboard={dashboard({ rangeState: 'awaiting_full_tank' })}
+        onFuel={() => undefined}
+        onOdometer={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('>—</p>')
+    expect(markup).toContain('Complete um tanque para iniciar a estimativa')
+    expect(markup).not.toContain('Aguardando tanque cheio')
+    expect(markup).not.toContain('role="progressbar"')
+  })
+
+  it('shows calibration as supporting copy', () => {
+    const markup = renderToStaticMarkup(
+      <HomeView
+        dashboard={dashboard({ rangeState: 'calibrating' })}
+        onFuel={() => undefined}
+        onOdometer={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('Calibrando consumo')
+    expect(markup).not.toContain('data-status=')
+  })
+
+  it('renders ready autonomy, fuel and monthly context without decorative icons', () => {
+    const markup = renderToStaticMarkup(
+      <HomeView
+        dashboard={dashboard({
+          rangeState: 'ready',
+          rangeKm: 72,
+          rangeDays: 3.2,
+          remainingLiters: 2,
+          fuelPercent: 200 / 3,
+          consumptionKmPerLiter: 40,
+          calibrationState: 'estimated',
+          monthFuelEntryCount: 3,
+          monthAverageRefuelCents: 2_667,
+          monthDistanceKm: 238,
+        })}
+        onFuel={() => undefined}
+        onOdometer={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('≈ 72 km')
+    expect(markup).toContain('≈ 3 dias')
+    expect(markup).toContain('≈ 2,0 L')
+    expect(markup).toContain('aria-valuenow="67"')
+    expect(markup).toContain('R$ 80,00')
+    expect(markup).toContain('238 km')
+    expect(markup).toContain('3</dd>')
+    expect(markup).toContain('1240.0 km')
+    expect(markup).not.toContain('data-icon=')
   })
 })
