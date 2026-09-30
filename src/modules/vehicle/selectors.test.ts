@@ -348,3 +348,43 @@ describe('dashboard operational metrics', () => {
     expect(dashboard.rangeDays).toBeCloseTo(7.2)
   })
 })
+
+
+describe('initial full-tank calibration state', () => {
+  it('shows the physical full tank immediately before the first cycle', () => {
+    const freshState = {
+      ...state,
+      initialOdometerKm: 12_483,
+      initialFullTankAt: '2026-09-30T18:00:00.000Z',
+      createdAt: '2026-09-30T18:00:00.000Z',
+      updatedAt: '2026-09-30T18:00:00.000Z',
+    }
+
+    const dashboard = getVehicleDashboard(
+      freshState,
+      [reading('initial', 12_483, '2026-09-30T18:00:00.000Z')],
+      [],
+      new Date('2026-09-30T18:05:00.000Z'),
+    )
+
+    expect(dashboard.remainingLiters).toBe(3)
+    expect(dashboard.fuelPercent).toBe(100)
+    expect(dashboard.rangeKm).toBeNull()
+    expect(dashboard.calibrationCycleCount).toBe(0)
+    expect(dashboard.rangeState).toBe('calibrating')
+  })
+
+  it('exposes completed calibration cycles as they accumulate', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('current', 1_240, '2026-09-20T10:00:00.000Z')],
+      [
+        fuel('full-1', 1_120, 3, true, '2026-07-01T10:00:00.000Z'),
+        fuel('full-2', 1_240, 3, true, '2026-08-01T10:00:00.000Z'),
+      ],
+      now,
+    )
+
+    expect(dashboard.calibrationCycleCount).toBe(2)
+  })
+})
