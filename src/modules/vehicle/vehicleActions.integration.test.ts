@@ -48,7 +48,7 @@ describe('fuel action with the real price lookup', () => {
     const startedAt = Date.now()
     const result = await recordFuel({
       odometerKm: 1_100,
-      amountCents: 9_999,
+      amountCents: 2_000,
       fullTank: false,
       fueledAt: '2026-09-30T10:00:00.000Z',
     })
@@ -60,8 +60,8 @@ describe('fuel action with the real price lookup', () => {
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
         amountCents: 2_000,
-        estimatedLiters: null,
-        referencePricePerLiter: null,
+        estimatedLiters: 2.836,
+        referencePricePerLiter: 7.053,
       }),
     ])
   }, 10_000)
