@@ -10,7 +10,6 @@ type HistoryItem = {
   id: string
   at: string
   kind: 'fuel' | 'odometer'
-  label: string
   value: string
   detail: string | null
 }
@@ -60,7 +59,6 @@ export default function HistoryView({
         id: `odometer-${reading.id}`,
         at: reading.recordedAt,
         kind: 'odometer' as const,
-        label: 'Hodômetro atualizado',
         value: `${formatOdometerValue(reading.readingKm)} km`,
         detail: null,
       })),
@@ -68,7 +66,6 @@ export default function HistoryView({
       id: `fuel-${entry.id}`,
       at: entry.fueledAt,
       kind: 'fuel' as const,
-      label: 'Abastecimento',
       value: currency.format(entry.amountCents / 100),
       detail: [
         `${formatOdometerValue(entry.odometerKm)} km`,
@@ -122,7 +119,6 @@ export default function HistoryView({
                     <span aria-hidden="true" className="history-row__marker" />
                     <span className="history-row__content">
                       <strong className="history-row__value">{item.value}</strong>
-                      <span className="history-row__label">{item.label}</span>
                       {item.detail && (
                         <span className="history-row__detail">{item.detail}</span>
                       )}
