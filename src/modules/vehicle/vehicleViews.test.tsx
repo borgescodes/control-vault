@@ -76,6 +76,7 @@ function dashboard(
     monthDistanceState: 'complete',
     consumptionKmPerLiter: null,
     calibrationState: 'calibrating',
+    calibrationCycleCount: 0,
     remainingLiters: null,
     fuelPercent: null,
     rangeKm: null,
@@ -203,25 +204,25 @@ describe('vehicle views', () => {
       false,
     )
 
-    expect(container.textContent).toContain('R$ 7,05/L')
-    expect(container.textContent).toContain('R$ 28,20')
+    expect(container.textContent).not.toContain('Preço ref.')
+    expect(container.textContent).toContain('≤ R$ 28,88')
 
     const submit = container.querySelector(
       'button[type="submit"]',
     ) as HTMLButtonElement
 
     await act(async () => {
-      setInputValue(amount, '2820')
+      setInputValue(amount, '2888')
       await Promise.resolve()
     })
-    expect(amount.value).toBe('R$ 28,20')
+    expect(amount.value).toBe('R$ 28,88')
     expect(submit.disabled).toBe(false)
 
     await act(async () => {
-      setInputValue(amount, '2821')
+      setInputValue(amount, '2889')
       await Promise.resolve()
     })
-    expect(amount.value).toBe('R$ 28,21')
+    expect(amount.value).toBe('R$ 28,89')
     expect(submit.disabled).toBe(true)
 
     await act(async () => {
@@ -297,21 +298,21 @@ describe('vehicle views', () => {
 
   it.each([
     {
-      refreshedPrice: 7,
+      refreshedMaximum: 7,
       amountDigits: '2801',
-      expectedMaximum: 'R$ 28,00',
+      expectedMaximum: '≤ R$ 28,00',
       saveDisabled: true,
     },
     {
-      refreshedPrice: 7.1,
+      refreshedMaximum: 7.1,
       amountDigits: '2821',
-      expectedMaximum: 'R$ 28,40',
+      expectedMaximum: '≤ R$ 28,40',
       saveDisabled: false,
     },
   ])(
-    'updates the open form after a background refresh to R$ $refreshedPrice/L',
+    'updates the open form after a background retail maximum refresh',
     async ({
-      refreshedPrice,
+      refreshedMaximum,
       amountDigits,
       expectedMaximum,
       saveDisabled,
@@ -351,7 +352,7 @@ describe('vehicle views', () => {
 
       await act(async () => {
         setInputValue(amount, amountDigits)
-        publishRefresh?.({ ...priceReference, precoMedio: refreshedPrice })
+        publishRefresh?.({ ...priceReference, precoMaximo: refreshedMaximum })
         await Promise.resolve()
       })
 
@@ -591,26 +592,34 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup).toContain('Sem estimativa')
-    expect(markup).toContain('Complete um tanque para iniciar a estimativa')
-    expect(markup).not.toContain('—')
-    expect(markup).not.toContain('Aguardando tanque cheio')
+    expect(markup).toContain('Calibração')
+    expect(markup).toContain('0/3')
+    expect(markup).not.toContain('Sem estimativa')
+    expect(markup).not.toContain('Complete um tanque')
     expect(markup).not.toContain('role="progressbar"')
   })
 
-  it('shows calibration as supporting copy', () => {
+  it('shows a full initial tank and compact calibration progress without explanations', () => {
     const markup = renderToStaticMarkup(
       <HomeView
-        dashboard={dashboard({ rangeState: 'calibrating' })}
+        dashboard={dashboard({
+          rangeState: 'calibrating',
+          remainingLiters: 3,
+          fuelPercent: 100,
+          calibrationCycleCount: 0,
+        })}
         onFuel={() => undefined}
         onOdometer={() => undefined}
       />,
     )
 
-    expect(markup).toContain('Calibrando')
-    expect(markup).not.toContain('A autonomia aparece após um ciclo completo')
-    expect(markup).not.toContain('—')
-    expect(markup).not.toContain('data-status=')
+    expect(markup).toContain('100%')
+    expect(markup).toContain('3,0 L')
+    expect(markup).toContain('home__calibration')
+    expect(markup).not.toContain('Estimativa indisponível')
+    expect(markup).not.toContain('Sem leitura')
+    expect(markup).not.toContain('A autonomia aparece')
+    expect(markup).not.toContain('Complete um tanque')
   })
 
   it('renders ready autonomy with requested filled action icons', () => {

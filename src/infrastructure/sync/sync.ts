@@ -243,6 +243,22 @@ export async function hydrateFromRemoteIfLocalEmpty(
   })
 }
 
+export type SyncActivity = 'idle' | 'syncing'
+
+const syncActivityListeners = new Set<(activity: SyncActivity) => void>()
+
+function emitSyncActivity(activity: SyncActivity) {
+  for (const listener of syncActivityListeners) listener(activity)
+}
+
+export function subscribeToSyncActivity(
+  listener: (activity: SyncActivity) => void,
+): () => void {
+  syncActivityListeners.add(listener)
+  listener(inFlight ? 'syncing' : 'idle')
+  return () => syncActivityListeners.delete(listener)
+}
+
 let inFlight: Promise<SyncResult> | null = null
 let rerunRequested = false
 
@@ -251,6 +267,8 @@ export function runSync(userId: string): Promise<SyncResult> {
     rerunRequested = true
     return inFlight
   }
+
+  emitSyncActivity('syncing')
 
   const current = (async () => {
     const total: SyncResult = { synced: 0, pending: 0, failed: 0 }
@@ -267,10 +285,16 @@ export function runSync(userId: string): Promise<SyncResult> {
   inFlight = current
   void current.then(
     () => {
-      if (inFlight === current) inFlight = null
+      if (inFlight === current) {
+        inFlight = null
+        emitSyncActivity('idle')
+      }
     },
     () => {
-      if (inFlight === current) inFlight = null
+      if (inFlight === current) {
+        inFlight = null
+        emitSyncActivity('idle')
+      }
     },
   )
   return current

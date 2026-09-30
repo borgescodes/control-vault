@@ -30,9 +30,7 @@ function formatRangeDays(value: number | null): string | null {
 }
 
 function formatMonthDistance(dashboard: VehicleDashboard): string {
-  if (dashboard.monthDistanceKm === null) return 'Sem base'
-  const prefix = dashboard.monthDistanceState === 'partial' ? '≥ ' : ''
-  return `${prefix}${integer.format(dashboard.monthDistanceKm)} km`
+  return `${integer.format(dashboard.monthDistanceKm ?? 0)} km`
 }
 
 export default function HomeView({
@@ -42,35 +40,37 @@ export default function HomeView({
   onOdometer,
 }: HomeViewProps) {
   const ready = dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
-  const rangeDays = formatRangeDays(dashboard.rangeDays)
-  const rangeState =
-    dashboard.rangeState === 'awaiting_full_tank'
-      ? 'Sem estimativa'
-      : dashboard.rangeState === 'calibrating'
-        ? 'Calibrando'
-        : null
-  const rangeNote =
-    dashboard.rangeState === 'awaiting_full_tank'
-      ? 'Complete um tanque para iniciar a estimativa'
-      : dashboard.rangeState === 'calibrating'
-        ? null
-        : rangeDays ?? 'Ritmo recente insuficiente'
-
   const fuelPercent =
     dashboard.fuelPercent === null
       ? null
       : Math.max(0, Math.min(100, dashboard.fuelPercent))
+  const hasFuelLevel =
+    fuelPercent !== null && dashboard.remainingLiters !== null
+  const displayFuelPercent = fuelPercent ?? 0
+  const rangeDays = formatRangeDays(dashboard.rangeDays)
+  const completedCalibrationCycles = Math.min(
+    3,
+    dashboard.calibrationCycleCount,
+  )
 
   return (
     <section
-      aria-labelledby="range-title"
+      aria-labelledby="home-primary-title"
       className="home"
       data-view-root="true"
       tabIndex={-1}
     >
       <div className="home__instrument">
         <header className="home__hero">
-          <h2 className="ui-label" id="range-title">Autonomia</h2>
+          <div className="home__hero-heading">
+            <h2 className="ui-label" id="home-primary-title">
+              {ready ? 'Autonomia' : hasFuelLevel ? 'Tanque' : 'Calibração'}
+            </h2>
+            {ready && rangeDays && (
+              <span className="home__days">{rangeDays}</span>
+            )}
+          </div>
+
           {ready ? (
             <p className="home__range-value">
               <span className="home__approx">≈</span>{' '}
@@ -79,58 +79,74 @@ export default function HomeView({
                 value={dashboard.rangeKm ?? 0}
               />
             </p>
-          ) : (
-            <p className="home__range-state">{rangeState}</p>
-          )}
-          {rangeNote && <p className="home__range-note">{rangeNote}</p>}
+          ) : hasFuelLevel ? (
+            <div className="home__tank-value">
+              <p className="home__tank-percent">
+                {integer.format(displayFuelPercent)}%
+              </p>
+              <p className="home__tank-liters">
+                {decimal.format(dashboard.remainingLiters ?? 0)} L
+              </p>
+            </div>
+          ) : null}
         </header>
 
-        <section className="home__fuel" aria-label="Combustível estimado">
-          <div className="home__section-heading">
-            <span className="ui-label">Combustível</span>
-            <span className="home__fuel-percent">
-              {fuelPercent === null
-                ? 'Sem leitura'
-                : `${integer.format(fuelPercent)}%`}
-            </span>
-          </div>
-
-          <p className="home__fuel-volume">
-            {dashboard.remainingLiters === null ? (
-              <span className="home__muted-value">Estimativa indisponível</span>
-            ) : (
-              <>
-                <span className="home__approx">≈</span>{' '}
-                <AnimatedMetric
-                  format={(value) => `${decimal.format(value)} L`}
-                  value={dashboard.remainingLiters}
-                />
-              </>
+        {hasFuelLevel && (
+          <section className="home__fuel" aria-label="Combustível">
+            {ready && (
+              <div className="home__fuel-readout">
+                <span>≈ {decimal.format(dashboard.remainingLiters ?? 0)} L</span>
+                <span>{integer.format(displayFuelPercent)}%</span>
+              </div>
             )}
-          </p>
-
-          {fuelPercent !== null && (
             <div
-              aria-label={`Combustível estimado: ${integer.format(fuelPercent)}%`}
+              aria-label={`Combustível: ${integer.format(displayFuelPercent)}%`}
               aria-valuemax={100}
               aria-valuemin={0}
-              aria-valuenow={Math.round(fuelPercent)}
+              aria-valuenow={Math.round(displayFuelPercent)}
               className="fuel-progress"
               role="progressbar"
             >
               <div
                 className="fuel-progress__value"
-                style={{ width: `${fuelPercent}%` }}
+                style={{ width: `${displayFuelPercent}%` }}
               />
               <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--one" />
               <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--two" />
               <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--three" />
             </div>
-          )}
+          </section>
+        )}
+
+        <section
+          aria-label={`Calibração: ${completedCalibrationCycles} de 3 ciclos completos`}
+          className="home__calibration"
+        >
+          <div className="home__calibration-heading">
+            <span className="ui-label">Calibração</span>
+            <span className="home__calibration-count">
+              {completedCalibrationCycles}/3
+            </span>
+          </div>
+          <div aria-hidden="true" className="home__calibration-rail">
+            {[0, 1, 2].map((index) => (
+              <span
+                className={
+                  index < completedCalibrationCycles
+                    ? 'is-complete'
+                    : index === completedCalibrationCycles &&
+                        dashboard.calibrationState !== 'calibrated'
+                      ? 'is-current'
+                      : undefined
+                }
+                key={index}
+              />
+            ))}
+          </div>
         </section>
       </div>
 
-      {notice && <p className="home__notice" role="status">{notice}</p>}
+      {notice && <p className="sr-only" role="status">{notice}</p>}
 
       <div className="home__actions" aria-label="Ações rápidas">
         <button
@@ -174,28 +190,22 @@ export default function HomeView({
           <div className="home__monthly-secondary">
             <dt>Média</dt>
             <dd>
-              {dashboard.monthAverageRefuelCents === null
-                ? 'Sem dados'
-                : currency.format(dashboard.monthAverageRefuelCents / 100)}
+              {currency.format((dashboard.monthAverageRefuelCents ?? 0) / 100)}
             </dd>
           </div>
         </dl>
       </section>
 
       <dl className="home__secondary">
-        <div>
-          <dt>Consumo</dt>
-          <dd>
-            {dashboard.consumptionKmPerLiter === null
-              ? 'Calibrando'
-              : (
-                  <>
-                    <span className="home__approx">≈</span>{' '}
-                    {decimal.format(dashboard.consumptionKmPerLiter)} km/L
-                  </>
-                )}
-          </dd>
-        </div>
+        {dashboard.consumptionKmPerLiter !== null && (
+          <div>
+            <dt>Consumo</dt>
+            <dd>
+              <span className="home__approx">≈</span>{' '}
+              {decimal.format(dashboard.consumptionKmPerLiter)} km/L
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Hodômetro</dt>
           <dd>{formatOdometerValue(dashboard.odometerKm)} km</dd>

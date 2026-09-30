@@ -34,7 +34,13 @@ const authStub = vi.hoisted(() => ({
   signOut: vi.fn(),
   subscribeToAuth: vi.fn(() => () => undefined),
 }))
-const syncStub = vi.hoisted(() => ({ runSync: vi.fn() }))
+const syncStub = vi.hoisted(() => ({
+  runSync: vi.fn(),
+  subscribeToSyncActivity: vi.fn((listener: (activity: 'idle' | 'syncing') => void) => {
+    listener('idle')
+    return () => undefined
+  }),
+}))
 
 vi.mock('../infrastructure/auth/session', () => authStub)
 vi.mock('../infrastructure/sync/sync', () => syncStub)
@@ -147,9 +153,10 @@ describe('App', () => {
     await act(async () => {
       finishHydration()
     })
-    await waitForText(container, 'Autonomia')
+    await waitForText(container, 'Tanque')
 
-    expect(container.textContent).toContain('Autonomia')
+    expect(container.textContent).toContain('Tanque')
+    expect(container.textContent).toContain('100%')
     expect(container.textContent).not.toContain('Configurar veículo')
     await act(async () => root.unmount())
   })

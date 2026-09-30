@@ -71,7 +71,7 @@ export default function FuelView({
   const maxAmountCents =
     priceReference === null
       ? null
-      : getMaxFuelAmountCents(priceReference.precoMedio)
+      : getMaxFuelAmountCents(priceReference.precoMaximo)
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =
@@ -145,7 +145,7 @@ export default function FuelView({
         <label>
           Hodômetro
           <input
-            aria-describedby="fuel-odometer-hint"
+            aria-describedby={odometerInvalid ? 'fuel-odometer-hint' : undefined}
             aria-invalid={odometerInvalid}
             autoComplete="off"
             inputMode="numeric"
@@ -166,14 +166,11 @@ export default function FuelView({
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          <small
-            className={odometerInvalid ? 'field-error' : 'field-hint'}
-            id="fuel-odometer-hint"
-          >
-            {odometerValid
-              ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
-              : `Mínimo: ${formatOdometerValue(currentOdometerKm)} km`}
-          </small>
+          {odometerInvalid && (
+            <small className="field-error" id="fuel-odometer-hint">
+              Mínimo {formatOdometerValue(currentOdometerKm)} km
+            </small>
+          )}
         </label>
 
         <label>
@@ -203,14 +200,12 @@ export default function FuelView({
             value={formatMoneyInput(amountDigits)}
           />
           {priceReference !== null && maxAmountCents !== null && (
-            <small className="field-hint" id="fuel-amount-hint">
-              Preço ref.: R${' '}
-              {priceReference.precoMedio.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-              /L · máximo{' '}
-              {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
+            <small
+              aria-label="Limite estimado para este abastecimento"
+              className="field-limit"
+              id="fuel-amount-hint"
+            >
+              ≤ {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
             </small>
           )}
         </label>

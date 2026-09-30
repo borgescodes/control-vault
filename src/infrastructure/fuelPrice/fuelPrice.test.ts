@@ -163,22 +163,29 @@ describe('weekly fuel price reference', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('returns null when no cache exists and request fails', async () => {
+  it('uses the shipped official reference when a fresh browser has no cache', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
     await expect(
-      getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toBeNull()
+      getFuelPriceReference(new Date(2026, 8, 30, 8, 0, 0)),
+    ).resolves.toMatchObject({
+      uf: 'PA',
+      municipio: 'PARAGOMINAS',
+      produto: 'GASOLINA COMUM',
+      precoMedio: 7.053,
+      precoMaximo: 7.22,
+    })
   })
 
   it('aborts a hanging first request after two seconds', async () => {
     vi.useFakeTimers()
-    let requestSignal: AbortSignal | undefined
+    let firstRequestSignal: AbortSignal | undefined
     const fetchMock = vi.fn(
       (_url: URL | RequestInfo, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          requestSignal = init?.signal ?? undefined
-          requestSignal?.addEventListener('abort', () => {
+          const signal = init?.signal ?? undefined
+          firstRequestSignal ??= signal
+          signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'))
           })
         }),
@@ -196,19 +203,19 @@ describe('weekly fuel price reference', () => {
     expect(settled).toBe(false)
 
     await vi.advanceTimersByTimeAsync(1)
-    await expect(lookup).resolves.toBeNull()
-    expect(requestSignal?.aborted).toBe(true)
+    await expect(lookup).resolves.toMatchObject({ precoMaximo: 7.22 })
+    expect(firstRequestSignal?.aborted).toBe(true)
     vi.useRealTimers()
   })
 
-  it('returns null when API URL is missing and no cache exists', async () => {
+  it('keeps the shipped official reference when API URL is missing', async () => {
     vi.stubEnv('VITE_FUEL_PRICE_API_URL', '')
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
       getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toBeNull()
+    ).resolves.toMatchObject({ precoMedio: 7.053, precoMaximo: 7.22 })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -222,7 +229,7 @@ describe('weekly fuel price reference', () => {
 
     await expect(
       getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toBeNull()
+    ).resolves.toMatchObject({ precoMedio: 7.053, precoMaximo: 7.22 })
   })
 
   it('ignores malformed cache JSON', async () => {
