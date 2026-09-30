@@ -259,3 +259,92 @@ describe('vehicle model v2 dashboard states', () => {
     expect(dashboard.consumptionKmPerLiter).toBe(40)
   })
 })
+
+
+describe('dashboard operational metrics', () => {
+  it('exposes remaining liters without applying the range safety factor', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('current', 1_160, '2026-09-20T10:00:00.000Z')],
+      [fuel('full', 1_120, 3, true, '2026-09-10T10:00:00.000Z')],
+      now,
+    )
+
+    expect(dashboard.remainingLiters).toBeCloseTo(2)
+    expect(dashboard.rangeKm).toBe(72)
+  })
+
+  it('reports monthly refuel count and average spend', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [],
+      [
+        fuel('one', 1_010, 1, false, '2026-09-01T12:00:00', 2_000),
+        fuel('two', 1_020, 1, false, '2026-09-20T12:00:00', 3_000),
+      ],
+      now,
+    )
+
+    expect(dashboard.monthFuelEntryCount).toBe(2)
+    expect(dashboard.monthAverageRefuelCents).toBe(2_500)
+  })
+
+  it('reports complete distance when a month-start baseline exists', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [
+        reading('baseline', 1_000, '2026-08-31T23:00:00'),
+        reading('current', 1_240, '2026-09-20T10:00:00'),
+      ],
+      [],
+      now,
+    )
+
+    expect(dashboard.monthDistanceKm).toBe(240)
+    expect(dashboard.monthDistanceState).toBe('complete')
+  })
+
+  it('reports partial distance when the vehicle was first configured this month', () => {
+    const recentState = {
+      ...state,
+      initialOdometerKm: 5_000,
+      createdAt: '2026-09-05T10:00:00',
+    }
+    const dashboard = getVehicleDashboard(
+      recentState,
+      [reading('current', 5_120, '2026-09-20T10:00:00')],
+      [],
+      now,
+    )
+
+    expect(dashboard.monthDistanceKm).toBe(120)
+    expect(dashboard.monthDistanceState).toBe('partial')
+  })
+
+  it('does not invent monthly distance without a usable baseline', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('current', 1_240, '2026-09-20T10:00:00')],
+      [],
+      now,
+    )
+
+    expect(dashboard.monthDistanceKm).toBeNull()
+    expect(dashboard.monthDistanceState).toBe('unavailable')
+  })
+
+  it('derives autonomy in days from at least seven days of recent odometer pace', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [
+        reading('pace-start', 1_060, '2026-09-10T10:00:00'),
+        reading('current', 1_160, '2026-09-20T10:00:00'),
+      ],
+      [fuel('full', 1_120, 3, true, '2026-09-15T10:00:00')],
+      now,
+    )
+
+    expect(dashboard.recentDailyDistanceKm).toBeCloseTo(10)
+    expect(dashboard.rangeDays).toBeCloseTo(7.2)
+  })
+})
