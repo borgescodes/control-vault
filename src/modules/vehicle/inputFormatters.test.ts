@@ -4,6 +4,9 @@ import {
   digitsOnly,
   formatMoneyInput,
   formatOdometerInput,
+  limitMoneyDigits,
+  limitOdometerDigits,
+  odometerDigitsFromKm,
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
@@ -39,5 +42,22 @@ describe('vehicle input formatters', () => {
   it('strips punctuation and labels before reformatting controlled inputs', () => {
     expect(digitsOnly('R$ 25,70')).toBe('2570')
     expect(digitsOnly('12483.0 km')).toBe('124830')
+  })
+})
+
+
+describe('vehicle input limits', () => {
+  it('keeps fuel input at R$ 30,00 when another digit would exceed the bike limit', () => {
+    expect(limitMoneyDigits('3000', '30001')).toBe('3000')
+    expect(limitMoneyDigits('2572', '3000')).toBe('3000')
+  })
+
+  it('keeps odometer input at 999999.0 km or below', () => {
+    expect(limitOdometerDigits('9999990', '9999999')).toBe('9999990')
+    expect(limitOdometerDigits('124830', '9999990')).toBe('9999990')
+  })
+
+  it('converts the current odometer back to editable implicit-decimal digits', () => {
+    expect(odometerDigitsFromKm(12483.6)).toBe('124836')
   })
 })
