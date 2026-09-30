@@ -407,3 +407,49 @@ describe('vehicle actions', () => {
     expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 })
+
+
+describe('vehicle practical limits', () => {
+  it('rejects an initial odometer above 999999.0 km', async () => {
+    await expect(
+      initializeVehicle(999_999.1, false, initialAt),
+    ).rejects.toBeInstanceOf(RangeError)
+  })
+
+  it('rejects an odometer update above 999999.0 km', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(recordOdometer(999_999.1, laterAt)).resolves.toMatchObject({
+      kind: 'invalid',
+    })
+  })
+
+  it('rejects a fuel amount above R$ 30,00 before price lookup', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    priceStub.getFuelPriceReference.mockClear()
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 3_001,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toMatchObject({ kind: 'invalid' })
+
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+  })
+
+  it('rejects a fuel odometer above 999999.0 km', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 999_999.1,
+        amountCents: 2_000,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toMatchObject({ kind: 'invalid' })
+  })
+})
