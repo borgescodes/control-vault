@@ -46,6 +46,7 @@ export default function HomeView({
       : Math.max(0, Math.min(100, dashboard.fuelPercent))
   const hasFuelLevel =
     fuelPercent !== null && dashboard.remainingLiters !== null
+  const displayFuelPercent = fuelPercent ?? 0
   const rangeDays = formatRangeDays(dashboard.rangeDays)
   const completedCalibrationCycles = Math.min(
     3,
@@ -81,10 +82,7 @@ export default function HomeView({
           ) : hasFuelLevel ? (
             <div className="home__tank-value">
               <p className="home__tank-percent">
-                <AnimatedMetric
-                  format={(value) => `${integer.format(value)}%`}
-                  value={fuelPercent ?? 0}
-                />
+                {integer.format(displayFuelPercent)}%
               </p>
               <p className="home__tank-liters">
                 {decimal.format(dashboard.remainingLiters ?? 0)} L
@@ -98,20 +96,20 @@ export default function HomeView({
             {ready && (
               <div className="home__fuel-readout">
                 <span>≈ {decimal.format(dashboard.remainingLiters ?? 0)} L</span>
-                <span>{integer.format(fuelPercent ?? 0)}%</span>
+                <span>{integer.format(displayFuelPercent)}%</span>
               </div>
             )}
             <div
-              aria-label={`Combustível: ${integer.format(fuelPercent)}%`}
+              aria-label={`Combustível: ${integer.format(displayFuelPercent)}%`}
               aria-valuemax={100}
               aria-valuemin={0}
-              aria-valuenow={Math.round(fuelPercent)}
+              aria-valuenow={Math.round(displayFuelPercent)}
               className="fuel-progress"
               role="progressbar"
             >
               <div
                 className="fuel-progress__value"
-                style={{ width: `${fuelPercent}%` }}
+                style={{ width: `${displayFuelPercent}%` }}
               />
               <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--one" />
               <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--two" />
