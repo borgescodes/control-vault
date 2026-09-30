@@ -10,7 +10,7 @@ import type {
   LocalOdometerReading,
   LocalVehicleState,
 } from '../../infrastructure/local/db'
-import OutlineIcon from '../../shared/ui/OutlineIcon'
+import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
 import HomeView from './HomeView'
@@ -120,7 +120,7 @@ export default function VehicleModule() {
         onClick={() => openView('home')}
         type="button"
       >
-        <OutlineIcon name="home" />
+        <VehicleIcon name="home" />
         <span>Início</span>
       </button>
       <button
@@ -128,7 +128,7 @@ export default function VehicleModule() {
         onClick={() => openView('history')}
         type="button"
       >
-        <OutlineIcon name="history" />
+        <VehicleIcon name="history" />
         <span>Histórico</span>
       </button>
     </nav>
