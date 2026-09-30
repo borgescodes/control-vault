@@ -33,7 +33,7 @@ If the user starts without a full tank:
 - autonomy is unavailable until the first reliable full-tank anchor;
 - the Home state is `Aguardando tanque cheio`.
 
-If the user starts with a full tank, setup creates the initial full-tank anchor at that odometer and timestamp.
+If the user starts with a full tank, setup creates the initial full-tank anchor at that odometer and timestamp. At that exact anchor the UI knows the nominal model is full and may show `3,0 L` and `100%` immediately. Autonomy and km/L remain unavailable until the first valid full-to-full cycle closes.
 
 ### 2.2 Nominal tank capacity and operational range
 
@@ -53,7 +53,7 @@ nominalTankCapacityLiters = 3
 
 Do not model reserve capacity separately in v2.
 
-A full-tank event means the tank is known to be `full` relative to the nominal model. It does not mean Control Vault claims there are exactly `3.000 L` physically available.
+A full-tank event means the tank is known to be `full` relative to the nominal model. The UI represents that model as `3,0 L / 100%`; this is a nominal state declared by the user, not a sensor measurement.
 
 The internal fuel ledger continues to use the nominal capacity as its upper bound. Consumption learning remains independent from any safety discount.
 
@@ -100,13 +100,21 @@ The user may therefore record both common behaviors:
 - add an arbitrary amount without filling the tank;
 - add fuel until the tank is full.
 
-### 2.4 Fuel quantity
+### 2.4 Fuel quantity and refuel cap
 
-When a weekly price reference is available:
+When a weekly price reference is available, estimated liters use the municipal average:
 
 ```
-estimatedLiters = round3((amountCents / 100) / referencePricePerLiter)
+estimatedLiters = round3((amountCents / 100) / precoMedio)
 ```
+
+The form's business cap uses the municipal maximum retail price for one liter of margin above the nominal 3 L tank:
+
+```
+maxAmountCents = 4 L * precoMaximo
+```
+
+The `R$ 99,99` mask ceiling remains independent from this business cap.
 
 The app never asks the user to inspect the pump or enter liters manually.
 
@@ -421,13 +429,15 @@ Consumption may also be unavailable.
 
 ### Full anchor but insufficient valid cycles
 
-```
-Autonomia
-<estimate when calculable>
+At the full anchor, show the known nominal physical state:
 
-Consumo
-Calibrando
 ```
+Tanque
+100%    3,0 L
+Calibração 0/3
+```
+
+After movement begins but before consumption is learned, do not invent fuel burn. Keep calibration as a compact cycle-progress signal. The first valid closing full refill produces the first estimated km/L; subsequent valid cycles refine it.
 
 ### Learned estimate available
 
@@ -469,7 +479,9 @@ With cached price reference:
 - calculate estimated liters using the cached reference;
 - record locally as pending.
 
-With no cached reference:
+With no browser cache, a shipped last-known official Paragominas reference may serve as stale bootstrap so a fresh/private session still has a conservative business cap while the public API wakes in the background. A remote lookup still times out quickly and never blocks the local write indefinitely.
+
+If no usable reference exists at all:
 
 - record amount, odometer and full-tank status;
 - estimation fields remain null;
