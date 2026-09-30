@@ -113,9 +113,9 @@ async function fetchReference(
 
   const controller = timeoutMs === null ? null : new AbortController()
   const timeout =
-    controller === null
+    timeoutMs === null
       ? null
-      : setTimeout(() => controller.abort(), timeoutMs)
+      : setTimeout(() => controller?.abort(), timeoutMs)
 
   try {
     const url = new URL('/v1/precos', baseUrl)
