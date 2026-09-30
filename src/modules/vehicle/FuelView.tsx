@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { getFuelPriceReference } from '../../infrastructure/fuelPrice/fuelPrice'
-import OutlineIcon from '../../shared/ui/OutlineIcon'
+import VehicleIcon from '../../shared/ui/VehicleIcon'
 import {
   formatMoneyInput,
   formatOdometerInput,
@@ -13,6 +13,7 @@ import {
   parseOdometerKm,
 } from './inputFormatters'
 import { getMaxFuelAmountCents } from './domain/config'
+import SuspiciousOdometerDialog from './SuspiciousOdometerDialog'
 import { recordFuel, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
@@ -63,6 +64,14 @@ export default function FuelView({
     referencePricePerLiter === null
       ? null
       : getMaxFuelAmountCents(referencePricePerLiter)
+  useEffect(() => {
+    if (maxAmountCents === null) return
+
+    setAmountDigits((current) =>
+      Number(current || 0) > maxAmountCents ? String(maxAmountCents) : current,
+    )
+  }, [maxAmountCents])
+
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =
@@ -124,7 +133,7 @@ export default function FuelView({
           onClick={onBack}
           type="button"
         >
-          <OutlineIcon name="back" />
+          <VehicleIcon name="back" />
         </button>
         <div>
           <h2 id="fuel-title">Abastecer</h2>
@@ -222,35 +231,18 @@ export default function FuelView({
           disabled={submitting || !odometerValid || !amountValid}
           type="submit"
         >
-          <OutlineIcon name="fuel" />
+          <VehicleIcon name="fuel" />
           {submitting ? 'Salvando…' : 'Salvar abastecimento'}
         </button>
       </form>
 
       {pending && (
-        <div className="vehicle-confirmation" role="status">
-          <p>
-            O novo valor adiciona{' '}
-            <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
-          </p>
-          <div className="vehicle-confirmation__actions">
-            <button
-              className="button-secondary"
-              onClick={() => setPending(null)}
-              type="button"
-            >
-              Corrigir
-            </button>
-            <button
-              className="button-warning"
-              disabled={submitting}
-              onClick={() => void save(pending.input, true)}
-              type="button"
-            >
-              Confirmar mesmo assim
-            </button>
-          </div>
-        </div>
+        <SuspiciousOdometerDialog
+          deltaKm={pending.deltaKm}
+          onCancel={() => setPending(null)}
+          onConfirm={() => void save(pending.input, true)}
+          submitting={submitting}
+        />
       )}
     </section>
   )
