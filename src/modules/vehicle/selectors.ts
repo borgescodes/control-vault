@@ -25,6 +25,7 @@ export type VehicleDashboard = {
   monthDistanceState: MonthDistanceState
   consumptionKmPerLiter: number | null
   calibrationState: CalibrationState
+  calibrationCycleCount: number
   remainingLiters: number | null
   fuelPercent: number | null
   rangeKm: number | null
@@ -134,8 +135,22 @@ export function getVehicleDashboard(
         at: state.initialFullTankAt,
       }
     : null
-  const hasFullAnchor =
-    initialAnchor !== null || fuelEntries.some((entry) => entry.fullTank)
+  const fullAnchors = [
+    ...(initialAnchor ? [initialAnchor] : []),
+    ...fuelEntries
+      .filter((entry) => entry.fullTank)
+      .map((entry) => ({ odometerKm: entry.odometerKm, at: entry.fueledAt })),
+  ]
+  const latestFullAnchor = fullAnchors.reduce<FullTankAnchor | null>(
+    (latest, anchor) =>
+      !latest ||
+      anchor.odometerKm > latest.odometerKm ||
+      (anchor.odometerKm === latest.odometerKm && anchor.at > latest.at)
+        ? anchor
+        : latest,
+    null,
+  )
+  const hasFullAnchor = latestFullAnchor !== null
   const cycles = buildConsumptionCycles(initialAnchor, fuelEntries)
   const consumption = learnConsumption(cycles)
 
@@ -150,12 +165,19 @@ export function getVehicleDashboard(
   }
 
   if (!consumption) {
+    const knownFullNow =
+      latestFullAnchor !== null &&
+      latestFullAnchor.odometerKm === odometerKm
+
     return {
       ...shared,
       consumptionKmPerLiter: null,
       calibrationState: 'calibrating',
-      remainingLiters: null,
-      fuelPercent: null,
+      calibrationCycleCount: cycles.length,
+      remainingLiters: knownFullNow
+        ? state.nominalTankCapacityLiters
+        : null,
+      fuelPercent: knownFullNow ? 100 : null,
       rangeKm: null,
       rangeDays: null,
       rangeState: hasFullAnchor ? 'calibrating' : 'awaiting_full_tank',
@@ -178,6 +200,7 @@ export function getVehicleDashboard(
     ...shared,
     consumptionKmPerLiter: consumption.kmPerLiter,
     calibrationState: consumption.calibrationState,
+    calibrationCycleCount: consumption.cycleCount,
     remainingLiters: fuelEstimate?.remainingLiters ?? null,
     fuelPercent: fuelEstimate?.fuelPercent ?? null,
     rangeKm,
