@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react'
 
+import {
+  digitsOnly,
+  formatOdometerInput,
+  parseOdometerKm,
+} from './inputFormatters'
 import { initializeVehicle } from './vehicleActions'
-import Icon from '../../shared/ui/Icon'
 
 type SetupViewProps = {
   onComplete: () => void | Promise<void>
 }
 
 export default function SetupView({ onComplete }: SetupViewProps) {
-  const [odometer, setOdometer] = useState('')
+  const [odometerDigits, setOdometerDigits] = useState('')
   const [fullTank, setFullTank] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -20,7 +24,7 @@ export default function SetupView({ onComplete }: SetupViewProps) {
 
     try {
       await initializeVehicle(
-        Number(odometer),
+        parseOdometerKm(odometerDigits),
         fullTank,
         new Date().toISOString(),
       )
@@ -33,29 +37,29 @@ export default function SetupView({ onComplete }: SetupViewProps) {
   }
 
   return (
-    <section
-      aria-labelledby="setup-title"
-      className="vehicle-panel vehicle-panel--setup"
-    >
-      <header className="vehicle-panel__header">
-        <span className="vehicle-panel__icon"><Icon name="cog" /></span>
-        <h2 id="setup-title">Começar</h2>
-        <span className="vehicle-panel__state">
-          <span className="lcm-status-dot" data-status="unavailable" />
-          Inicial
-        </span>
+    <section className="vehicle-view" aria-labelledby="setup-title">
+      <header className="view-header">
+        <h2 id="setup-title">Configurar veículo</h2>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
         <label>
-          Hodômetro
+          Hodômetro atual
           <input
-            min="0"
-            onChange={(event) => setOdometer(event.target.value)}
+            autoComplete="off"
+            inputMode="numeric"
+            name="odometer"
+            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === 'Backspace') {
+                event.preventDefault()
+                setOdometerDigits((value) => value.slice(0, -1))
+              }
+            }}
+            placeholder="0.0"
             required
-            step="0.1"
-            type="number"
-            value={odometer}
+            type="text"
+            value={formatOdometerInput(odometerDigits)}
           />
         </label>
 
@@ -65,7 +69,10 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             onChange={(event) => setFullTank(event.target.checked)}
             type="checkbox"
           />
-          Tanque cheio agora
+          <span>
+            Tanque cheio agora
+            <small>Marque apenas se o tanque estiver cheio neste momento.</small>
+          </span>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
