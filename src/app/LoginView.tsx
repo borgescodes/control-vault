@@ -22,11 +22,9 @@ export default function LoginView() {
   }
 
   return (
-    <form className="auth-panel" onSubmit={handleSubmit}>
-      <header className="auth-panel__header">
-        <span>Acesso</span>
-        <span className="lcm-status-dot" data-status="unavailable" />
-      </header>
+    <form className="auth-form" onSubmit={handleSubmit}>
+      <h2>Acesso</h2>
+
       <label>
         Email
         <input
@@ -51,7 +49,7 @@ export default function LoginView() {
         />
       </label>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
       <button className="button-primary" disabled={submitting} type="submit">
         Entrar
