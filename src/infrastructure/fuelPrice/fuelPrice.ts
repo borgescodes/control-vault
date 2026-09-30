@@ -19,6 +19,7 @@ type FuelPriceCache = {
 const CACHE_KEY =
   'control-vault:fuel-price:PA:PARAGOMINAS:GASOLINA-COMUM'
 const RECHECK_AFTER_MS = 12 * 60 * 60 * 1000
+const REQUEST_TIMEOUT_MS = 2_000
 
 function localDate(value: Date): string {
   const year = value.getFullYear()
@@ -96,20 +97,47 @@ async function fetchReference(): Promise<FuelPriceReference | null> {
   const baseUrl = import.meta.env.VITE_FUEL_PRICE_API_URL?.trim()
   if (!baseUrl) return null
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
   try {
     const url = new URL('/v1/precos', baseUrl)
     url.searchParams.set('uf', 'PA')
     url.searchParams.set('municipio', 'PARAGOMINAS')
     url.searchParams.set('produto', 'GASOLINA COMUM')
 
-    const response = await fetch(url)
+    const response = await fetch(url, { signal: controller.signal })
     if (!response.ok) return null
 
     const payload: unknown = await response.json()
     return isFuelPriceReference(payload) ? payload : null
   } catch {
     return null
+  } finally {
+    clearTimeout(timeout)
   }
+}
+
+async function refreshCachedReference(
+  cached: FuelPriceCache,
+  now: Date,
+  today: string,
+): Promise<void> {
+  const fresh = await fetchReference()
+  if (!fresh) return
+
+  if (
+    fresh.semanaFim <= cached.reference.semanaFim &&
+    today > fresh.semanaFim
+  ) {
+    return
+  }
+
+  writeCache({
+    reference: fresh,
+    fetchedAt: now.toISOString(),
+    nextCheckAt: today > fresh.semanaFim ? nextCheckAt(now) : null,
+  })
 }
 
 export async function getFuelPriceReference(
@@ -133,29 +161,21 @@ export async function getFuelPriceReference(
     return cached.reference
   }
 
+  if (cached) {
+    const throttledCache = {
+      ...cached,
+      nextCheckAt: nextCheckAt(now),
+    }
+    writeCache(throttledCache)
+    void refreshCachedReference(throttledCache, now, today).catch(
+      () => undefined,
+    )
+    return cached.reference
+  }
+
   const fresh = await fetchReference()
 
-  if (!fresh) {
-    if (!cached) return null
-
-    writeCache({
-      ...cached,
-      nextCheckAt: nextCheckAt(now),
-    })
-    return cached.reference
-  }
-
-  if (
-    cached &&
-    fresh.semanaFim <= cached.reference.semanaFim &&
-    today > fresh.semanaFim
-  ) {
-    writeCache({
-      ...cached,
-      nextCheckAt: nextCheckAt(now),
-    })
-    return cached.reference
-  }
+  if (!fresh) return null
 
   writeCache({
     reference: fresh,
