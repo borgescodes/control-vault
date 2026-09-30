@@ -687,6 +687,20 @@ input::placeholder {
   margin-top: 22px;
 }
 
+.home__fuel-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-family: var(--font-metric);
+  font-size: .86rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+
 .home__section-heading {
   display: flex;
   align-items: baseline;
