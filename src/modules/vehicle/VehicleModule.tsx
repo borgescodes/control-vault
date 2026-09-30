@@ -53,93 +53,85 @@ export default function VehicleModule() {
 
   if (vehicleState === undefined) {
     return (
-      <div
-        aria-busy="true"
-        aria-live="polite"
-        className="vehicle-module vehicle-module--loading"
-      >
-        <div className="vehicle-module__status">
-          <span className="lcm-status-dot" data-status="calibrating" />
-          Calibrando
-        </div>
-        <div className="lcm-progress-track">
-          <div className="lcm-progress" style={{ width: '62%' }}>
-            <span className="lcm-progress-glow" />
-          </div>
-        </div>
+      <div aria-busy="true" aria-live="polite" className="vehicle-loading">
+        Carregando
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="vehicle-module vehicle-module--error">
-        <div className="vehicle-module__status">
-          <span className="lcm-status-dot" data-status="stale" />
-          Indisponível
-        </div>
+      <div className="vehicle-error">
         <p className="vehicle-alert" role="alert">{error}</p>
       </div>
     )
   }
 
   if (!vehicleState) {
-    return (
-      <div className="vehicle-module" data-view="setup">
-        <SetupView onComplete={refresh} />
-      </div>
-    )
+    return <SetupView onComplete={refresh} />
   }
 
   if (view === 'odometer') {
     return (
-      <div className="vehicle-module" data-view="odometer">
-        <OdometerView
-          onBack={() => setView('home')}
-          onSaved={handleSaved}
-        />
-      </div>
+      <OdometerView
+        onBack={() => setView('home')}
+        onSaved={handleSaved}
+      />
     )
   }
 
   if (view === 'fuel') {
     return (
-      <div className="vehicle-module" data-view="fuel">
-        <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
-      </div>
+      <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
     )
   }
+
+  const navigation = (
+    <nav className="vehicle-navigation" aria-label="Navegação principal">
+      <button
+        aria-current={view === 'home' ? 'page' : undefined}
+        onClick={() => setView('home')}
+        type="button"
+      >
+        Início
+      </button>
+      <button
+        aria-current={view === 'history' ? 'page' : undefined}
+        onClick={() => setView('history')}
+        type="button"
+      >
+        Histórico
+      </button>
+    </nav>
+  )
 
   if (view === 'history') {
     return (
-      <div className="vehicle-module" data-view="history">
+      <>
         <HistoryView
           fuelEntries={fuelEntries}
           odometerReadings={readings}
-          onBack={() => setView('home')}
         />
-      </div>
+        {navigation}
+      </>
     )
   }
 
-  const now = new Date()
   const dashboard = getVehicleDashboard(
     vehicleState,
     readings,
     fuelEntries,
-    now,
+    new Date(),
   )
 
   return (
-    <div className="vehicle-module" data-view="home">
+    <>
       <HomeView
         dashboard={dashboard}
-        now={now}
         onFuel={() => setView('fuel')}
-        onHistory={() => setView('history')}
-        onHome={() => setView('home')}
         onOdometer={() => setView('odometer')}
       />
-    </div>
+      {navigation}
+    </>
   )
 }
