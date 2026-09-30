@@ -10,6 +10,7 @@ import type {
   LocalOdometerReading,
   LocalVehicleState,
 } from '../../infrastructure/local/db'
+import OutlineIcon from '../../shared/ui/OutlineIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
 import HomeView from './HomeView'
@@ -71,9 +72,17 @@ export default function VehicleModule() {
     return <SetupView onComplete={refresh} />
   }
 
+  const dashboard = getVehicleDashboard(
+    vehicleState,
+    readings,
+    fuelEntries,
+    new Date(),
+  )
+
   if (view === 'odometer') {
     return (
       <OdometerView
+        currentOdometerKm={dashboard.odometerKm}
         onBack={() => setView('home')}
         onSaved={handleSaved}
       />
@@ -82,7 +91,11 @@ export default function VehicleModule() {
 
   if (view === 'fuel') {
     return (
-      <FuelView onBack={() => setView('home')} onSaved={handleSaved} />
+      <FuelView
+        currentOdometerKm={dashboard.odometerKm}
+        onBack={() => setView('home')}
+        onSaved={handleSaved}
+      />
     )
   }
 
@@ -93,14 +106,16 @@ export default function VehicleModule() {
         onClick={() => setView('home')}
         type="button"
       >
-        Início
+        <OutlineIcon name="home" />
+        <span>Início</span>
       </button>
       <button
         aria-current={view === 'history' ? 'page' : undefined}
         onClick={() => setView('history')}
         type="button"
       >
-        Histórico
+        <OutlineIcon name="history" />
+        <span>Histórico</span>
       </button>
     </nav>
   )
@@ -116,13 +131,6 @@ export default function VehicleModule() {
       </>
     )
   }
-
-  const dashboard = getVehicleDashboard(
-    vehicleState,
-    readings,
-    fuelEntries,
-    new Date(),
-  )
 
   return (
     <>
