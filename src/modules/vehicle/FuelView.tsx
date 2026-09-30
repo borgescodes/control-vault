@@ -200,14 +200,12 @@ export default function FuelView({
             value={formatMoneyInput(amountDigits)}
           />
           {priceReference !== null && maxAmountCents !== null && (
-            <small className="field-hint" id="fuel-amount-hint">
-              Preço ref.: R${' '}
-              {priceReference.precoMedio.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-              /L · máximo{' '}
-              {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
+            <small
+              aria-label="Limite estimado para este abastecimento"
+              className="field-limit"
+              id="fuel-amount-hint"
+            >
+              ≤ {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
             </small>
           )}
         </label>
