@@ -15,6 +15,7 @@ export default function OutlineIcon({
     <svg
       aria-hidden="true"
       className={`outline-icon ${className}`.trim()}
+      data-icon={name}
       fill="none"
       focusable="false"
       stroke="currentColor"
