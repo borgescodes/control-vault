@@ -10,12 +10,12 @@ Mode: `Operate`.
 
 Primary viewport: 390x844. Required adaptations: 320px, 430x932 and 1440x1000.
 
-## Visual world: Obsidian instrument
+## Visual world: Obsidian violet instrument
 
 The world combines dark fantasy atmosphere with scientific precision without using fantasy ornament or sci-fi clichés.
 
 - Near-black graphite is the material.
-- A single cold cyan signal behaves like stored energy, not decoration.
+- A restrained violet signal behaves like stored energy, not decoration.
 - Off-white type reads like an instrument engraving lit in darkness.
 - Depth comes from a subtle off-axis light field, vignette and tonal layers.
 - A precise telemetry axis ties autonomy, range-days, remaining liters and fuel progress into one authored composition.
@@ -29,7 +29,7 @@ From `lovable-credit-monitor`, retain only:
 
 - the approved monospace stack for metrics;
 - tabular figures and strong numeric spacing;
-- cold gray plus restrained cyan/blue signal colors;
+- cold gray plus restrained violet signal colors;
 - short state transitions;
 - `cubic-bezier(.16, 1, .3, 1)` where appropriate;
 - 880ms fuel-progress/value motion;
@@ -56,18 +56,19 @@ General UI text uses a native sans stack for fast reading. Metrics use the appro
 
 Core roles:
 
-- deep field: `#030506`;
-- body field: `#070a0d`;
-- lifted tonal layer: `#0c1218`;
+- deep field: `#000000`;
+- body field: `#000000`;
+- lifted tonal layer: `#09070d`;
 - primary text: `#f2f5f3`;
 - secondary text: `#aab4b9`;
 - quiet text: `#7d898f`;
-- energy cyan: `#50d8ff`;
-- deep energy blue: `#4678ff`;
+- energy violet: `#a855f7`;
+- deep energy violet: `#7c3aed`;
+- pale energy violet: `#d8b4fe`;
 - danger: `#ff7182`;
 - warning: `#e9b86a`.
 
-Use one asymmetrical radial light source near the autonomy/fuel axis and a restrained edge vignette. Glow is allowed only on active energy/progress and focus, never on every label or container.
+Use one asymmetrical violet radial light source near the autonomy/fuel axis over a true-black field. Glow is allowed only on active energy/progress and focus, never on every label or container.
 
 ## Geometry and grouping
 
@@ -105,7 +106,7 @@ Fuel and odometer share one compact grammar:
 
 The mobile submit action is compact and sticky near the bottom safe area when the viewport allows it. It must remain reachable when the virtual keyboard reduces the visual viewport and must not become an oversized 80px CTA.
 
-The dynamic fuel-price reference is quiet secondary copy. If absent, the interface says nothing about provider failure and imposes no invented ceiling.
+The dynamic fuel-price reference is quiet secondary copy. If absent, the interface says nothing about provider failure and imposes no invented ceiling. If the reference resolves after typing, the amount field clamps back to the derived ceiling.
 
 ## Full-tank control
 
@@ -132,7 +133,7 @@ Login shares the Obsidian instrument atmosphere. It is not a centered SaaS card.
 
 ## Icons
 
-Use basic outline SVGs only where recognition is faster than text: back, Home, History, Fuel and Odometer. Use a consistent 24px viewBox and 1.5-1.75 stroke. Do not add an icon dependency or decorate ordinary metrics/history rows.
+Use the approved Boxicons Filled SVG paths for Home, History, Fuel and Odometer. Keep Back as a simple outline arrow. Do not add an icon dependency or decorate ordinary metrics/history rows.
 
 ## Motion
 
@@ -175,3 +176,12 @@ Priority corrections carried into this contract:
 5. Establish first- and second-tier monthly metrics.
 6. Manage focus and programmatic input validity.
 7. Raise the sign-out target to the 44px product floor.
+
+
+## Final mobile navigation rule
+
+The bottom navigation has no visual bar, gradient, blur, backdrop or container chrome. Only the Home/History controls are visible and interactive above the black field. The navigation wrapper itself must not intercept pointer events outside those controls.
+
+## Final copy rule
+
+Do not explain calibration mechanics on Home. `Calibrando` is sufficient. Do not render `desde o cadastro` under monthly distance. History entries lead directly with the meaningful value/detail; do not render redundant event labels such as `Abastecimento` or `Hodômetro atualizado`.
