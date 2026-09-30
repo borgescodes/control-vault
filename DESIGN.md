@@ -81,16 +81,16 @@ Use one asymmetrical violet radial light source near the autonomy/fuel axis over
 
 ## Home composition
 
-The first viewport answers three questions in order: how far, for how long, and how much fuel remains.
+The first viewport shows the strongest vehicle state actually known.
 
-1. `Autonomia` is the hero.
-2. Approximate days sit in direct relation to the hero, never in a separate card.
-3. Remaining liters, percentage and the energy rail form one physical fuel instrument.
-4. `Abastecer` is the primary action; `Atualizar KM` is a quieter secondary action.
-5. Monthly telemetry follows as an editorial ledger. Spend and distance dominate; count and average are one step quieter.
-6. Consumption and odometer close the surface as technical references.
+1. When setup or a refill declares the tank full at the current odometer, the instrument may show the nominal model directly as `100%` and `3,0 L`, even before consumption is learned.
+2. Before autonomy is learnable, calibration is a compact three-step visual rail driven by completed full-to-full cycles. Do not explain the algorithm in body copy.
+3. Once consumption is learnable, `Autonomia` becomes the hero. Approximate days stay adjacent to it; remaining liters and percentage remain compact telemetry.
+4. `Abastecer` is the primary action; `Atualizar KM` is secondary with equal geometry.
+5. Monthly telemetry follows as an editorial ledger. Spend and distance dominate.
+6. Consumption is hidden until learnable; odometer remains a technical reference.
 
-Absent data uses human copy: `Calibrando`, `Sem estimativa`, `Sem leitura`, `Sem base`, `Sem dados`. An em dash is never a data placeholder.
+Do not fill missing states with explanatory paragraphs or repeated labels. Prefer omission, a compact numeric state or the calibration rail.
 
 ## Entry surfaces
 
@@ -106,7 +106,7 @@ Fuel and odometer share one compact grammar:
 
 The mobile submit action is compact and sticky near the bottom safe area when the viewport allows it. It must remain reachable when the virtual keyboard reduces the visual viewport and must not become an oversized 80px CTA.
 
-The dynamic fuel-price reference is quiet secondary copy. If absent, the interface says nothing about provider failure and imposes no invented ceiling. If the reference resolves after typing, the amount field clamps back to the derived ceiling.
+The money mask always tops out at `R$ 99,99`. The refuel business cap is separate: use four liters times the latest known `precoMaximo` to decide whether Save is enabled. Keep the raw field editable up to `R$ 99,99`; show only the compact cap signal such as `≤ R$ 28,88`. Use `precoMedio` for estimated liters and downstream fuel calculations.
 
 ## Full-tank control
 
@@ -184,4 +184,6 @@ The bottom navigation has no visual bar, gradient, blur, backdrop or container c
 
 ## Final copy rule
 
-Do not explain calibration mechanics on Home. `Calibrando` is sufficient. Do not render `desde o cadastro` under monthly distance. History entries lead directly with the meaningful value/detail; do not render redundant event labels such as `Abastecimento` or `Hodômetro atualizado`.
+Do not explain calibration mechanics on Home. Prefer the calibration rail and cycle count over words such as `Calibrando`, `Sem leitura` or `Estimativa indisponível`. Do not render `desde o cadastro` under monthly distance. History entries lead directly with the meaningful value/detail; do not render redundant event labels such as `Abastecimento` or `Hodômetro atualizado`.
+
+Connectivity is non-verbal: a compact accessible indicator distinguishes online, offline and syncing states.
