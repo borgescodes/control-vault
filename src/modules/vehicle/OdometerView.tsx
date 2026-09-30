@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 
-import OutlineIcon from '../../shared/ui/OutlineIcon'
+import VehicleIcon from '../../shared/ui/VehicleIcon'
 import {
   formatOdometerInput,
   formatOdometerValue,
@@ -8,6 +8,7 @@ import {
   odometerDigitsFromKm,
   parseOdometerKm,
 } from './inputFormatters'
+import SuspiciousOdometerDialog from './SuspiciousOdometerDialog'
 import { recordOdometer } from './vehicleActions'
 
 type OdometerViewProps = {
@@ -95,7 +96,7 @@ export default function OdometerView({
           onClick={onBack}
           type="button"
         >
-          <OutlineIcon name="back" />
+          <VehicleIcon name="back" />
         </button>
         <div>
           <h2 id="odometer-title">Atualizar KM</h2>
@@ -145,37 +146,20 @@ export default function OdometerView({
           disabled={submitting || !readingValid}
           type="submit"
         >
-          <OutlineIcon name="gauge" />
+          <VehicleIcon name="gauge" />
           {submitting ? 'Salvando…' : 'Salvar hodômetro'}
         </button>
       </form>
 
       {pending && (
-        <div className="vehicle-confirmation" role="status">
-          <p>
-            O novo valor adiciona{' '}
-            <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
-          </p>
-          <div className="vehicle-confirmation__actions">
-            <button
-              className="button-secondary"
-              onClick={() => setPending(null)}
-              type="button"
-            >
-              Corrigir
-            </button>
-            <button
-              className="button-warning"
-              disabled={submitting}
-              onClick={() =>
-                void save(pending.readingKm, pending.recordedAt, true)
-              }
-              type="button"
-            >
-              Confirmar mesmo assim
-            </button>
-          </div>
-        </div>
+        <SuspiciousOdometerDialog
+          deltaKm={pending.deltaKm}
+          onCancel={() => setPending(null)}
+          onConfirm={() =>
+            void save(pending.readingKm, pending.recordedAt, true)
+          }
+          submitting={submitting}
+        />
       )}
     </section>
   )
