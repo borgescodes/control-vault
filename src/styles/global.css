@@ -279,8 +279,7 @@ input[type='checkbox'] {
   flex: 0 0 auto;
 }
 
-.button-with-icon,
-.vehicle-navigation button {
+.button-with-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
