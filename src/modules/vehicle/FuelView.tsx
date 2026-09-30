@@ -1,6 +1,13 @@
 import { useState, type FormEvent } from 'react'
 
-import Icon from '../../shared/ui/Icon'
+import {
+  digitsOnly,
+  formatMoneyInput,
+  formatOdometerInput,
+  formatOdometerValue,
+  parseMoneyCents,
+  parseOdometerKm,
+} from './inputFormatters'
 import { recordFuel, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
@@ -13,13 +20,9 @@ type PendingFuel = {
   deltaKm: number
 }
 
-function toCents(value: string): number {
-  return Math.round(Number(value.trim().replace(',', '.')) * 100)
-}
-
 export default function FuelView({ onBack, onSaved }: FuelViewProps) {
-  const [odometer, setOdometer] = useState('')
-  const [amount, setAmount] = useState('')
+  const [odometerDigits, setOdometerDigits] = useState('')
+  const [amountDigits, setAmountDigits] = useState('')
   const [fullTank, setFullTank] = useState(false)
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,99 +57,103 @@ export default function FuelView({ onBack, onSaved }: FuelViewProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     void save({
-      odometerKm: Number(odometer),
-      amountCents: toCents(amount),
+      odometerKm: parseOdometerKm(odometerDigits),
+      amountCents: parseMoneyCents(amountDigits),
       fullTank,
       fueledAt: new Date().toISOString(),
     })
   }
 
   return (
-    <section
-      aria-labelledby="fuel-title"
-      className="vehicle-panel vehicle-panel--fuel"
-    >
-      <header className="vehicle-panel__header">
-        <span className="vehicle-panel__icon">
-          <Icon name="check" />
-        </span>
+    <section className="vehicle-view" aria-labelledby="fuel-title">
+      <header className="view-header">
+        <button aria-label="Voltar" className="view-back" onClick={onBack} type="button">
+          ←
+        </button>
         <h2 id="fuel-title">Abastecer</h2>
-        <span className="vehicle-panel__state">
-          <span className="lcm-status-dot" data-status="estimated" />
-          Estimativa
-        </span>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
-        <label className="vehicle-toggle">
+        <label>
           Hodômetro
           <input
-            min="0"
-            onChange={(event) => setOdometer(event.target.value)}
+            autoComplete="off"
+            inputMode="numeric"
+            name="odometer"
+            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === 'Backspace') {
+                event.preventDefault()
+                setOdometerDigits((value) => value.slice(0, -1))
+              }
+            }}
+            placeholder="0.0"
             required
-            step="0.1"
-            type="number"
-            value={odometer}
+            type="text"
+            value={formatOdometerInput(odometerDigits)}
           />
         </label>
 
         <label>
           Valor
           <input
-            inputMode="decimal"
-            onChange={(event) => setAmount(event.target.value)}
+            autoComplete="off"
+            inputMode="numeric"
+            name="amount"
+            onChange={(event) => setAmountDigits(digitsOnly(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === 'Backspace') {
+                event.preventDefault()
+                setAmountDigits((value) => value.slice(0, -1))
+              }
+            }}
+            placeholder="R$ 0,00"
             required
             type="text"
-            value={amount}
+            value={formatMoneyInput(amountDigits)}
           />
         </label>
 
-        <label>
+        <label className="vehicle-toggle">
           <input
             checked={fullTank}
             onChange={(event) => setFullTank(event.target.checked)}
             type="checkbox"
           />
-          Completei o tanque
+          <span>Completei o tanque</span>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
         <button className="button-primary" disabled={submitting} type="submit">
-          Salvar
+          Salvar abastecimento
         </button>
       </form>
 
       {pending && (
-        <div className="vehicle-confirmation">
-          <p>Confirmar salto de {pending.deltaKm} km?</p>
+        <div className="vehicle-confirmation" role="status">
+          <p>
+            O novo valor adiciona <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
+          </p>
           <div className="vehicle-confirmation__actions">
-            <button
-              className="button-primary"
-              disabled={submitting}
-              onClick={() => void save(pending.input, true)}
-              type="button"
-            >
-              Confirmar
-            </button>
             <button
               className="button-secondary"
               onClick={() => setPending(null)}
               type="button"
             >
-              Cancelar
+              Corrigir
+            </button>
+            <button
+              className="button-warning"
+              disabled={submitting}
+              onClick={() => void save(pending.input, true)}
+              type="button"
+            >
+              Confirmar mesmo assim
             </button>
           </div>
         </div>
       )}
-
-      <button
-        className="button-secondary vehicle-panel__back"
-        onClick={onBack}
-        type="button"
-      >
-        Voltar
-      </button>
     </section>
   )
 }
