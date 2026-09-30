@@ -73,8 +73,9 @@ export default function HomeView({
           <h2 className="ui-label" id="range-title">Autonomia</h2>
           {ready ? (
             <p className="home__range-value">
+              <span className="home__approx">≈</span>{' '}
               <AnimatedMetric
-                format={(value) => `≈ ${integer.format(value)} km`}
+                format={(value) => `${integer.format(value)} km`}
                 value={dashboard.rangeKm ?? 0}
               />
             </p>
@@ -98,10 +99,13 @@ export default function HomeView({
             {dashboard.remainingLiters === null ? (
               <span className="home__muted-value">Estimativa indisponível</span>
             ) : (
-              <AnimatedMetric
-                format={(value) => `≈ ${decimal.format(value)} L`}
-                value={dashboard.remainingLiters}
-              />
+              <>
+                <span className="home__approx">≈</span>{' '}
+                <AnimatedMetric
+                  format={(value) => `${decimal.format(value)} L`}
+                  value={dashboard.remainingLiters}
+                />
+              </>
             )}
           </p>
 
@@ -187,7 +191,12 @@ export default function HomeView({
           <dd>
             {dashboard.consumptionKmPerLiter === null
               ? 'Calibrando'
-              : `≈ ${decimal.format(dashboard.consumptionKmPerLiter)} km/L`}
+              : (
+                  <>
+                    <span className="home__approx">≈</span>{' '}
+                    {decimal.format(dashboard.consumptionKmPerLiter)} km/L
+                  </>
+                )}
           </dd>
         </div>
         <div>

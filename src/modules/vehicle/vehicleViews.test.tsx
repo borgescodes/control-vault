@@ -485,9 +485,11 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup).toContain('≈ 72 km')
-    expect(markup).toContain('≈ 3 dias')
-    expect(markup).toContain('≈ 2,0 L')
+    const rendered = document.createElement('div')
+    rendered.innerHTML = markup
+    expect(rendered.textContent).toContain('≈ 72 km')
+    expect(rendered.textContent).toContain('≈ 3 dias')
+    expect(rendered.textContent).toContain('≈ 2,0 L')
     expect(markup).toContain('aria-valuenow="67"')
     expect(markup).toContain('R$ 80,00')
     expect(markup).toContain('238 km')
