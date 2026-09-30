@@ -1,3 +1,5 @@
 export const NOMINAL_TANK_CAPACITY_LITERS = 3
 export const RANGE_SAFETY_FACTOR = 0.9
 export const SUSPICIOUS_ODOMETER_DELTA_KM = 500
+export const MAX_ODOMETER_KM = 999_999
+export const MAX_FUEL_AMOUNT_CENTS = 3_000
