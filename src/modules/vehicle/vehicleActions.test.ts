@@ -201,7 +201,7 @@ describe('vehicle actions', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_820,
+        amountCents: 2_888,
         fullTank: false,
         fueledAt: laterAt,
         priceReference,
@@ -467,7 +467,7 @@ describe('vehicle practical limits', () => {
     ).resolves.toEqual({ kind: 'saved' })
   })
 
-  it('accepts the exact dynamic fuel limit', async () => {
+  it('accepts the exact dynamic fuel limit from the maximum retail price', async () => {
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
@@ -480,13 +480,13 @@ describe('vehicle practical limits', () => {
     ).resolves.toEqual({ kind: 'saved' })
   })
 
-  it('rejects a fuel amount one cent above the dynamic limit', async () => {
+  it('rejects one cent above the maximum-retail dynamic limit', async () => {
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_821,
+        amountCents: 2_889,
         fullTank: false,
         fueledAt: laterAt,
       }),
