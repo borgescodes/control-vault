@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { getFuelPriceReference } from '../../infrastructure/fuelPrice/fuelPrice'
+import {
+  getFuelPriceReference,
+  type FuelPriceReference,
+} from '../../infrastructure/fuelPrice/fuelPrice'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import {
   formatMoneyInput,
@@ -40,16 +43,21 @@ export default function FuelView({
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [referencePricePerLiter, setReferencePricePerLiter] = useState<
-    number | null
-  >(null)
+  const [priceReference, setPriceReference] =
+    useState<FuelPriceReference | null>(null)
 
   useEffect(() => {
     let active = true
 
-    void getFuelPriceReference(new Date())
+    const applyRefresh = (reference: FuelPriceReference) => {
+      if (active) setPriceReference(reference)
+    }
+
+    void getFuelPriceReference(new Date(), applyRefresh)
       .then((reference) => {
-        if (active) setReferencePricePerLiter(reference?.precoMedio ?? null)
+        if (active && reference) {
+          setPriceReference((current) => current ?? reference)
+        }
       })
       .catch(() => undefined)
 
@@ -61,9 +69,9 @@ export default function FuelView({
   const odometerKm = parseOdometerKm(odometerDigits)
   const amountCents = parseMoneyCents(amountDigits)
   const maxAmountCents =
-    referencePricePerLiter === null
+    priceReference === null
       ? null
-      : getMaxFuelAmountCents(referencePricePerLiter)
+      : getMaxFuelAmountCents(priceReference.precoMedio)
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =
@@ -108,6 +116,7 @@ export default function FuelView({
       amountCents,
       fullTank,
       fueledAt: new Date().toISOString(),
+      priceReference,
     })
   }
 
@@ -193,10 +202,10 @@ export default function FuelView({
             type="text"
             value={formatMoneyInput(amountDigits)}
           />
-          {referencePricePerLiter !== null && maxAmountCents !== null && (
+          {priceReference !== null && maxAmountCents !== null && (
             <small className="field-hint" id="fuel-amount-hint">
               Preço ref.: R${' '}
-              {referencePricePerLiter.toLocaleString('pt-BR', {
+              {priceReference.precoMedio.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}

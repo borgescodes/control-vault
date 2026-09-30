@@ -15,7 +15,7 @@
 - Product is `Control Vault`; `vehicle` is only the first module.
 - Single personal account only. No public sign-up, profiles, roles, collaboration, or multi-user UX.
 - One vehicle only. No vehicle-registration UI.
-- No maintenance, taxes, financing, insurance, generic expenses, OCR, GPS, AI assistant, fuel-price API, or speculative future modules.
+- No maintenance, taxes, financing, insurance, generic expenses, OCR, GPS, AI assistant, additional fuel-price provider, or speculative future modules. The approved ANP-backed public reference remains optional enrichment and cannot block a local write.
 - Local write succeeds before remote sync is attempted.
 - Manual input must work offline after the app has been loaded.
 - Browser uses only the Supabase publishable/public key. Never expose `service_role` or secret keys.

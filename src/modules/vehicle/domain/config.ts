@@ -6,13 +6,12 @@ export const MAX_ODOMETER_KM = 999_999
 export const MAX_FUEL_INPUT_CENTS = 9_999
 
 export function getMaxFuelAmountCents(referencePricePerLiter: number): number {
-  const rawAmountCents =
-    (NOMINAL_TANK_CAPACITY_LITERS + FUEL_AMOUNT_MARGIN_LITERS) *
-      referencePricePerLiter *
-      100
+  const referencePriceCents = Math.round(
+    Number(`${referencePricePerLiter}e2`),
+  )
 
-  return Math.ceil(
-    rawAmountCents -
-      Number.EPSILON * Math.max(1, Math.abs(rawAmountCents)),
+  return (
+    (NOMINAL_TANK_CAPACITY_LITERS + FUEL_AMOUNT_MARGIN_LITERS) *
+    referencePriceCents
   )
 }

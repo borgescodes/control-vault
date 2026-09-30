@@ -195,6 +195,28 @@ describe('vehicle actions', () => {
     expect(priceStub.getFuelPriceReference).toHaveBeenCalledOnce()
   })
 
+  it('uses the form reference snapshot instead of a newer cache value', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 2_820,
+        fullTank: false,
+        fueledAt: laterAt,
+        priceReference,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        amountCents: 2_820,
+        referencePricePerLiter: 7.05,
+      }),
+    ])
+  })
+
   it('stores null estimation fields when no price reference is available', async () => {
     priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, true, initialAt)

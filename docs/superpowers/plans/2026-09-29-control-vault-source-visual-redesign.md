@@ -6,10 +6,10 @@ This plan supersedes the fixed R$ 30 cap and the earlier source-faithful Credit 
 
 ## Task 1 - Dynamic refuel limit
 
-- Add RED tests for the pure 3 L + 1 L margin formula at R$ 7,00, R$ 7,05 and R$ 8,20 per liter, including upward cent rounding.
-- Reuse the existing weekly fuel-price reference; add no API, cache, persistence or remote service.
+- Add RED tests for the pure 3 L + 1 L margin formula at R$ 7,00, R$ 7,05 and R$ 8,20 per liter, rounding the reference to the displayed BRL cent before multiplication.
+- Reuse the existing weekly fuel-price client/cache; its production API is implemented by the separate approved fuel-price integration plan.
 - Share the smallest pure helper between the refuel form and `recordFuel`.
-- Keep the last valid shifted-cent value when the next digit exceeds a known limit.
+- Keep the last valid shifted-cent value only when the next digit exceeds the structural R$ 99,99 mask limit; the dynamic fuel ceiling controls Save eligibility, not typing.
 - Revalidate the limit in the action before persistence.
 - When `getFuelPriceReference()` returns `null`, apply no dynamic monetary ceiling and preserve offline recording.
 - Verify focused tests, the full suite and the production build; commit the task.

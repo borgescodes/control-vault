@@ -77,12 +77,13 @@ The refuel cap is derived from the same weekly `PA / PARAGOMINAS / GASOLINA COMU
 
 ```text
 maxLiters = nominalTankCapacityLiters + 1 L
-maxAmountCents = ceil(maxLiters * referencePricePerLiter * 100)
+referencePriceCents = roundToDisplayedBrlCent(referencePricePerLiter)
+maxAmountCents = maxLiters * referencePriceCents
 ```
 
 For the current 3 L tank, 4 L is the operational maximum: R$ 7,00/L yields 2800 cents, R$ 7,05/L yields 2820 cents and R$ 8,20/L yields 3280 cents. The formula lives in one pure helper shared by the form and action layer.
 
-When the limit is known, the form keeps the last valid shifted-cent value and communicates the price reference/estimated maximum quietly. The action validates the limit again before persistence. When the current or stale reference is unavailable, no monetary ceiling is invented and an otherwise valid local entry remains recordable offline.
+The money mask has a structural ceiling of R$ 99,99 and never uses the dynamic ceiling as an input limit. When a price reference exists, the field still accepts values through R$ 99,99 while the form disables Save above the dynamic ceiling and communicates the reference/estimated maximum quietly. The action validates against the same reference snapshot that enabled Save before persistence. When the current or stale reference is unavailable, no monetary ceiling is invented and an otherwise valid local entry remains recordable offline.
 
 ### Odometer
 

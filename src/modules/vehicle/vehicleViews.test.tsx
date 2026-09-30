@@ -21,6 +21,17 @@ const storeStub = vi.hoisted(() => ({
 const priceStub = vi.hoisted(() => ({
   getFuelPriceReference: vi.fn(),
 }))
+const priceReference = {
+  uf: 'PA',
+  municipio: 'PARAGOMINAS',
+  produto: 'GASOLINA COMUM',
+  semanaInicio: '2026-09-27',
+  semanaFim: '2026-10-03',
+  precoMedio: 7.05,
+  precoMinimo: 6.79,
+  precoMaximo: 7.22,
+  postosPesquisados: 37,
+}
 
 vi.mock('./vehicleActions', () => actionStub)
 vi.mock('../../infrastructure/local/store', () => storeStub)
@@ -84,17 +95,7 @@ describe('vehicle views', () => {
     storeStub.listFuelEntries.mockReset()
     storeStub.listOdometerReadings.mockReset()
     priceStub.getFuelPriceReference.mockReset()
-    priceStub.getFuelPriceReference.mockResolvedValue({
-      uf: 'PA',
-      municipio: 'PARAGOMINAS',
-      produto: 'GASOLINA COMUM',
-      semanaInicio: '2026-09-27',
-      semanaFim: '2026-10-03',
-      precoMedio: 7.05,
-      precoMinimo: 6.79,
-      precoMaximo: 7.22,
-      postosPesquisados: 37,
-    })
+    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
   })
 
   afterEach(() => {
@@ -224,6 +225,13 @@ describe('vehicle views', () => {
     expect(submit.disabled).toBe(true)
 
     await act(async () => {
+      setInputValue(amount, '4545')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 45,45')
+    expect(submit.disabled).toBe(true)
+
+    await act(async () => {
       setInputValue(amount, '9999')
       await Promise.resolve()
     })
@@ -238,6 +246,121 @@ describe('vehicle views', () => {
 
     await act(async () => root.unmount())
   })
+
+  it('keeps the R$ 99,99 mask and allows saving without a price reference', async () => {
+    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(
+        <FuelView
+          currentOdometerKm={12_000}
+          onBack={() => undefined}
+          onSaved={() => undefined}
+        />,
+      )
+    })
+
+    const amount = container.querySelector(
+      'input[name="amount"]',
+    ) as HTMLInputElement
+    const submit = container.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement
+    const form = container.querySelector('form') as HTMLFormElement
+
+    await act(async () => {
+      setInputValue(amount, '9999')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 99,99')
+    expect(submit.disabled).toBe(false)
+
+    await act(async () => {
+      setInputValue(amount, '99990')
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(amount.value).toBe('R$ 99,99')
+    expect(actionStub.recordFuel).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 9_999 }),
+      false,
+    )
+
+    await act(async () => root.unmount())
+  })
+
+  it.each([
+    {
+      refreshedPrice: 7,
+      amountDigits: '2801',
+      expectedMaximum: 'R$ 28,00',
+      saveDisabled: true,
+    },
+    {
+      refreshedPrice: 7.1,
+      amountDigits: '2821',
+      expectedMaximum: 'R$ 28,40',
+      saveDisabled: false,
+    },
+  ])(
+    'updates the open form after a background refresh to R$ $refreshedPrice/L',
+    async ({
+      refreshedPrice,
+      amountDigits,
+      expectedMaximum,
+      saveDisabled,
+    }) => {
+      let publishRefresh:
+        | ((reference: typeof priceReference) => void)
+        | undefined
+      priceStub.getFuelPriceReference.mockImplementationOnce(
+        async (
+          _now: Date,
+          onRefresh?: (reference: typeof priceReference) => void,
+        ) => {
+          publishRefresh = onRefresh
+          return priceReference
+        },
+      )
+      const container = document.createElement('div')
+      document.body.append(container)
+      const root = createRoot(container)
+
+      await act(async () => {
+        root.render(
+          <FuelView
+            currentOdometerKm={12_000}
+            onBack={() => undefined}
+            onSaved={() => undefined}
+          />,
+        )
+      })
+
+      const amount = container.querySelector(
+        'input[name="amount"]',
+      ) as HTMLInputElement
+      const submit = container.querySelector(
+        'button[type="submit"]',
+      ) as HTMLButtonElement
+
+      await act(async () => {
+        setInputValue(amount, amountDigits)
+        publishRefresh?.({ ...priceReference, precoMedio: refreshedPrice })
+        await Promise.resolve()
+      })
+
+      expect(container.textContent).toContain(expectedMaximum)
+      expect(submit.disabled).toBe(saveDisabled)
+
+      await act(async () => root.unmount())
+    },
+  )
 
   it('enforces the current and technical odometer bounds in the form', async () => {
     const container = document.createElement('div')
