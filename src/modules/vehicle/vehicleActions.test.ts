@@ -410,6 +410,16 @@ describe('vehicle actions', () => {
 
 
 describe('vehicle practical limits', () => {
+  beforeEach(async () => {
+    await resetLocalDatabase()
+    priceStub.getFuelPriceReference.mockReset()
+    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
+  })
+
+  afterAll(async () => {
+    await resetLocalDatabase()
+  })
+
   it('rejects an initial odometer above 999999.0 km', async () => {
     await expect(
       initializeVehicle(999_999.1, false, initialAt),
