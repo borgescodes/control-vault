@@ -966,6 +966,10 @@ input::placeholder {
   }
 
   button {
-    transition-duration: 80ms;
+    transition: color 80ms ease, background-color 80ms ease, opacity 80ms ease;
+  }
+
+  button:active {
+    transform: none;
   }
 }
