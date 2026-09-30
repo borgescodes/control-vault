@@ -135,7 +135,7 @@ describe('vehicle views', () => {
     const root = createRoot(container)
 
     await act(async () => {
-      root.render(<FuelView onBack={() => undefined} onSaved={() => undefined} />)
+      root.render(<FuelView currentOdometerKm={12_000} onBack={() => undefined} onSaved={() => undefined} />)
     })
 
     const odometer = container.querySelector(
@@ -184,6 +184,55 @@ describe('vehicle views', () => {
       false,
     )
 
+    await act(async () => {
+      setInputValue(amount, '3000')
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 30,00')
+
+    await act(async () => {
+      setInputValue(amount, `${amount.value}1`)
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 30,00')
+
+    await act(async () => root.unmount())
+  })
+
+  it('prevents saving an odometer lower than the current reading', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(
+        <OdometerView
+          currentOdometerKm={12_345.6}
+          onBack={() => undefined}
+          onSaved={() => undefined}
+        />,
+      )
+    })
+
+    const input = container.querySelector(
+      'input[name="odometer"]',
+    ) as HTMLInputElement
+    const submit = container.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement
+
+    expect(input.value).toBe('12345.6')
+    expect(submit.disabled).toBe(false)
+
+    await act(async () => {
+      setInputValue(input, '123450')
+      await Promise.resolve()
+    })
+
+    expect(input.value).toBe('12345.0')
+    expect(submit.disabled).toBe(true)
+    expect(container.textContent).toContain('Não pode ser menor que 12345.6 km')
+
     await act(async () => root.unmount())
   })
 
@@ -194,7 +243,7 @@ describe('vehicle views', () => {
 
     await act(async () => {
       root.render(
-        <OdometerView onBack={() => undefined} onSaved={() => undefined} />,
+        <OdometerView currentOdometerKm={1_000} onBack={() => undefined} onSaved={() => undefined} />,
       )
     })
 
@@ -261,7 +310,9 @@ describe('vehicle views', () => {
     expect(markup).toContain('1240.0 km')
     expect(markup).toContain('R$ 25,72')
     expect(markup).toContain('tanque cheio')
-    expect(markup).not.toContain('data-icon=')
+    expect(markup).toContain('data-icon="gauge"')
+    expect(markup).toContain('data-icon="fuel"')
+    expect(markup).not.toContain('—')
   })
 
   it('renders the short history empty state', () => {
@@ -325,7 +376,8 @@ describe('vehicle views', () => {
 
     const nav = container.querySelector('.vehicle-navigation')
     expect(nav?.querySelector('[aria-current="page"]')?.textContent).toBe('Início')
-    expect(nav?.querySelector('[data-icon]')).toBeNull()
+    expect(nav?.querySelector('[data-icon="home"]')).not.toBeNull()
+    expect(nav?.querySelector('[data-icon="history"]')).not.toBeNull()
 
     const historyButton = Array.from(nav?.querySelectorAll('button') ?? []).find(
       (button) => button.textContent === 'Histórico',
@@ -349,8 +401,9 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup).toContain('>—</p>')
+    expect(markup).toContain('Sem estimativa')
     expect(markup).toContain('Complete um tanque para iniciar a estimativa')
+    expect(markup).not.toContain('—')
     expect(markup).not.toContain('Aguardando tanque cheio')
     expect(markup).not.toContain('role="progressbar"')
   })
@@ -364,7 +417,9 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup).toContain('Calibrando consumo')
+    expect(markup).toContain('Calibrando')
+    expect(markup).toContain('A autonomia aparece após um ciclo completo')
+    expect(markup).not.toContain('—')
     expect(markup).not.toContain('data-status=')
   })
 
