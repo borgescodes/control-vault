@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react'
 
-import Icon from '../../shared/ui/Icon'
+import {
+  digitsOnly,
+  formatOdometerInput,
+  formatOdometerValue,
+  parseOdometerKm,
+} from './inputFormatters'
 import { recordOdometer } from './vehicleActions'
 
 type OdometerViewProps = {
@@ -18,7 +23,7 @@ export default function OdometerView({
   onBack,
   onSaved,
 }: OdometerViewProps) {
-  const [odometer, setOdometer] = useState('')
+  const [odometerDigits, setOdometerDigits] = useState('')
   const [pending, setPending] = useState<PendingReading | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -59,77 +64,72 @@ export default function OdometerView({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    void save(Number(odometer), new Date().toISOString())
+    void save(parseOdometerKm(odometerDigits), new Date().toISOString())
   }
 
   return (
-    <section
-      aria-labelledby="odometer-title"
-      className="vehicle-panel vehicle-panel--odometer"
-    >
-      <header className="vehicle-panel__header">
-        <span className="vehicle-panel__icon">
-          <Icon name="refresh" />
-        </span>
+    <section className="vehicle-view" aria-labelledby="odometer-title">
+      <header className="view-header">
+        <button aria-label="Voltar" className="view-back" onClick={onBack} type="button">
+          ←
+        </button>
         <h2 id="odometer-title">Atualizar KM</h2>
-        <span className="vehicle-panel__state">
-          <span className="lcm-status-dot" data-status="live" />
-          Manual
-        </span>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
         <label>
           Hodômetro
           <input
-            min="0"
-            onChange={(event) => setOdometer(event.target.value)}
+            autoComplete="off"
+            inputMode="numeric"
+            name="odometer"
+            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === 'Backspace') {
+                event.preventDefault()
+                setOdometerDigits((value) => value.slice(0, -1))
+              }
+            }}
+            placeholder="0.0"
             required
-            step="0.1"
-            type="number"
-            value={odometer}
+            type="text"
+            value={formatOdometerInput(odometerDigits)}
           />
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
         <button className="button-primary" disabled={submitting} type="submit">
-          Salvar
+          Salvar hodômetro
         </button>
       </form>
 
       {pending && (
-        <div className="vehicle-confirmation">
-          <p>Confirmar salto de {pending.deltaKm} km?</p>
+        <div className="vehicle-confirmation" role="status">
+          <p>
+            O novo valor adiciona <strong>{formatOdometerValue(pending.deltaKm)} km</strong>.
+          </p>
           <div className="vehicle-confirmation__actions">
             <button
-              className="button-primary"
+              className="button-secondary"
+              onClick={() => setPending(null)}
+              type="button"
+            >
+              Corrigir
+            </button>
+            <button
+              className="button-warning"
               disabled={submitting}
               onClick={() =>
                 void save(pending.readingKm, pending.recordedAt, true)
               }
               type="button"
             >
-              Confirmar
-            </button>
-            <button
-              className="button-secondary"
-              onClick={() => setPending(null)}
-              type="button"
-            >
-              Cancelar
+              Confirmar mesmo assim
             </button>
           </div>
         </div>
       )}
-
-      <button
-        className="button-secondary vehicle-panel__back"
-        onClick={onBack}
-        type="button"
-      >
-        Voltar
-      </button>
     </section>
   )
 }
