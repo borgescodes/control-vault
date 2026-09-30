@@ -30,7 +30,7 @@ Explicitly rejected:
 - cyan borders around containers;
 - decorative icon repetition.
 
-Icons, when needed, must be basic and scarce. Text and hierarchy should carry most meaning.
+Icons, when needed, must be basic, outline, and scarce. Use them only for back navigation, primary vehicle actions, and the bottom navigation. Text and hierarchy carry the rest of the meaning. Empty Home states use explicit copy such as "Sem estimativa", "Sem leitura", "Sem base", or "Sem dados"; do not use em-dash placeholders.
 
 ## Geometry and layout
 
@@ -73,6 +73,8 @@ Money uses shifted cents. The user types digits only.
 
 The raw digit sequence is the integer-cent value. No decimal separator is required from the user.
 
+For the current 3 L motorcycle, the refuel amount is intentionally capped at R$ 30,00. Extra input that would exceed 3000 cents is ignored in the form and rejected again by the action layer.
+
 ### Odometer
 
 Odometer uses one implicit decimal place.
@@ -82,6 +84,8 @@ Odometer uses one implicit decimal place.
 - `124830` -> `12483.0`
 
 The user types digits only. Storage remains numeric kilometers.
+
+The current vehicle odometer is the lower bound for updates and refuels. Entry views open with the current odometer, disable save while the typed value is lower, and the action layer still rejects regressions atomically. The current dashboard model caps odometer input at 999999.0 km.
 
 ## Derived metrics
 
@@ -126,6 +130,8 @@ Do not change:
 - integer cents;
 - fuel-price fallback;
 - domain calibration rules.
+
+Development over a phone on the same LAN may run over plain HTTP. ID creation must therefore use `crypto.randomUUID()` when available and an RFC 4122 v4 fallback backed by `crypto.getRandomValues()` when `randomUUID` is unavailable in that context.
 
 No new UI framework, router, state manager, icon dependency, chart dependency, or component library.
 
