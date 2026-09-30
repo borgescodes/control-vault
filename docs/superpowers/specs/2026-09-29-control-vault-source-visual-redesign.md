@@ -1,226 +1,142 @@
-# Control Vault - Source-faithful Visual Redesign
+# Control Vault Mobile UX Redesign
 
-Date: 2026-09-29
-Status: Approved by explicit user brief
-Branch: `codex/foundation-task-1`
+**Status:** approved correction to the previous source-faithful redesign.
 
-## 1. Purpose
+## Product direction
 
-Port the real extension design system from `C:\Users\pedro.borges\vault\lovable-credit-monitor` into the existing Control Vault React application without changing product behavior, local-first persistence, authentication, synchronization or provider schema.
+Control Vault is a personal, local-first vehicle instrument for one owner and one vehicle. The interface must optimize two repeated actions: update odometer and record a refuel. Remote sync remains silent infrastructure.
 
-This is a source-to-source port. It is not an Alethe interpretation, a generic dark dashboard or a new design direction.
+The visual north star is a dark-fantasy / sci-fi operating surface: near-black atmosphere, precise telemetry, restrained cyan signals, sparse text, and strong numeric hierarchy. It is mobile-first and must feel native to a narrow phone viewport before desktop adaptation.
 
-## 2. Source authority
+## Credit Monitor relationship
 
-Reference commit:
+`lovable-credit-monitor` is no longer a layout or branding template.
 
-`05f9af1ea225ad69ae1b5fe0c2914870fd39b402`
+Approved elements to retain:
 
-Required source files and audited SHA-256 fingerprints:
+- the exact monospace font stack;
+- near-black / cyan / blue / muted-gray palette family;
+- tabular numeric treatment;
+- short opacity + translate + scale entry motion;
+- 880ms cubic metric/progress motion where it serves telemetry;
+- reduced-motion behavior.
 
-| Source | SHA-256 | Authority |
-| --- | --- | --- |
-| `DESIGN.md` | `2C86171F40FD4A7F5B715E8C2525B78969A7B37FBDF40A09F48468A1056DAC67` | Named visual rules and palette context |
-| `src/panel.css` | `1DEE225D143B3881541184ABE65DB7EB14B60C8FE36AA8D97309CF684C3C1589` | Runtime tokens, density, typography, states and motion |
-| `src/icons.js` | `572F5F92C6A5E5A4FAAA3B5C803BE3859AA362DBE0A2F971E52C9019ED130A34` | Exact SVG paths |
-| `src/content.js` | `4FD244E846293B17FEA0468E5CA2F5D1FDB8516701213FD6361ECD5E05AB42A6` | Runtime composition and animation helpers |
-| `src/brand.js` | `6845D28AC77F82D70CE88082FEE774197C1099F3FBFA3779B2D88CB05F793143` | Exact brand SVG paths and `0 0 750 600` viewBox |
-| `EXTENSION_README.md` | `E467E41C9BE0997D50F3D06D03A83CCF227806D9738A2E83AC2DB7763A0E8CFD` | Interaction and motion behavior |
+Explicitly rejected:
 
-The reference repository is read-only. No redesign code, commits or generated artifacts belong there.
+- Credit Monitor logo/BrandMark;
+- copied extension icon catalog as a visual requirement;
+- panel-inside-panel composition;
+- status badges on ordinary screens;
+- cyan borders around containers;
+- decorative icon repetition.
 
-## 3. Product behavior boundary
+Icons, when needed, must be basic and scarce. Text and hierarchy should carry most meaning.
 
-The redesign preserves:
+## Geometry and layout
 
-- the current React component flows;
-- all vehicle v2 calculations and display semantics;
-- IndexedDB schemas and migration behavior;
-- immutable fuel-price snapshots;
-- Supabase Auth and sync mappings;
-- offline writes and pending records;
-- existing Portuguese copy unless a structural label is required;
-- the lack of a router or state-management library.
+- Mobile first at 320px, 390px and 430px.
+- No rounded rectangular surfaces.
+- No outer application frame.
+- No decorative border around cards/sections.
+- Use whitespace, luminance, typography, and position for grouping.
+- Functional lines are allowed only where they communicate state, such as the fuel progress track or input underline.
+- Desktop remains a compact personal instrument, not a wide corporate dashboard.
 
-The redesign must not:
+## Home
 
-- modify Supabase schema or RLS;
-- create migrations;
-- add provider work;
-- introduce a second theme/palette selector;
-- add new product modules or navigation destinations;
-- modify `.env` or commit credentials.
+Home must expose, in this order:
 
-## 4. Exact runtime tokens
+1. autonomy in kilometers;
+2. approximate autonomy in days when recent pace is sufficient;
+3. approximate remaining liters and fuel percentage;
+4. current-month gasoline spend;
+5. distance driven this month;
+6. refuel count and average refuel amount;
+7. learned consumption;
+8. current odometer;
+9. quick actions for odometer and refuel.
 
-The dark extension runtime in `src/panel.css` is the primary token source:
+When autonomy is unavailable, the numeric hero is `—`. Calibration/anchor guidance is supporting copy, never the hero value.
 
-```css
---lcm-bg: rgba(10, 15, 23, 0.96);
---lcm-bg-2: #101927;
---lcm-card: rgba(21, 31, 45, 0.82);
---lcm-overlay: rgba(255, 255, 255, 0.045);
---lcm-overlay-hover: rgba(255, 255, 255, 0.075);
---lcm-fg: #f7faff;
---lcm-muted: #9dacc0;
---lcm-faint: #6f7f94;
---lcm-border: #2b3b51;
---lcm-track: #1c2a3c;
---lcm-accent: #27ceff;
---lcm-accent-2: #4773ff;
---lcm-progress-end: #91ebff;
---lcm-progress-gradient: linear-gradient(90deg, #4773ff 0%, #27ceff 62%, #91ebff 100%);
---lcm-primary-bg: #22c8ff;
---lcm-primary-fg: #051219;
---lcm-focus: #72e7ff;
---lcm-shadow: rgba(0, 0, 0, 0.45);
---lcm-success: #38d996;
---lcm-warning: #f5b95d;
-```
+## Input behavior
 
-The application canvas uses the documented instrument black `#06090d`; runtime surfaces use the values above. Cyan remains scarce: active telemetry, progress, selection, focus and primary actions. Green is only healthy confirmation. Warning amber indicates estimated/stale attention. Faint blue-gray indicates unavailable state.
+### Money
 
-## 5. Typography and numbers
+Money uses shifted cents. The user types digits only.
 
-The principal Control Vault stack is copied exactly from `src/panel.css`:
+- `2` -> `R$ 0,02`
+- `25` -> `R$ 0,25`
+- `257` -> `R$ 2,57`
+- `2570` -> `R$ 25,70`
+- backspace -> `R$ 2,57`
+- then `2` -> `R$ 25,72`
 
-```css
-font-family:
-  "SFMono-Regular",
-  "Cascadia Code",
-  "Roboto Mono",
-  Menlo,
-  Monaco,
-  Consolas,
-  "Liberation Mono",
-  monospace;
-```
+The raw digit sequence is the integer-cent value. No decimal separator is required from the user.
 
-All measurement, financial and status numerals use `font-variant-numeric: tabular-nums`. The port preserves the extension's compact weights and tracking, including strong readings at weights `780–840` and negative tracking down to `-0.075em` where copied from the main metric.
+### Odometer
 
-## 6. Shape exception
+Odometer uses one implicit decimal place.
 
-Every rectangular Control Vault surface uses:
+- `1` -> `0.1`
+- `12` -> `1.2`
+- `124830` -> `12483.0`
 
-```css
-border-radius: 0;
-```
+The user types digits only. Storage remains numeric kilometers.
 
-This applies to buttons, inputs, cards, panels, navigation, action rows, confirmations and metric containers. Circular status dots, progress endpoints, check indicators and other semantically circular geometry remain circular.
+## Derived metrics
 
-No extension radius may leak into rectangular Control Vault UI.
+No schema change is allowed.
 
-## 7. Iconography and brand geometry
+Dashboard selectors derive:
 
-SVGs are copied as React-rendered inline SVG with the original `viewBox`, path `d`, fill rules and clip rules. Do not substitute an icon library or redraw a matching glyph.
+- `remainingLiters`;
+- `monthFuelEntryCount`;
+- `monthAverageRefuelCents`;
+- `monthDistanceKm` plus complete/partial/unavailable state;
+- recent daily distance over the latest 30-day window with at least seven days between oldest/newest reading;
+- `rangeDays` from conservative displayed range divided by recent daily pace.
 
-Planned source icons:
+The existing range safety factor applies to displayed range and range-days only, never to remaining liters or learned consumption.
 
-- `bxs-refresh-cw-dot`: synchronization/loading semantics;
-- `bxs-layer`: primary/home module navigation;
-- `bxs-check-circle`: calibrated/full/confirmed state;
-- `bxs-time-five`: history and time semantics;
-- `bxs-cog`: setup/configuration context when needed.
+## History
 
-The Control Vault brand mark reuses the three exact paths from `src/brand.js` with viewBox `0 0 750 600`. Only surrounding product text changes.
+History groups records by local day.
 
-## 8. Density and composition
+Fuel-generated odometer readings are not rendered as separate events because the corresponding fuel entry already carries its odometer. Manual readings remain visible.
 
-Adaptation is structural only:
+Fuel event priority:
 
-- retain the extension's compact 8–15px internal spacing and fine 1px evidence lines;
-- present the app as one centered instrument surface rather than a set of generic cards;
-- use one main telemetry area for autonomy and fuel progress;
-- use divided evidence rows for consumption, odometer and monthly spend;
-- keep primary actions at a minimum 44px target;
-- style login, setup, odometer, fuel and history as members of the same instrument system;
-- avoid helper paragraphs, decorative cards, generic dashboard charts, gradients unrelated to the copied progress treatment and automotive decoration.
+1. amount paid;
+2. odometer;
+3. estimated liters when available;
+4. full-tank state when applicable;
+5. time.
 
-Mobile may stack rows or reduce outer gutters. Desktop may center and bound the instrument. Those are layout adaptations, not new aesthetics.
+No edit/delete actions are introduced.
 
-## 9. Motion contract
+## Architecture constraints
 
-Copy these timing constants from `src/content.js`:
+Do not change:
 
-```text
-ENTRY_ANIMATION_MS = 720
-COUNT_UP_MS = 880
-```
+- IndexedDB operational authority;
+- Supabase schema or migrations;
+- RLS;
+- pending sync;
+- sync/hydration behavior;
+- integer cents;
+- fuel-price fallback;
+- domain calibration rules.
 
-Metric count-up uses `requestAnimationFrame` and the exact easing:
+No new UI framework, router, state manager, icon dependency, chart dependency, or component library.
 
-```js
-1 - Math.pow(1 - raw, 3)
-```
+## Acceptance
 
-Fuel progress uses:
-
-```css
-transition: width 880ms cubic-bezier(.16,1,.3,1);
-```
-
-View entry preserves:
-
-```css
-@keyframes lcm-view-in {
-  from { opacity: 0; transform: translateY(7px) scale(.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes lcm-piece-in {
-  from { opacity: 0; transform: translateY(6px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-```
-
-Use the original stagger timings where the same hierarchy exists: `340–400ms cubic-bezier(.16,1,.3,1)` with `20ms`, `70ms`, `120ms`, `170ms` and `220ms` delays. Do not add blur.
-
-## 10. Interaction states
-
-The port preserves:
-
-- icon/control hover: `160ms ease`, brighter text, tinted overlay, 1px inset evidence and `translateY(-1px)`;
-- active press: `scale(.94)` for compact icon controls;
-- primary/large active press: short physical displacement without changing product state;
-- disabled: unavailable cursor/state and reduced opacity;
-- focus: `2px solid var(--lcm-focus)` with `2px` offset;
-- status dots: success/live green, warning/stale amber, syncing cyan and unavailable faint;
-- progress shimmer only on the real progress bar;
-- visible browser selection and caret colors derived from the copied palette.
-
-## 11. Reduced motion
-
-Copy the extension behavior:
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-```
-
-The JavaScript metric helper must also bypass `requestAnimationFrame` count-up and render the final value immediately when reduced motion is active.
-
-## 12. Accessibility and responsive behavior
-
-- Preserve semantic headings, form labels, alerts, `aria-current`, `aria-busy` and native inputs.
-- Icon-only controls require accessible labels.
-- No horizontal overflow at 320px.
-- Main telemetry remains readable without zoom.
-- Primary actions remain reachable as a compact two-column row when width permits and stack only when necessary.
-- Touch targets remain at least 44px except noninteractive status dots.
-
-## 13. Verification
-
-Completion requires:
-
-- unit/component tests for the copied SVG geometry, count-up/reduced-motion behavior and critical view semantics;
-- full `npm test` and `npm run build`;
-- desktop and mobile render inspection;
-- one Impeccable detector pass over changed UI targets;
-- a source-to-source report listing copied tokens, SVGs, keyframes, easing/timing, interaction states, structural adaptations and every source element not reused with its reason.
+- mobile layout reads naturally at 390x844;
+- no Credit Monitor branding remains in the product UI;
+- no decorative container borders;
+- money and odometer masks behave by digit shifting;
+- Home shows the requested operational metrics;
+- history has no fuel/odometer duplication;
+- offline and sync behavior remain unchanged;
+- tests and production build pass;
+- no merge to `main`.
