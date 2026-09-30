@@ -9,6 +9,7 @@ type HistoryViewProps = {
 type HistoryItem = {
   id: string
   at: string
+  kind: 'fuel' | 'odometer'
   label: string
   value: string
   detail: string | null
@@ -58,6 +59,7 @@ export default function HistoryView({
       .map((reading) => ({
         id: `odometer-${reading.id}`,
         at: reading.recordedAt,
+        kind: 'odometer' as const,
         label: 'Hodômetro atualizado',
         value: `${formatOdometerValue(reading.readingKm)} km`,
         detail: null,
@@ -65,6 +67,7 @@ export default function HistoryView({
     ...fuelEntries.map((entry) => ({
       id: `fuel-${entry.id}`,
       at: entry.fueledAt,
+      kind: 'fuel' as const,
       label: 'Abastecimento',
       value: currency.format(entry.amountCents / 100),
       detail: [
@@ -93,7 +96,12 @@ export default function HistoryView({
   }, [])
 
   return (
-    <section className="history" aria-labelledby="history-title">
+    <section
+      aria-labelledby="history-title"
+      className="history"
+      data-view-root="true"
+      tabIndex={-1}
+    >
       <header className="history__header">
         <h2 id="history-title">Histórico</h2>
       </header>
@@ -107,17 +115,19 @@ export default function HistoryView({
               <h3>{group.label}</h3>
               <ul>
                 {group.items.map((item) => (
-                  <li className="history-row" key={item.id}>
+                  <li
+                    className={`history-row history-row--${item.kind}`}
+                    key={item.id}
+                  >
+                    <span aria-hidden="true" className="history-row__marker" />
                     <span className="history-row__content">
-                      <strong>{item.label}</strong>
-                      {item.detail && <span>{item.detail}</span>}
+                      <strong className="history-row__value">{item.value}</strong>
+                      <span className="history-row__label">{item.label}</span>
+                      {item.detail && (
+                        <span className="history-row__detail">{item.detail}</span>
+                      )}
                     </span>
-                    <span className="history-row__side">
-                      <strong>{item.value}</strong>
-                      <time dateTime={item.at}>
-                        {clock.format(new Date(item.at))}
-                      </time>
-                    </span>
+                    <time dateTime={item.at}>{clock.format(new Date(item.at))}</time>
                   </li>
                 ))}
               </ul>

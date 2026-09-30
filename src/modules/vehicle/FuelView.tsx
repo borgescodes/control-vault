@@ -68,6 +68,9 @@ export default function FuelView({
   const amountValid =
     amountCents > 0 &&
     (maxAmountCents === null || amountCents <= maxAmountCents)
+  const odometerInvalid =
+    odometerDigits.length > 0 && odometerKm < currentOdometerKm
+  const amountInvalid = amountDigits.length > 0 && !amountValid
 
   async function save(input: FuelInput, confirmSuspicious = false) {
     setError(null)
@@ -108,7 +111,12 @@ export default function FuelView({
   }
 
   return (
-    <section className="vehicle-view" aria-labelledby="fuel-title">
+    <section
+      aria-labelledby="fuel-title"
+      className="vehicle-view"
+      data-view-root="true"
+      tabIndex={-1}
+    >
       <header className="view-header">
         <button
           aria-label="Voltar"
@@ -119,7 +127,6 @@ export default function FuelView({
           <OutlineIcon name="back" />
         </button>
         <div>
-          <p className="ui-label">Registro rápido</p>
           <h2 id="fuel-title">Abastecer</h2>
         </div>
       </header>
@@ -128,6 +135,8 @@ export default function FuelView({
         <label>
           Hodômetro
           <input
+            aria-describedby="fuel-odometer-hint"
+            aria-invalid={odometerInvalid}
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
@@ -147,7 +156,10 @@ export default function FuelView({
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          <small className={odometerValid ? 'field-hint' : 'field-error'}>
+          <small
+            className={odometerInvalid ? 'field-error' : 'field-hint'}
+            id="fuel-odometer-hint"
+          >
             {odometerValid
               ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
               : `Mínimo: ${formatOdometerValue(currentOdometerKm)} km`}
@@ -157,6 +169,10 @@ export default function FuelView({
         <label>
           Valor
           <input
+            aria-describedby={
+              maxAmountCents === null ? undefined : 'fuel-amount-hint'
+            }
+            aria-invalid={amountInvalid}
             autoComplete="off"
             inputMode="numeric"
             name="amount"
@@ -177,7 +193,7 @@ export default function FuelView({
             value={formatMoneyInput(amountDigits)}
           />
           {referencePricePerLiter !== null && maxAmountCents !== null && (
-            <small className="field-hint">
+            <small className="field-hint" id="fuel-amount-hint">
               Preço ref.: R${' '}
               {referencePricePerLiter.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
@@ -201,12 +217,13 @@ export default function FuelView({
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
         <button
-          className="button-primary button-with-icon"
+          aria-busy={submitting}
+          className="button-primary button-with-icon vehicle-form__submit"
           disabled={submitting || !odometerValid || !amountValid}
           type="submit"
         >
           <OutlineIcon name="fuel" />
-          Salvar abastecimento
+          {submitting ? 'Salvando…' : 'Salvar abastecimento'}
         </button>
       </form>
 

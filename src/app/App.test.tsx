@@ -30,6 +30,7 @@ async function waitForText(container: HTMLElement, text: string) {
 
 const authStub = vi.hoisted(() => ({
   getCachedSession: vi.fn(),
+  signIn: vi.fn(),
   signOut: vi.fn(),
   subscribeToAuth: vi.fn(() => () => undefined),
 }))
@@ -62,12 +63,51 @@ describe('App', () => {
     const markup = renderToStaticMarkup(createElement(LoginView))
 
     expect(markup).toContain('class="auth-form"')
+    expect(markup).toContain('aria-labelledby="login-title"')
+    expect(markup).toContain('data-view-root="true"')
     expect(markup).toContain('>Email<')
     expect(markup).toContain('>Senha<')
     expect(markup).toContain('>Entrar<')
     expect(markup).not.toContain('Cadastrar')
     expect(markup).not.toContain('Redefinir')
     expect(markup).not.toContain('Google')
+  })
+
+  it('announces login progress on the submit action', async () => {
+    let finishSignIn: () => void = () => undefined
+    authStub.signIn.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        finishSignIn = resolve
+      }),
+    )
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<LoginView />))
+    const inputs = container.querySelectorAll('input')
+    const setValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set
+
+    await act(async () => {
+      setValue?.call(inputs[0], 'owner@example.com')
+      inputs[0].dispatchEvent(new Event('input', { bubbles: true }))
+      setValue?.call(inputs[1], 'secret')
+      inputs[1].dispatchEvent(new Event('input', { bubbles: true }))
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    const submit = container.querySelector('button[type="submit"]')
+    expect(submit?.getAttribute('aria-busy')).toBe('true')
+    expect(submit?.textContent).toContain('Entrando')
+
+    await act(async () => finishSignIn())
+    await act(async () => root.unmount())
   })
 
   it('shows hydrated vehicle data without a manual reload', async () => {

@@ -162,6 +162,8 @@ describe('vehicle views', () => {
     ) as HTMLInputElement
     const form = container.querySelector('form') as HTMLFormElement
 
+    expect(amount.getAttribute('aria-describedby')).toBe('fuel-amount-hint')
+
     await act(async () => {
       setInputValue(odometer, '124830')
       setInputValue(amount, '2570')
@@ -237,6 +239,7 @@ describe('vehicle views', () => {
 
     expect(input.value).toBe('12345.6')
     expect(submit.disabled).toBe(false)
+    expect(input.getAttribute('aria-describedby')).toBe('odometer-hint')
 
     await act(async () => {
       setInputValue(input, '123455')
@@ -347,6 +350,8 @@ describe('vehicle views', () => {
     expect(markup).toContain('R$ 25,72')
     expect(markup).toContain('tanque cheio')
     expect(markup).not.toContain('data-icon=')
+    expect(markup).toContain('history-row--fuel')
+    expect(markup).toContain('history-row__value')
   })
 
   it('renders the short history empty state', () => {
@@ -407,6 +412,9 @@ describe('vehicle views', () => {
 
     await act(async () => root.render(<VehicleModule />))
     await waitForSelector(container, '.home')
+    expect(document.activeElement).toBe(
+      container.querySelector('[data-view-root="true"]'),
+    )
 
     const nav = container.querySelector('.vehicle-navigation')
     expect(nav?.querySelector('[aria-current="page"]')?.textContent).toBe('Início')
@@ -488,5 +496,49 @@ describe('vehicle views', () => {
     expect(markup).toContain('data-icon="gauge"')
     expect(markup).toContain('data-icon="fuel"')
     expect(markup).not.toContain('—')
+    expect(markup).toContain('home__instrument')
+    expect(markup).toContain('home__monthly-primary')
+    expect(markup).toContain('home__monthly-secondary')
+    expect(markup).toContain('home__action--primary')
+  })
+
+  it('announces a saved fuel entry after returning home', async () => {
+    storeStub.getVehicleState.mockResolvedValue({
+      nominalTankCapacityLiters: 3,
+      initialOdometerKm: 1_000,
+      initialFullTankAt: null,
+      createdAt: '2026-09-29T10:00:00.000Z',
+      updatedAt: '2026-09-29T10:00:00.000Z',
+    })
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '.home')
+    const fuelButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Abastecer'),
+    )
+
+    await act(async () => fuelButton?.click())
+    await waitForSelector(container, 'input[name="amount"]')
+    const amount = container.querySelector(
+      'input[name="amount"]',
+    ) as HTMLInputElement
+    await act(async () => {
+      setInputValue(amount, '2500')
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+    await waitForSelector(container, '.home')
+
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      'Abastecimento salvo',
+    )
+    await act(async () => root.unmount())
   })
 })

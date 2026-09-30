@@ -28,6 +28,7 @@ export default function VehicleModule() {
   const [readings, setReadings] = useState<LocalOdometerReading[]>([])
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   async function refresh() {
     const [state, nextReadings, nextFuelEntries] = await Promise.all([
@@ -47,9 +48,22 @@ export default function VehicleModule() {
     })
   }, [])
 
-  async function handleSaved() {
+  useEffect(() => {
+    if (!vehicleState) return
+    document
+      .querySelector<HTMLElement>('[data-view-root="true"]')
+      ?.focus()
+  }, [vehicleState, view])
+
+  async function handleSaved(message: string) {
     await refresh()
+    setNotice(message)
     setView('home')
+  }
+
+  function openView(nextView: View) {
+    if (nextView !== 'home') setNotice(null)
+    setView(nextView)
   }
 
   if (vehicleState === undefined) {
@@ -83,8 +97,8 @@ export default function VehicleModule() {
     return (
       <OdometerView
         currentOdometerKm={dashboard.odometerKm}
-        onBack={() => setView('home')}
-        onSaved={handleSaved}
+        onBack={() => openView('home')}
+        onSaved={() => handleSaved('Hodômetro atualizado')}
       />
     )
   }
@@ -93,8 +107,8 @@ export default function VehicleModule() {
     return (
       <FuelView
         currentOdometerKm={dashboard.odometerKm}
-        onBack={() => setView('home')}
-        onSaved={handleSaved}
+        onBack={() => openView('home')}
+        onSaved={() => handleSaved('Abastecimento salvo')}
       />
     )
   }
@@ -103,7 +117,7 @@ export default function VehicleModule() {
     <nav className="vehicle-navigation" aria-label="Navegação principal">
       <button
         aria-current={view === 'home' ? 'page' : undefined}
-        onClick={() => setView('home')}
+        onClick={() => openView('home')}
         type="button"
       >
         <OutlineIcon name="home" />
@@ -111,7 +125,7 @@ export default function VehicleModule() {
       </button>
       <button
         aria-current={view === 'history' ? 'page' : undefined}
-        onClick={() => setView('history')}
+        onClick={() => openView('history')}
         type="button"
       >
         <OutlineIcon name="history" />
@@ -136,8 +150,9 @@ export default function VehicleModule() {
     <>
       <HomeView
         dashboard={dashboard}
-        onFuel={() => setView('fuel')}
-        onOdometer={() => setView('odometer')}
+        notice={notice}
+        onFuel={() => openView('fuel')}
+        onOdometer={() => openView('odometer')}
       />
       {navigation}
     </>

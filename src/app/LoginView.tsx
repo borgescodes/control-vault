@@ -22,8 +22,16 @@ export default function LoginView() {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <h2>Acesso</h2>
+    <form
+      aria-labelledby="login-title"
+      className="auth-form"
+      data-view-root="true"
+      onSubmit={handleSubmit}
+      tabIndex={-1}
+    >
+      <header className="auth-form__header">
+        <h2 id="login-title">Acesso</h2>
+      </header>
 
       <label>
         Email
@@ -51,8 +59,13 @@ export default function LoginView() {
 
       {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
-      <button className="button-primary" disabled={submitting} type="submit">
-        Entrar
+      <button
+        aria-busy={submitting}
+        className="button-primary"
+        disabled={submitting}
+        type="submit"
+      >
+        {submitting ? 'Entrando…' : 'Entrar'}
       </button>
     </form>
   )

@@ -37,6 +37,8 @@ export default function OdometerView({
   const readingKm = parseOdometerKm(odometerDigits)
   const readingValid =
     odometerDigits.length > 0 && readingKm >= currentOdometerKm
+  const readingInvalid =
+    odometerDigits.length > 0 && readingKm < currentOdometerKm
 
   async function save(
     nextReadingKm: number,
@@ -80,7 +82,12 @@ export default function OdometerView({
   }
 
   return (
-    <section className="vehicle-view" aria-labelledby="odometer-title">
+    <section
+      aria-labelledby="odometer-title"
+      className="vehicle-view"
+      data-view-root="true"
+      tabIndex={-1}
+    >
       <header className="view-header">
         <button
           aria-label="Voltar"
@@ -91,7 +98,6 @@ export default function OdometerView({
           <OutlineIcon name="back" />
         </button>
         <div>
-          <p className="ui-label">Leitura manual</p>
           <h2 id="odometer-title">Atualizar KM</h2>
         </div>
       </header>
@@ -100,6 +106,8 @@ export default function OdometerView({
         <label>
           Hodômetro
           <input
+            aria-describedby="odometer-hint"
+            aria-invalid={readingInvalid}
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
@@ -119,7 +127,10 @@ export default function OdometerView({
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          <small className={readingValid ? 'field-hint' : 'field-error'}>
+          <small
+            className={readingInvalid ? 'field-error' : 'field-hint'}
+            id="odometer-hint"
+          >
             {readingValid
               ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
               : `Não pode ser menor que ${formatOdometerValue(currentOdometerKm)} km`}
@@ -129,12 +140,13 @@ export default function OdometerView({
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
         <button
-          className="button-primary button-with-icon"
+          aria-busy={submitting}
+          className="button-primary button-with-icon vehicle-form__submit"
           disabled={submitting || !readingValid}
           type="submit"
         >
           <OutlineIcon name="gauge" />
-          Salvar hodômetro
+          {submitting ? 'Salvando…' : 'Salvar hodômetro'}
         </button>
       </form>
 

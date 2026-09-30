@@ -39,10 +39,14 @@ export default function SetupView({ onComplete }: SetupViewProps) {
   }
 
   return (
-    <section className="vehicle-view" aria-labelledby="setup-title">
+    <section
+      aria-labelledby="setup-title"
+      className="vehicle-view"
+      data-view-root="true"
+      tabIndex={-1}
+    >
       <header className="view-header">
         <div>
-          <p className="ui-label">Primeiro acesso</p>
           <h2 id="setup-title">Configurar veículo</h2>
         </div>
       </header>
@@ -51,6 +55,7 @@ export default function SetupView({ onComplete }: SetupViewProps) {
         <label>
           Hodômetro atual
           <input
+            aria-describedby="setup-odometer-hint"
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
@@ -70,7 +75,9 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          <small className="field-hint">Máximo 999999.0 km</small>
+          <small className="field-hint" id="setup-odometer-hint">
+            Máximo 999999.0 km
+          </small>
         </label>
 
         <label className="vehicle-toggle">
@@ -81,18 +88,19 @@ export default function SetupView({ onComplete }: SetupViewProps) {
           />
           <span>
             Tanque cheio agora
-            <small>Marque apenas se o tanque estiver cheio neste momento.</small>
+            <small>Tanque cheio neste momento.</small>
           </span>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
         <button
-          className="button-primary"
+          aria-busy={submitting}
+          className="button-primary vehicle-form__submit"
           disabled={submitting || !odometerDigits}
           type="submit"
         >
-          Começar
+          {submitting ? 'Salvando…' : 'Começar'}
         </button>
       </form>
     </section>
