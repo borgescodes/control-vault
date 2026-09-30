@@ -300,7 +300,7 @@ describe('vehicle views', () => {
     expect(container.querySelector('.vehicle-confirmation')).not.toBeNull()
     expect(container.textContent).toContain('600.0 km')
     expect(container.textContent).toContain('Corrigir')
-    expect(container.textContent).toContain('Confirmar mesmo assim')
+    expect(container.textContent).toContain('Confirmar')
 
     await act(async () => root.unmount())
   })
@@ -344,7 +344,8 @@ describe('vehicle views', () => {
       />,
     )
 
-    expect(markup.match(/Hodômetro atualizado/g)).toHaveLength(1)
+    expect(markup).not.toContain('Hodômetro atualizado')
+    expect(markup).not.toContain('Abastecimento')
     expect(markup).toContain('1200.0 km')
     expect(markup).toContain('1240.0 km')
     expect(markup).toContain('R$ 25,72')
@@ -460,12 +461,12 @@ describe('vehicle views', () => {
     )
 
     expect(markup).toContain('Calibrando')
-    expect(markup).toContain('A autonomia aparece após um ciclo completo')
+    expect(markup).not.toContain('A autonomia aparece após um ciclo completo')
     expect(markup).not.toContain('—')
     expect(markup).not.toContain('data-status=')
   })
 
-  it('renders ready autonomy with sparse outline action icons', () => {
+  it('renders ready autonomy with requested filled action icons', () => {
     const markup = renderToStaticMarkup(
       <HomeView
         dashboard={dashboard({
