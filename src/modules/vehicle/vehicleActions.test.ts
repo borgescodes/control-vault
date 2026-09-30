@@ -434,20 +434,50 @@ describe('vehicle practical limits', () => {
     })
   })
 
-  it('rejects a fuel amount above R$ 30,00 before price lookup', async () => {
+  it('accepts the exact dynamic fuel limit', async () => {
     await initializeVehicle(1_000, true, initialAt)
-    priceStub.getFuelPriceReference.mockClear()
 
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 3_001,
+        amountCents: 2_820,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+  })
+
+  it('rejects a fuel amount one cent above the dynamic limit', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 2_821,
         fullTank: false,
         fueledAt: laterAt,
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
 
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+    await expect(listFuelEntries()).resolves.toEqual([])
+  })
+
+  it('does not impose a monetary limit when the price reference is unavailable', async () => {
+    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(
+      recordFuel({
+        odometerKm: 1_100,
+        amountCents: 4_000,
+        fullTank: false,
+        fueledAt: laterAt,
+      }),
+    ).resolves.toEqual({ kind: 'saved' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({ amountCents: 4_000, estimatedLiters: null }),
+    ])
   })
 
   it('rejects a fuel odometer above 999999.0 km', async () => {

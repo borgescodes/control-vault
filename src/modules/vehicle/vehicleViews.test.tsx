@@ -18,9 +18,13 @@ const storeStub = vi.hoisted(() => ({
   listFuelEntries: vi.fn(),
   listOdometerReadings: vi.fn(),
 }))
+const priceStub = vi.hoisted(() => ({
+  getFuelPriceReference: vi.fn(),
+}))
 
 vi.mock('./vehicleActions', () => actionStub)
 vi.mock('../../infrastructure/local/store', () => storeStub)
+vi.mock('../../infrastructure/fuelPrice/fuelPrice', () => priceStub)
 
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
@@ -79,6 +83,18 @@ describe('vehicle views', () => {
     storeStub.getVehicleState.mockReset()
     storeStub.listFuelEntries.mockReset()
     storeStub.listOdometerReadings.mockReset()
+    priceStub.getFuelPriceReference.mockReset()
+    priceStub.getFuelPriceReference.mockResolvedValue({
+      uf: 'PA',
+      municipio: 'PARAGOMINAS',
+      produto: 'GASOLINA COMUM',
+      semanaInicio: '2026-09-27',
+      semanaFim: '2026-10-03',
+      precoMedio: 7.05,
+      precoMinimo: 6.79,
+      precoMaximo: 7.22,
+      postosPesquisados: 37,
+    })
   })
 
   afterEach(() => {
@@ -184,17 +200,15 @@ describe('vehicle views', () => {
       false,
     )
 
-    await act(async () => {
-      setInputValue(amount, '3000')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 30,00')
+    expect(container.textContent).toContain('R$ 7,05/L')
+    expect(container.textContent).toContain('R$ 28,20')
 
     await act(async () => {
-      setInputValue(amount, `${amount.value}1`)
+      setInputValue(amount, '2820')
+      setInputValue(amount, '28201')
       await Promise.resolve()
     })
-    expect(amount.value).toBe('R$ 30,00')
+    expect(amount.value).toBe('R$ 28,20')
 
     await act(async () => root.unmount())
   })

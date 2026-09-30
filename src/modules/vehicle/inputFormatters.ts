@@ -1,7 +1,4 @@
-import {
-  MAX_FUEL_AMOUNT_CENTS,
-  MAX_ODOMETER_KM,
-} from './domain/config'
+import { MAX_ODOMETER_KM } from './domain/config'
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -14,9 +11,15 @@ export function digitsOnly(value: string): string {
   return value.replace(/\D/g, '')
 }
 
-export function limitMoneyDigits(current: string, nextValue: string): string {
+export function limitMoneyDigits(
+  current: string,
+  nextValue: string,
+  maxAmountCents: number | null,
+): string {
   const digits = digitsOnly(nextValue)
-  return Number(digits || 0) <= MAX_FUEL_AMOUNT_CENTS ? digits : current
+  return maxAmountCents === null || Number(digits || 0) <= maxAmountCents
+    ? digits
+    : current
 }
 
 export function limitOdometerDigits(current: string, nextValue: string): string {

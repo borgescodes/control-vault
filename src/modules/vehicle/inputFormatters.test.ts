@@ -47,9 +47,14 @@ describe('vehicle input formatters', () => {
 
 
 describe('vehicle input limits', () => {
-  it('keeps fuel input at R$ 30,00 when another digit would exceed the bike limit', () => {
-    expect(limitMoneyDigits('3000', '30001')).toBe('3000')
-    expect(limitMoneyDigits('2572', '3000')).toBe('3000')
+  it('keeps the last valid fuel amount when the dynamic limit would be exceeded', () => {
+    expect(limitMoneyDigits('2819', '2820', 2_820)).toBe('2820')
+    expect(limitMoneyDigits('2820', '28201', 2_820)).toBe('2820')
+    expect(limitMoneyDigits('2820', '2821', 2_820)).toBe('2820')
+  })
+
+  it('does not impose a monetary limit without a price reference', () => {
+    expect(limitMoneyDigits('2820', '3280', null)).toBe('3280')
   })
 
   it('keeps odometer input at 999999.0 km or below', () => {

@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
+import { getFuelPriceReference } from '../../infrastructure/fuelPrice/fuelPrice'
 import OutlineIcon from '../../shared/ui/OutlineIcon'
 import {
   formatMoneyInput,
@@ -11,7 +12,7 @@ import {
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
-import { MAX_FUEL_AMOUNT_CENTS } from './domain/config'
+import { getMaxFuelAmountCents } from './domain/config'
 import { recordFuel, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
@@ -38,13 +39,35 @@ export default function FuelView({
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [referencePricePerLiter, setReferencePricePerLiter] = useState<
+    number | null
+  >(null)
+
+  useEffect(() => {
+    let active = true
+
+    void getFuelPriceReference(new Date())
+      .then((reference) => {
+        if (active) setReferencePricePerLiter(reference?.precoMedio ?? null)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const odometerKm = parseOdometerKm(odometerDigits)
   const amountCents = parseMoneyCents(amountDigits)
+  const maxAmountCents =
+    referencePricePerLiter === null
+      ? null
+      : getMaxFuelAmountCents(referencePricePerLiter)
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =
-    amountCents > 0 && amountCents <= MAX_FUEL_AMOUNT_CENTS
+    amountCents > 0 &&
+    (maxAmountCents === null || amountCents <= maxAmountCents)
 
   async function save(input: FuelInput, confirmSuspicious = false) {
     setError(null)
@@ -139,7 +162,7 @@ export default function FuelView({
             name="amount"
             onChange={(event) =>
               setAmountDigits((current) =>
-                limitMoneyDigits(current, event.target.value),
+                limitMoneyDigits(current, event.target.value, maxAmountCents),
               )
             }
             onKeyDown={(event) => {
@@ -153,7 +176,17 @@ export default function FuelView({
             type="text"
             value={formatMoneyInput(amountDigits)}
           />
-          <small className="field-hint">Máximo R$ 30,00</small>
+          {referencePricePerLiter !== null && maxAmountCents !== null && (
+            <small className="field-hint">
+              Preço ref.: R${' '}
+              {referencePricePerLiter.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+              /L · máximo{' '}
+              {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
+            </small>
+          )}
         </label>
 
         <label className="vehicle-toggle">

@@ -7,7 +7,7 @@ import {
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
 import {
-  MAX_FUEL_AMOUNT_CENTS,
+  getMaxFuelAmountCents,
   MAX_ODOMETER_KM,
   NOMINAL_TANK_CAPACITY_LITERS,
 } from './domain/config'
@@ -133,8 +133,7 @@ export async function recordFuel(
 
   if (
     !Number.isInteger(input.amountCents) ||
-    input.amountCents <= 0 ||
-    input.amountCents > MAX_FUEL_AMOUNT_CENTS
+    input.amountCents <= 0
   ) {
     return { kind: 'invalid', reason: 'Valor inválido' }
   }
@@ -148,6 +147,13 @@ export async function recordFuel(
     reference = await getFuelPriceReference(new Date(input.fueledAt))
   } catch {
     reference = null
+  }
+
+  if (
+    reference &&
+    input.amountCents > getMaxFuelAmountCents(reference.precoMedio)
+  ) {
+    return { kind: 'invalid', reason: 'Valor inválido' }
   }
 
   const estimatedLiters = reference
