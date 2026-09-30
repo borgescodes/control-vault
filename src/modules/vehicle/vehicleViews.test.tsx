@@ -371,3 +371,43 @@ describe('vehicle v2 views', () => {
     expect(markup).toContain('data-icon="time"')
   })
 })
+
+
+describe('distilled vehicle UX contract', () => {
+  it('does not duplicate fuel-generated odometer readings in history', () => {
+    const markup = renderToStaticMarkup(
+      <HistoryView
+        fuelEntries={[
+          {
+            id: 'fuel-1',
+            odometerKm: 1_200,
+            amountCents: 2_572,
+            estimatedLiters: 2.8,
+            referencePricePerLiter: null,
+            referenceWeekStart: null,
+            referenceWeekEnd: null,
+            fullTank: true,
+            fueledAt: '2026-09-29T12:00:00.000Z',
+            createdAt: '2026-09-29T12:00:00.000Z',
+            updatedAt: '2026-09-29T12:00:00.000Z',
+          },
+        ]}
+        odometerReadings={[
+          {
+            id: 'fuel-reading',
+            readingKm: 1_200,
+            recordedAt: '2026-09-29T12:00:00.000Z',
+            source: 'fuel_entry',
+            createdAt: '2026-09-29T12:00:00.000Z',
+            updatedAt: '2026-09-29T12:00:00.000Z',
+          },
+        ]}
+        onBack={() => undefined}
+      />,
+    )
+
+    expect(markup).not.toContain('Hodômetro atualizado')
+    expect(markup).toContain('1200.0 km')
+    expect(markup).toContain('R$ 25,72')
+  })
+})
