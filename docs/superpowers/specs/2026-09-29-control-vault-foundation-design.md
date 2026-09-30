@@ -350,17 +350,15 @@ If the app starts from an unknown fuel state, spending and odometer history may 
 
 ## 14. Visual direction
 
-The approved visual authority is the real extension implementation in:
-
-`C:\Users\pedro.borges\vault\lovable-credit-monitor`
-
-The port is source-to-source, not an Alethe-inspired interpretation. Exact tokens, typography, SVG paths, status grammar, interaction states, motion timings, easing and reduced-motion behavior come from the extension files named in:
+The approved visual authority is the Control Vault mobile UX spec in:
 
 `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`
 
-The one deliberate visual divergence is `border-radius: 0` for every rectangular Control Vault surface. Semantically circular status and measurement elements remain circular.
+The product is a dark-fantasy / sci-fi personal vehicle instrument: near-black, atmospheric, precise and fast to scan. It must not become generic cyberpunk, gamer, fintech, military HUD, hacker terminal or a fake automotive dashboard.
 
-Content and composition adapt to the vehicle domain, but Control Vault must remain visibly in the same product family as Credit Monitor. Do not add a second design system, generic cyberpunk/fintech/automotive styling or aesthetic modernization.
+`C:\Users\pedro.borges\vault\lovable-credit-monitor` is not a layout or branding template. Only its approved mono font stack, numeric treatment, cool neutrals, restrained cyan/blue signal color, short motion, progress motion and reduced-motion behavior may be inherited. Its BrandMark, panel structure, cyan container borders, repeated badges/status dots and filled icon catalog are excluded.
+
+Every rectangular Control Vault surface uses `border-radius: 0`. Semantically circular status and measurement elements may remain circular. Layout hierarchy comes primarily from space, scale, contrast, position, luminosity and typography rather than decorative borders or nested cards.
 
 The visual system belongs to Control Vault, not specifically to the vehicle module.
 

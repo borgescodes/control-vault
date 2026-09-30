@@ -56,7 +56,7 @@ Home must expose, in this order:
 8. current odometer;
 9. quick actions for odometer and refuel.
 
-When autonomy is unavailable, the numeric hero is `—`. Calibration/anchor guidance is supporting copy, never the hero value.
+When autonomy is unavailable, render a compact human state such as `Calibrando` or `Sem estimativa`; never use an em dash as a data placeholder.
 
 ## Input behavior
 
@@ -73,7 +73,16 @@ Money uses shifted cents. The user types digits only.
 
 The raw digit sequence is the integer-cent value. No decimal separator is required from the user.
 
-For the current 3 L motorcycle, the refuel amount is intentionally capped at R$ 30,00. Extra input that would exceed 3000 cents is ignored in the form and rejected again by the action layer.
+The refuel cap is derived from the same weekly `PA / PARAGOMINAS / GASOLINA COMUM` price reference used to estimate liters:
+
+```text
+maxLiters = nominalTankCapacityLiters + 1 L
+maxAmountCents = ceil(maxLiters * referencePricePerLiter * 100)
+```
+
+For the current 3 L tank, 4 L is the operational maximum: R$ 7,00/L yields 2800 cents, R$ 7,05/L yields 2820 cents and R$ 8,20/L yields 3280 cents. The formula lives in one pure helper shared by the form and action layer.
+
+When the limit is known, the form keeps the last valid shifted-cent value and communicates the price reference/estimated maximum quietly. The action validates the limit again before persistence. When the current or stale reference is unavailable, no monetary ceiling is invented and an otherwise valid local entry remains recordable offline.
 
 ### Odometer
 
@@ -135,12 +144,26 @@ Development over a phone on the same LAN may run over plain HTTP. ID creation mu
 
 No new UI framework, router, state manager, icon dependency, chart dependency, or component library.
 
+## Operate interaction contract
+
+- Primary viewport: 390x844; also support 320px, 430x932 and 1440x1000.
+- `Abastecer` is primary and `Atualizar KM` is secondary; they must not look identical or sit inside cards.
+- Phone actions remain thumb-reachable, touch targets are at least 44px and safe areas are respected.
+- Fuel and odometer forms are compact mobile operations, not reduced desktop forms.
+- Full-tank remains a semantic checkbox with a custom straight-edged, accessible, touch-friendly presentation.
+- History reads as a date-grouped editorial log, not a list of cards, and never duplicates fuel-generated odometer readings.
+- Login shares the same atmosphere without a central SaaS box or Credit Monitor branding.
+- Motion conveys value/state changes, responds immediately to touch and obeys `prefers-reduced-motion`.
+
 ## Acceptance
 
 - mobile layout reads naturally at 390x844;
+- 320px and 430x932 phone layouts and 1440x1000 desktop remain free of horizontal overflow or clipped controls;
 - no Credit Monitor branding remains in the product UI;
 - no decorative container borders;
+- no em-dash data placeholders or rounded rectangular surfaces;
 - money and odometer masks behave by digit shifting;
+- the fuel cap is price-derived when a reference exists and absent when it does not;
 - Home shows the requested operational metrics;
 - history has no fuel/odometer duplication;
 - offline and sync behavior remain unchanged;

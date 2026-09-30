@@ -1,61 +1,56 @@
-# Control Vault Mobile UX Correction Plan
+# Control Vault Operate Redesign Correction Plan
 
 **Spec:** `docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`
 
-This plan supersedes the earlier literal Credit Monitor port. Ponytail full applies: remove before adding, use native browser/CSS behavior, and add no dependency.
+This plan supersedes the fixed R$ 30 cap and the earlier source-faithful Credit Monitor layout. Execute in order with Superpowers, TDD, Ponytail `full` and Impeccable. Do not change Supabase, migrations, RLS, local-first persistence or synchronization.
 
-## Task 1 - Practical inputs and derived metrics
+## Task 1 - Dynamic refuel limit
 
-- Add pure digit-based formatters for shifted-cent money and implicit-decimal odometer.
-- Cap fuel input at 3000 cents and odometer at 999999.0 km.
-- Prefill update/refuel odometer from current state and disable regressive submissions.
-- Add selector-derived remaining liters, month spend context, month distance, recent pace, and range days.
-- Cover with focused tests.
-- No persistence/schema change.
+- Add RED tests for the pure 3 L + 1 L margin formula at R$ 7,00, R$ 7,05 and R$ 8,20 per liter, including upward cent rounding.
+- Reuse the existing weekly fuel-price reference; add no API, cache, persistence or remote service.
+- Share the smallest pure helper between the refuel form and `recordFuel`.
+- Keep the last valid shifted-cent value when the next digit exceeds a known limit.
+- Revalidate the limit in the action before persistence.
+- When `getFuelPriceReference()` returns `null`, apply no dynamic monetary ceiling and preserve offline recording.
+- Verify focused tests, the full suite and the production build; commit the task.
 
-## Task 2 - Distill shell and Home
+## Task 2 - Odometer and UUID regression hardening
 
-- Remove Credit Monitor BrandMark and module/status chrome.
-- Use sparse basic outline icons only for back, quick actions and bottom navigation.
-- Replace Home em-dash placeholders with explicit state copy.
-- Remove outer frame and decorative container borders.
-- Build Home as one continuous mobile surface.
-- Keep typography, palette, tabular numbers, and restrained motion from the approved Credit Monitor subset.
-- Put fuel, month spend, month distance, consumption and odometer in clear numeric hierarchy.
+- Add or adjust RED tests for current 12345.6 with 12345.5 rejected in the UI, 12345.6 and 12345.7 accepted, 999999.0 accepted and 999999.1 rejected.
+- Keep the current odometer prefilled and prevent a regressive save in the UI while retaining atomic action/store validation.
+- Reproduce missing `crypto.randomUUID` and verify the UUID v4 fallback uses `crypto.getRandomValues`, never `Math.random` or a dependency.
+- Verify fuel and odometer record creation share the fallback path; commit the task.
 
-## Task 3 - Entry flows and history
+## Task 3 - Impeccable audit and visual contract
 
-- Apply digit masks to setup, odometer and fuel forms.
-- Replace full-width Back buttons with a compact back affordance.
-- Format suspicious odometer confirmation.
-- Consolidate fuel + generated odometer into one history event.
-- Group history by local day.
-- Keep icons absent unless a basic icon materially improves comprehension.
+- Inspect the running Home, fuel, odometer, history and login surfaces at representative phone and desktop sizes.
+- Critique hierarchy, density, thumb reach, affordance, legibility, element excess or absence and mobile adaptation in `Operate` mode.
+- Record the replacement visual world in `DESIGN.md`: dark fantasy + sci-fi + personal vehicle instrument, near-black depth, restrained technical cyan, sparse outline icons, straight geometry and purposeful motion.
+- Treat the incumbent UI as evidence and anti-reference, not as layout authority; commit the audit/design contract.
 
-## Task 4 - Mobile LAN compatibility
+## Task 4 - Complete interface redesign
 
-- Route generated IDs through a shared UUID helper.
-- Prefer `crypto.randomUUID()`; fall back to `crypto.getRandomValues()` for HTTP LAN testing.
-- Cover the fallback with a focused unit test.
+- Rebuild Home around autonomy as the hero, physical fuel presence and an editorial monthly telemetry block without eight cards.
+- Make `Abastecer` primary and `Atualizar KM` secondary with thumb-friendly, non-identical actions.
+- Redesign fuel and odometer forms for fast one-handed use, including a discreet dynamic-limit hint and accessible full-tank checkbox.
+- Redesign history as a local-date-grouped evidence log with no per-row icons or duplicated fuel odometer event.
+- Redesign login in the same atmosphere without a central SaaS box or Credit Monitor branding.
+- Use only sparse inline outline SVGs already present or minimally extended; add no UI, icon or motion dependency.
+- Preserve short motion, 880ms progress motion, count-up where useful and reduced-motion behavior.
+- Verify focused UI tests, full suite and build; commit the task.
 
-## Task 5 - Verification
+## Task 5 - Bounded visual verification and fixes
 
-Run:
+- Run one batched inspection at 390x844 for Home calibrating, Home ready, fuel, odometer, history and login, plus 430x932 and 1440x1000 representative views and a 320px overflow check.
+- Check safe areas, touch targets, keyboard-safe CTA placement, first-viewport density, outline-icon consistency, no outer frame, no Credit Monitor logo, no em-dash placeholder and no rounded rectangle.
+- Run the Impeccable detector once over changed UI targets.
+- Fix all verified problems in one batch and perform at most one confirmation pass.
+- Commit the visual fixes.
 
-```bash
-npm test
-npm run build
-git status
-```
+## Task 6 - Final functional verification
 
-Then inspect at least:
-
-- 390x844 Home;
-- 390x844 Abastecer;
-- 390x844 Atualizar KM;
-- 390x844 Histórico;
-- 1440x1000.
-
-Check money backspace behavior manually, odometer digit shifting, no horizontal overflow, reduced motion, offline save, reconnect sync, and absence of duplicate remote rows.
-
-Do not merge `main`.
+- Run `npm test`, `npm run build` and `git status`.
+- Serve `npx vite --host 0.0.0.0 --port 5176` for LAN verification.
+- Verify login, odometer regression, shifted cents/backspace, dynamic ceiling, full-tank save, UUID fallback, offline local save, reconnect sync and no history or sync duplication where the environment permits.
+- Use Superpowers verification-before-completion and perform one fresh whole-branch review.
+- Do not merge `main`.

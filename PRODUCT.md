@@ -39,10 +39,11 @@ The application treats IndexedDB as the operational store and Supabase as authen
 ## Brand Commitments
 
 - Product name: Control Vault.
-- `C:\Users\pedro.borges\vault\lovable-credit-monitor` is the authorized literal source for the visual system.
-- The extension implementation, especially `DESIGN.md`, `src/panel.css`, `src/icons.js`, `src/content.js`, `src/brand.js` and `EXTENSION_README.md`, is visual authority rather than loose inspiration.
+- Control Vault is a dark-fantasy / sci-fi personal vehicle instrument: atmospheric, precise and fast to operate, never a generic cyberpunk, gamer, fintech or fake automotive dashboard.
+- `C:\Users\pedro.borges\vault\lovable-credit-monitor` is not a layout or branding template. Only its approved numeric typography, mono stack, restrained cool palette, short motion, progress motion and reduced-motion behavior may be inherited.
+- Credit Monitor branding, BrandMark, panel composition, cyan container borders, repeated badges/status dots and filled icon catalog are explicitly excluded.
 - Rectangular Control Vault surfaces deliberately use `border-radius: 0`; semantically circular dots and indicators remain circular.
-- No second design system, automotive branding, fintech-dashboard treatment, generic cyberpunk interpretation or decorative modernization.
+- Hierarchy comes from space, scale, contrast, position, luminosity and typography rather than decorative borders or nested cards.
 
 ## Evidence on Hand
 
