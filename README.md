@@ -1,131 +1,105 @@
 # Control Vault
 
-Control Vault is a personal, modular control application.
-
-The first module focuses on vehicle fuel tracking, odometer history, consumption learning and estimated remaining range. The product itself is intentionally broader than the first module so future personal-control domains can be added without renaming or rebuilding the application.
-
-## Current status
-
-The product architecture and implementation plan are approved.
-
-Application scaffolding, Supabase configuration and Cloudflare deployment have not been implemented yet. The next implementation work should follow the committed plan task-by-task.
+Control Vault is a personal, local-first app. The vehicle module records odometer readings and fuel spending, estimates fuel quantity from a weekly municipal gasoline reference, learns approximate consumption, and estimates remaining range.
 
 ## Vehicle MVP
 
-The first release targets:
+- One vehicle and one personal authenticated account.
+- Setup requires the current odometer; a full tank is optional.
+- Fuel recording requires odometer, amount paid, and whether the tank ended full.
+- Liters are estimated from the weekly average price for `PA / PARAGOMINAS / GASOLINA COMUM`; there is no manual liters field.
+- Fuel spending, approximate consumption, estimated fuel and conservative operational range, and history.
+- IndexedDB is the operational store; Supabase provides authenticated remote continuity.
+- No public sign-up, vehicle registration, maintenance, taxes, insurance, financing, OCR, GPS, or predictive AI.
 
-- one personal authenticated account;
-- one vehicle;
-- odometer readings;
-- fuel entries;
-- fuel spending totals;
-- learned consumption;
-- calibration state;
-- estimated remaining fuel;
-- estimated remaining range;
-- local-first/offline operation;
-- authenticated synchronization with Supabase;
-- installable PWA.
+## Fuel price reference
 
-Not part of this MVP:
+The browser reads a public weekly fuel-price API configured with:
 
-- multiple vehicles;
-- public sign-up or multi-user features;
-- maintenance;
-- taxes;
-- insurance;
-- financing;
-- generic personal expenses;
-- OCR/camera input;
-- GPS;
-- AI assistant.
+```env
+VITE_FUEL_PRICE_API_URL=
+```
 
-## Architecture
+The response is cached locally using the source week interval (`semanaInicio` through `semanaFim`). The cache is disposable browser state and is not synchronized to Supabase.
+
+Each fuel entry stores the exact reference snapshot used for its estimate. If no usable reference is available, the expense and odometer are still saved with unknown estimated liters. A later full-tank entry can re-establish a reliable range anchor.
+
+Range and consumption are approximate. The operational range shown in the UI applies a conservative display margin without modifying learned consumption or the internal nominal fuel ledger.
+
+## Offline-first
 
 ```text
 UI
  ↓
-vehicle domain
- ↓
 IndexedDB
  ↓
-sync queue
+pending sync
  ↓
-Supabase Auth + RLS
- ↓
-Supabase Postgres
+Supabase
 ```
 
-The UI writes locally first. Supabase synchronization is secondary and must not block normal local recording.
+The UI reads and writes IndexedDB. Supabase provides authenticated continuity
+when a connection is available. Odometer and fuel records remain available
+offline, and failed synchronization leaves them pending for the next run.
 
-Target source layout:
+With a cached weekly fuel reference, offline fuel entries can still receive an estimated quantity. Without a cached reference, the local record still succeeds and synchronizes later with null estimation fields.
 
-```text
-src/
-├── app/
-├── modules/
-│   └── vehicle/
-├── shared/
-├── infrastructure/
-└── styles/
+## Stack
+
+React, TypeScript, Vite, IndexedDB (`idb`), Supabase Auth/Postgres, Vitest, and PWA support. Styling uses plain CSS and browser capabilities are preferred over extra dependencies.
+
+## Local development
+
+```bash
+npm ci
+npm run dev
 ```
 
-## Planned stack
-
-- React
-- TypeScript
-- Vite
-- IndexedDB
-- Supabase Auth + Postgres + RLS
-- PWA/service worker
-- Cloudflare hosting
-
-Dependencies should remain minimal. Browser/platform-native capabilities are preferred when they are sufficient.
-
-## Visual direction
-
-The interface is inspired by Alethe's restrained dark visual language:
-
-- deep graphite surfaces;
-- near-monochrome palette;
-- off-white primary text;
-- minimal borders/cards;
-- large numeric metrics;
-- sans-serif body text;
-- monospace metrics;
-- short, subtle motion.
-
-The visual system belongs to Control Vault and should not reference a specific motorcycle model.
-
-Reference: https://github.com/Kc1t/alethe-agents
-
-## Documentation
-
-Approved architecture:
-
-`docs/superpowers/specs/2026-09-29-control-vault-foundation-design.md`
-
-Approved implementation plan:
-
-`docs/superpowers/plans/2026-09-29-control-vault-vehicle-mvp.md`
-
-Agent execution rules:
-
-`AGENTS.md`
-
-## Environment
-
-The browser application will require:
+Copy `.env.example` to `.env.local` and set:
 
 ```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_FUEL_PRICE_API_URL=
 ```
 
-Never commit privileged Supabase keys or provider credentials.
+Only the Supabase publishable key belongs in the browser. Never commit `.env.local` or privileged credentials.
 
-## Implementation
+If the fuel-price API URL is absent or unavailable, fuel recording continues without a price-derived quantity.
 
-Codex should read `AGENTS.md`, the approved spec and the implementation plan before making changes.
+## Tests
 
-The implementation plan defines the task order, tests, provider configuration and verification criteria.
+```bash
+npm test
+npm run build
+```
+
+## Supabase
+
+The existing `control-vault` project provides single-user Auth and Postgres
+continuity. Public application tables have ownership-based RLS. Schema changes
+live in versioned migrations under `supabase/migrations`. The frontend uses no
+privileged key. Follow the required manual account setup and keep public signup
+and anonymous sign-ins disabled as documented in [supabase/README.md](supabase/README.md).
+
+## Cloudflare
+
+Production: https://control-vault.pages.dev
+
+- Production branch: `main`
+- Build command: `npm run build`
+- Output directory: `dist`
+- Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_FUEL_PRICE_API_URL`
+
+## Scope
+
+The MVP supports one personal account and one vehicle. It excludes public
+signup, profiles, roles, collaboration, multiple vehicles, maintenance, taxes,
+financing, insurance, general finance, manual liters entry, configurable fuel market, OCR/camera, GPS and predictive AI.
+
+## Project decisions
+
+- [Foundation spec](docs/superpowers/specs/2026-09-29-control-vault-foundation-design.md)
+- [Vehicle MVP implementation plan](docs/superpowers/plans/2026-09-29-control-vault-vehicle-mvp.md)
+- [Vehicle model v2 spec](docs/superpowers/specs/2026-09-29-control-vault-vehicle-model-v2-design.md)
+- [Vehicle model v2 implementation plan](docs/superpowers/plans/2026-09-29-control-vault-vehicle-model-v2.md)

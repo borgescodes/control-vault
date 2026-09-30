@@ -1,7 +1,7 @@
 # Control Vault - Foundation Design
 
 Date: 2026-09-29
-Status: Proposed for implementation
+Status: Approved
 Repository: borgescodes/control-vault
 
 ## 1. Product intent
@@ -350,22 +350,15 @@ If the app starts from an unknown fuel state, spending and odometer history may 
 
 ## 14. Visual direction
 
-The visual direction is inspired by the Alethe interface, translated to a quieter mobile utility.
+The approved visual authority is the Control Vault mobile UX spec in:
 
-Characteristics:
+`docs/superpowers/specs/2026-09-29-control-vault-source-visual-redesign.md`
 
-- deep graphite background;
-- near-monochrome palette;
-- off-white primary text;
-- restrained borders;
-- minimal cards;
-- numbers as primary visual elements;
-- Inter or equivalent sans for general text;
-- a monospace family for metrics and technical values;
-- short, fluid interactions;
-- no decorative motorcycle-specific identity;
-- no fintech-dashboard aesthetic;
-- no neon/cyberpunk treatment.
+The product is a dark-fantasy / sci-fi personal vehicle instrument: near-black, atmospheric, precise and fast to scan. It must not become generic cyberpunk, gamer, fintech, military HUD, hacker terminal or a fake automotive dashboard.
+
+`C:\Users\pedro.borges\vault\lovable-credit-monitor` is not a layout or branding template. Only its approved mono font stack, numeric treatment, cool neutrals, restrained cyan/blue signal color, short motion, progress motion and reduced-motion behavior may be inherited. Its BrandMark, panel structure, cyan container borders, repeated badges/status dots and filled icon catalog are excluded.
+
+Every rectangular Control Vault surface uses `border-radius: 0`. Semantically circular status and measurement elements may remain circular. Layout hierarchy comes primarily from space, scale, contrast, position, luminosity and typography rather than decorative borders or nested cards.
 
 The visual system belongs to Control Vault, not specifically to the vehicle module.
 
