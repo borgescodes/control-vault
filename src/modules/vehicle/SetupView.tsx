@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 
 import {
-  digitsOnly,
   formatOdometerInput,
+  limitOdometerDigits,
   parseOdometerKm,
 } from './inputFormatters'
 import { initializeVehicle } from './vehicleActions'
@@ -19,6 +19,8 @@ export default function SetupView({ onComplete }: SetupViewProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!odometerDigits) return
+
     setError(null)
     setSubmitting(true)
 
@@ -39,7 +41,10 @@ export default function SetupView({ onComplete }: SetupViewProps) {
   return (
     <section className="vehicle-view" aria-labelledby="setup-title">
       <header className="view-header">
-        <h2 id="setup-title">Configurar veículo</h2>
+        <div>
+          <p className="ui-label">Primeiro acesso</p>
+          <h2 id="setup-title">Configurar veículo</h2>
+        </div>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
@@ -49,7 +54,11 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             autoComplete="off"
             inputMode="numeric"
             name="odometer"
-            onChange={(event) => setOdometerDigits(digitsOnly(event.target.value))}
+            onChange={(event) =>
+              setOdometerDigits((current) =>
+                limitOdometerDigits(current, event.target.value),
+              )
+            }
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
                 event.preventDefault()
@@ -61,6 +70,7 @@ export default function SetupView({ onComplete }: SetupViewProps) {
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
+          <small className="field-hint">Máximo 999999.0 km</small>
         </label>
 
         <label className="vehicle-toggle">
@@ -77,7 +87,11 @@ export default function SetupView({ onComplete }: SetupViewProps) {
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
 
-        <button className="button-primary" disabled={submitting} type="submit">
+        <button
+          className="button-primary"
+          disabled={submitting || !odometerDigits}
+          type="submit"
+        >
           Começar
         </button>
       </form>
