@@ -83,7 +83,7 @@ export default function HomeView({
               <p className="home__tank-percent">
                 <AnimatedMetric
                   format={(value) => `${integer.format(value)}%`}
-                  value={fuelPercent}
+                  value={fuelPercent ?? 0}
                 />
               </p>
               <p className="home__tank-liters">
@@ -98,7 +98,7 @@ export default function HomeView({
             {ready && (
               <div className="home__fuel-readout">
                 <span>≈ {decimal.format(dashboard.remainingLiters ?? 0)} L</span>
-                <span>{integer.format(fuelPercent)}%</span>
+                <span>{integer.format(fuelPercent ?? 0)}%</span>
               </div>
             )}
             <div
