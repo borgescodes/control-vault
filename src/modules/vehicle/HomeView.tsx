@@ -90,18 +90,17 @@ export default function HomeView({
                 {decimal.format(dashboard.remainingLiters ?? 0)} L
               </p>
             </div>
-          ) : (
-            <div
-              aria-label="Calibração em andamento"
-              className="home__calibration-hero"
-            >
-              <span>{completedCalibrationCycles}/3</span>
-            </div>
-          )}
+          ) : null}
         </header>
 
         {hasFuelLevel && (
           <section className="home__fuel" aria-label="Combustível">
+            {ready && (
+              <div className="home__fuel-readout">
+                <span>≈ {decimal.format(dashboard.remainingLiters ?? 0)} L</span>
+                <span>{integer.format(fuelPercent)}%</span>
+              </div>
+            )}
             <div
               aria-label={`Combustível: ${integer.format(fuelPercent)}%`}
               aria-valuemax={100}
