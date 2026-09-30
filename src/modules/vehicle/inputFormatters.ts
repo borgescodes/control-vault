@@ -1,3 +1,8 @@
+import {
+  MAX_FUEL_AMOUNT_CENTS,
+  MAX_ODOMETER_KM,
+} from './domain/config'
+
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -7,6 +12,20 @@ const currency = new Intl.NumberFormat('pt-BR', {
 
 export function digitsOnly(value: string): string {
   return value.replace(/\D/g, '')
+}
+
+export function limitMoneyDigits(current: string, nextValue: string): string {
+  const digits = digitsOnly(nextValue)
+  return Number(digits || 0) <= MAX_FUEL_AMOUNT_CENTS ? digits : current
+}
+
+export function limitOdometerDigits(current: string, nextValue: string): string {
+  const digits = digitsOnly(nextValue)
+  return Number(digits || 0) <= MAX_ODOMETER_KM * 10 ? digits : current
+}
+
+export function odometerDigitsFromKm(value: number): string {
+  return String(Math.round(value * 10))
 }
 
 export function formatMoneyInput(value: string): string {
@@ -30,5 +49,5 @@ export function parseOdometerKm(value: string): number {
 }
 
 export function formatOdometerValue(value: number): string {
-  return Number.isFinite(value) ? value.toFixed(1) : '—'
+  return Number.isFinite(value) ? value.toFixed(1) : 'Indisponível'
 }
