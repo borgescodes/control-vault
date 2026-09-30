@@ -8,6 +8,7 @@ import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
 import {
   getMaxFuelAmountCents,
+  MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
   NOMINAL_TANK_CAPACITY_LITERS,
 } from './domain/config'
@@ -133,7 +134,8 @@ export async function recordFuel(
 
   if (
     !Number.isInteger(input.amountCents) ||
-    input.amountCents <= 0
+    input.amountCents <= 0 ||
+    input.amountCents > MAX_FUEL_INPUT_CENTS
   ) {
     return { kind: 'invalid', reason: 'Valor inválido' }
   }
