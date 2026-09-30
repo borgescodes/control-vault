@@ -33,7 +33,7 @@ export default function SuspiciousOdometerDialog({
             Corrigir
           </button>
           <button
-            className="button-warning"
+            className="button-primary"
             disabled={submitting}
             onClick={onConfirm}
             type="button"
