@@ -1,5 +1,5 @@
 import AnimatedMetric from '../../shared/ui/AnimatedMetric'
-import OutlineIcon from '../../shared/ui/OutlineIcon'
+import VehicleIcon from '../../shared/ui/VehicleIcon'
 import { formatOdometerValue } from './inputFormatters'
 import type { VehicleDashboard } from './selectors'
 
@@ -53,7 +53,7 @@ export default function HomeView({
     dashboard.rangeState === 'awaiting_full_tank'
       ? 'Complete um tanque para iniciar a estimativa'
       : dashboard.rangeState === 'calibrating'
-        ? 'A autonomia aparece após um ciclo completo'
+        ? null
         : rangeDays ?? 'Ritmo recente insuficiente'
 
   const fuelPercent =
@@ -82,7 +82,7 @@ export default function HomeView({
           ) : (
             <p className="home__range-state">{rangeState}</p>
           )}
-          <p className="home__range-note">{rangeNote}</p>
+          {rangeNote && <p className="home__range-note">{rangeNote}</p>}
         </header>
 
         <section className="home__fuel" aria-label="Combustível estimado">
@@ -138,7 +138,7 @@ export default function HomeView({
           onClick={onOdometer}
           type="button"
         >
-          <OutlineIcon name="gauge" />
+          <VehicleIcon name="gauge" />
           Atualizar KM
         </button>
         <button
@@ -146,7 +146,7 @@ export default function HomeView({
           onClick={onFuel}
           type="button"
         >
-          <OutlineIcon name="fuel" />
+          <VehicleIcon name="fuel" />
           Abastecer
         </button>
       </div>
@@ -166,9 +166,6 @@ export default function HomeView({
           <div className="home__monthly-primary">
             <dt>Rodado</dt>
             <dd>{formatMonthDistance(dashboard)}</dd>
-            {dashboard.monthDistanceState === 'partial' && (
-              <small>desde o cadastro</small>
-            )}
           </div>
           <div className="home__monthly-secondary">
             <dt>Abastecimentos</dt>
