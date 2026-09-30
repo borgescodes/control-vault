@@ -161,7 +161,7 @@ export async function recordFuel(
 
   if (
     reference &&
-    input.amountCents > getMaxFuelAmountCents(reference.precoMedio)
+    input.amountCents > getMaxFuelAmountCents(reference.precoMaximo)
   ) {
     return { kind: 'invalid', reason: 'Valor inválido' }
   }
