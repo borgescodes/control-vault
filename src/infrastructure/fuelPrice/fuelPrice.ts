@@ -21,6 +21,18 @@ const CACHE_KEY =
 const RECHECK_AFTER_MS = 12 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 2_000
 
+const BOOTSTRAP_REFERENCE: FuelPriceReference = {
+  uf: 'PA',
+  municipio: 'PARAGOMINAS',
+  produto: 'GASOLINA COMUM',
+  semanaInicio: '2026-09-21',
+  semanaFim: '2026-09-27',
+  precoMedio: 7.053,
+  precoMinimo: 6.79,
+  precoMaximo: 7.22,
+  postosPesquisados: 7,
+}
+
 function localDate(value: Date): string {
   const year = value.getFullYear()
   const month = String(value.getMonth() + 1).padStart(2, '0')
@@ -93,12 +105,17 @@ function nextCheckAt(now: Date): string {
   return new Date(now.getTime() + RECHECK_AFTER_MS).toISOString()
 }
 
-async function fetchReference(): Promise<FuelPriceReference | null> {
+async function fetchReference(
+  timeoutMs: number | null = REQUEST_TIMEOUT_MS,
+): Promise<FuelPriceReference | null> {
   const baseUrl = import.meta.env.VITE_FUEL_PRICE_API_URL?.trim()
   if (!baseUrl) return null
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const controller = timeoutMs === null ? null : new AbortController()
+  const timeout =
+    controller === null
+      ? null
+      : setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const url = new URL('/v1/precos', baseUrl)
@@ -106,7 +123,10 @@ async function fetchReference(): Promise<FuelPriceReference | null> {
     url.searchParams.set('municipio', 'PARAGOMINAS')
     url.searchParams.set('produto', 'GASOLINA COMUM')
 
-    const response = await fetch(url, { signal: controller.signal })
+    const response = await fetch(
+      url,
+      controller ? { signal: controller.signal } : undefined,
+    )
     if (!response.ok) return null
 
     const payload: unknown = await response.json()
@@ -114,7 +134,7 @@ async function fetchReference(): Promise<FuelPriceReference | null> {
   } catch {
     return null
   } finally {
-    clearTimeout(timeout)
+    if (timeout !== null) clearTimeout(timeout)
   }
 }
 
@@ -123,7 +143,7 @@ async function refreshCachedReference(
   now: Date,
   today: string,
 ): Promise<FuelPriceReference | null> {
-  const fresh = await fetchReference()
+  const fresh = await fetchReference(null)
   if (!fresh) return null
 
   if (
@@ -179,7 +199,28 @@ export async function getFuelPriceReference(
 
   const fresh = await fetchReference()
 
-  if (!fresh) return null
+  if (!fresh) {
+    const bootstrapCache: FuelPriceCache = {
+      reference: BOOTSTRAP_REFERENCE,
+      fetchedAt: now.toISOString(),
+      nextCheckAt: nextCheckAt(now),
+    }
+    writeCache(bootstrapCache)
+
+    void fetchReference(null)
+      .then((backgroundFresh) => {
+        if (!backgroundFresh) return
+        writeCache({
+          reference: backgroundFresh,
+          fetchedAt: new Date().toISOString(),
+          nextCheckAt: null,
+        })
+        onRefresh?.(backgroundFresh)
+      })
+      .catch(() => undefined)
+
+    return BOOTSTRAP_REFERENCE
+  }
 
   writeCache({
     reference: fresh,
