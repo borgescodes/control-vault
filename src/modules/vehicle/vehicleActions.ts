@@ -5,7 +5,12 @@ import {
   saveOdometerReadingIfCurrent,
 } from '../../infrastructure/local/store'
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
-import { NOMINAL_TANK_CAPACITY_LITERS } from './domain/config'
+import { createUuid } from '../../shared/uuid'
+import {
+  MAX_FUEL_AMOUNT_CENTS,
+  MAX_ODOMETER_KM,
+  NOMINAL_TANK_CAPACITY_LITERS,
+} from './domain/config'
 import { validateOdometer } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
 
@@ -34,7 +39,11 @@ export async function initializeVehicle(
   initialFullTank: boolean,
   now: string,
 ): Promise<void> {
-  if (!Number.isFinite(initialOdometerKm) || initialOdometerKm < 0) {
+  if (
+    !Number.isFinite(initialOdometerKm) ||
+    initialOdometerKm < 0 ||
+    initialOdometerKm > MAX_ODOMETER_KM
+  ) {
     throw new RangeError('Hodômetro inválido')
   }
 
@@ -50,7 +59,7 @@ export async function initializeVehicle(
     updatedAt: now,
   }
   const reading: OdometerReading = {
-    id: crypto.randomUUID(),
+    id: createUuid(),
     readingKm: initialOdometerKm,
     recordedAt: now,
     source: 'manual',
@@ -67,7 +76,11 @@ export async function recordOdometer(
   recordedAt: string,
   confirmSuspicious = false,
 ): Promise<RecordResult> {
-  if (!Number.isFinite(readingKm) || readingKm < 0) {
+  if (
+    !Number.isFinite(readingKm) ||
+    readingKm < 0 ||
+    readingKm > MAX_ODOMETER_KM
+  ) {
     return { kind: 'invalid', reason: 'Hodômetro inválido' }
   }
 
@@ -76,7 +89,7 @@ export async function recordOdometer(
   }
 
   const reading: OdometerReading = {
-    id: crypto.randomUUID(),
+    id: createUuid(),
     readingKm,
     recordedAt,
     source: 'manual',
@@ -110,11 +123,19 @@ export async function recordFuel(
   input: FuelInput,
   confirmSuspicious = false,
 ): Promise<RecordResult> {
-  if (!Number.isFinite(input.odometerKm) || input.odometerKm < 0) {
+  if (
+    !Number.isFinite(input.odometerKm) ||
+    input.odometerKm < 0 ||
+    input.odometerKm > MAX_ODOMETER_KM
+  ) {
     return { kind: 'invalid', reason: 'Hodômetro inválido' }
   }
 
-  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
+  if (
+    !Number.isInteger(input.amountCents) ||
+    input.amountCents <= 0 ||
+    input.amountCents > MAX_FUEL_AMOUNT_CENTS
+  ) {
     return { kind: 'invalid', reason: 'Valor inválido' }
   }
 
@@ -134,7 +155,7 @@ export async function recordFuel(
     : null
 
   const entry: FuelEntry = {
-    id: crypto.randomUUID(),
+    id: createUuid(),
     odometerKm: input.odometerKm,
     amountCents: input.amountCents,
     estimatedLiters,
@@ -147,7 +168,7 @@ export async function recordFuel(
     updatedAt: input.fueledAt,
   }
   const reading: OdometerReading = {
-    id: crypto.randomUUID(),
+    id: createUuid(),
     readingKm: input.odometerKm,
     recordedAt: input.fueledAt,
     source: 'fuel_entry',
