@@ -211,7 +211,7 @@ describe('vehicle actions', () => {
     expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
-        amountCents: 2_820,
+        amountCents: 2_888,
         referencePricePerLiter: 7.05,
       }),
     ])
@@ -473,7 +473,7 @@ describe('vehicle practical limits', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_820,
+        amountCents: 2_888,
         fullTank: false,
         fueledAt: laterAt,
       }),
