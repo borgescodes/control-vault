@@ -7,7 +7,6 @@ import {
 } from '../infrastructure/auth/session'
 import { runSync } from '../infrastructure/sync/sync'
 import VehicleModule from '../modules/vehicle/VehicleModule'
-import BrandMark from '../shared/ui/BrandMark'
 import LoginView from './LoginView'
 
 export default function App() {
@@ -28,19 +27,13 @@ export default function App() {
 
     void getCachedSession()
       .then((cachedSession) => {
-        if (active) {
-          setSession(cachedSession)
-        }
+        if (active) setSession(cachedSession)
       })
       .catch(() => {
-        if (active) {
-          setSession(null)
-        }
+        if (active) setSession(null)
       })
       .finally(() => {
-        if (active) {
-          setSessionReady(true)
-        }
+        if (active) setSessionReady(true)
       })
 
     return () => {
@@ -64,17 +57,14 @@ export default function App() {
 
     void (async () => {
       try {
-        if (navigator.onLine) {
-          await runSync(session.user.id)
-        }
+        if (navigator.onLine) await runSync(session.user.id)
       } catch {
         // Local data remains authoritative when remote sync is unavailable.
       } finally {
-        if (active) {
-          setVehicleReadyForUser(session.user.id)
-        }
+        if (active) setVehicleReadyForUser(session.user.id)
       }
     })()
+
     window.addEventListener('online', syncWhileOnline)
     return () => {
       active = false
@@ -89,23 +79,11 @@ export default function App() {
 
   return (
     <main className="app">
-      <section className="app__instrument">
+      <section className="app__shell">
         <header className="app__header">
-          <div className="app__brand">
-            <BrandMark />
-            <div className="app__brand-copy">
-              <h1>Control Vault</h1>
-              <span className="app__module">
-                <span
-                  className="lcm-status-dot"
-                  data-status={session ? 'live' : 'unavailable'}
-                />
-                Vehicle
-              </span>
-            </div>
-          </div>
+          <h1>CONTROL VAULT</h1>
           {session && (
-            <button onClick={handleSignOut} type="button">
+            <button className="app__signout" onClick={handleSignOut} type="button">
               Sair
             </button>
           )}
