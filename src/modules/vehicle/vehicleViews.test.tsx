@@ -148,11 +148,26 @@ describe('vehicle views', () => {
 
     await act(async () => {
       setInputValue(odometer, '124830')
-      setInputValue(amount, '2572')
+      setInputValue(amount, '2570')
       await Promise.resolve()
     })
 
     expect(odometer.value).toBe('12483.0')
+    expect(amount.value).toBe('R$ 25,70')
+
+    await act(async () => {
+      amount.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }),
+      )
+      await Promise.resolve()
+    })
+    expect(amount.value).toBe('R$ 2,57')
+
+    await act(async () => {
+      setInputValue(amount, `${amount.value}2`)
+      await Promise.resolve()
+    })
+
     expect(amount.value).toBe('R$ 25,72')
     expect(container.textContent).not.toContain('Litros')
 
