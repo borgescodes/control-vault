@@ -48,19 +48,20 @@ describe('App', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the Control Vault shell', () => {
+  it('renders the distilled Control Vault shell without Credit Monitor branding', () => {
     const markup = renderToStaticMarkup(createElement(App))
 
-    expect(markup).toContain('class="app__instrument"')
+    expect(markup).toContain('class="app__shell"')
     expect(markup).toContain('class="app__header"')
-    expect(markup).toContain('class="lcm-brand-mark')
-    expect(markup).toContain('<h1>Control Vault</h1>')
+    expect(markup).toContain('<h1>CONTROL VAULT</h1>')
+    expect(markup).not.toContain('lcm-brand-mark')
+    expect(markup).not.toContain('Vehicle')
   })
 
-  it('keeps authentication minimal inside the instrument system', () => {
+  it('keeps authentication minimal', () => {
     const markup = renderToStaticMarkup(createElement(LoginView))
 
-    expect(markup).toContain('class="auth-panel')
+    expect(markup).toContain('class="auth-form"')
     expect(markup).toContain('>Email<')
     expect(markup).toContain('>Senha<')
     expect(markup).toContain('>Entrar<')
@@ -109,7 +110,7 @@ describe('App', () => {
     await waitForText(container, 'Autonomia')
 
     expect(container.textContent).toContain('Autonomia')
-    expect(container.textContent).not.toContain('Começar')
+    expect(container.textContent).not.toContain('Configurar veículo')
     await act(async () => root.unmount())
   })
 })
