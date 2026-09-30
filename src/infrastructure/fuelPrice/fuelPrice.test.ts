@@ -179,12 +179,13 @@ describe('weekly fuel price reference', () => {
 
   it('aborts a hanging first request after two seconds', async () => {
     vi.useFakeTimers()
-    let requestSignal: AbortSignal | undefined
+    let firstRequestSignal: AbortSignal | undefined
     const fetchMock = vi.fn(
       (_url: URL | RequestInfo, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          requestSignal = init?.signal ?? undefined
-          requestSignal?.addEventListener('abort', () => {
+          const signal = init?.signal ?? undefined
+          firstRequestSignal ??= signal
+          signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'))
           })
         }),
@@ -203,7 +204,7 @@ describe('weekly fuel price reference', () => {
 
     await vi.advanceTimersByTimeAsync(1)
     await expect(lookup).resolves.toMatchObject({ precoMaximo: 7.22 })
-    expect(requestSignal?.aborted).toBe(true)
+    expect(firstRequestSignal?.aborted).toBe(true)
     vi.useRealTimers()
   })
 
@@ -228,7 +229,7 @@ describe('weekly fuel price reference', () => {
 
     await expect(
       getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toBeNull()
+    ).resolves.toMatchObject({ precoMedio: 7.053, precoMaximo: 7.22 })
   })
 
   it('ignores malformed cache JSON', async () => {
