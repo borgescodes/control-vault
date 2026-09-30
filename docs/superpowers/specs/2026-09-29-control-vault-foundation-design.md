@@ -30,7 +30,7 @@ The vehicle module must provide:
 - offline operation;
 - synchronization with Supabase when connectivity returns.
 
-The UI does not expose vehicle registration, multiple vehicles, users, roles, permissions, maintenance, taxes, financing, insurance, general expense tracking, budgets, AI assistants, regional fuel-price APIs, or image/OCR capture.
+The UI does not expose vehicle registration, multiple vehicles, users, roles, permissions, maintenance, taxes, financing, insurance, general expense tracking, budgets, AI assistants, or image/OCR capture. A public regional fuel-price API may enrich fuel entries, but it is never authoritative for or allowed to block a local write.
 
 Image-based odometer reading remains a future experiment and must not be required by the MVP architecture.
 
@@ -514,7 +514,7 @@ Do not implement now:
 - AI assistant;
 - OCR/camera odometer reading;
 - GPS tracking;
-- regional fuel-price integrations;
+- additional fuel-price providers or browser-side scraping;
 - background location;
 - predictive ML;
 - generalized event sourcing;
