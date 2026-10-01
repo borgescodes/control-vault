@@ -83,6 +83,15 @@ export function navigateTo(view: VehicleView, tripId?: string | null) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
+export function replaceTo(view: VehicleView, tripId?: string | null) {
+  history.replaceState(
+    { ...history.state },
+    '',
+    pathForView(view, tripId),
+  )
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
 export function backToPreviousView() {
   if ((history.state?.controlVaultDepth ?? 0) > 0) {
     history.back()
