@@ -9,6 +9,7 @@ describe('VehicleIcon', () => {
     ['fuel', 'm16.62,3.22'],
     ['home', 'M3 13h1v7'],
     ['history', 'M5 2H4v2'],
+    ['route', 'm17.5,11H6.5'],
   ] as const)('renders the requested filled Boxicon for %s', (name, pathStart) => {
     const markup = renderToStaticMarkup(<VehicleIcon name={name} />)
 

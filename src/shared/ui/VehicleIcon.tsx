@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react'
 
-export type VehicleIconName = 'back' | 'fuel' | 'gauge' | 'history' | 'home'
+export type VehicleIconName = 'back' | 'fuel' | 'gauge' | 'history' | 'home' | 'route'
 
 type VehicleIconProps = Omit<SVGProps<SVGSVGElement>, 'children'> & {
   name: VehicleIconName
@@ -44,6 +44,12 @@ export default function VehicleIcon({
       )}
       {name === 'history' && (
         <path d="M5 2H4v2h1v1c0 2.46 1.32 4.77 3.43 6.02.35.21.57.55.57.9v.16c0 .35-.21.69-.57.9A7.01 7.01 0 0 0 5 19v1H4v2h16v-2h-1v-1c0-2.46-1.32-4.77-3.43-6.02-.36-.21-.57-.55-.57-.9v-.16c0-.35.21-.69.57-.9A7.01 7.01 0 0 0 19 5V4h1V2z" />
+      )}
+      {name === 'route' && (
+        <>
+          <path d="m17.5,11H6.5c-1.38,0-2.5-1.12-2.5-2.5s1.12-2.5,2.5-2.5h3.5v2l4-3-4-3v2h-3.5c-2.48,0-4.5,2.02-4.5,4.5s2.02,4.5,4.5,4.5h11c1.38,0,2.5,1.12,2.5,2.5s-1.12,2.5-2.5,2.5H7.82c-.41-1.16-1.51-2-2.82-2-1.65,0-3,1.35-3,3s1.35,3,3,3c1.3,0,2.4-.84,2.82-2h9.68c2.48,0,4.5-2.02,4.5-4.5s-2.02-4.5-4.5-4.5Z" />
+          <path d="M19 2A3 3 0 1 0 19 8 3 3 0 1 0 19 2z" />
+        </>
       )}
     </svg>
   )
