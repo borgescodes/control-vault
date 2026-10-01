@@ -17,7 +17,7 @@ const storeStub = vi.hoisted(() => ({
   getVehicleState: vi.fn(),
   listFuelEntries: vi.fn(),
   listOdometerReadings: vi.fn(),
-  subscribeToLocalChanges: vi.fn(() => () => undefined),
+  subscribeToLocalChanges: vi.fn((_listener: () => void) => () => undefined),
 }))
 const priceStub = vi.hoisted(() => ({
   getFuelPriceReference: vi.fn(),
@@ -448,10 +448,12 @@ describe('vehicle views', () => {
       await Promise.resolve()
     })
 
-    expect(container.querySelector('.vehicle-confirmation')).not.toBeNull()
-    expect(container.textContent).toContain('600.0 km')
-    expect(container.textContent).toContain('Corrigir')
-    expect(container.textContent).toContain('Confirmar')
+    const confirmation = document.body.querySelector('.vehicle-confirmation')
+    expect(confirmation).not.toBeNull()
+    expect(container.contains(confirmation)).toBe(false)
+    expect(confirmation?.textContent).toContain('600.0 km')
+    expect(confirmation?.textContent).toContain('Corrigir')
+    expect(confirmation?.textContent).toContain('Confirmar')
 
     await act(async () => root.unmount())
   })
@@ -583,6 +585,26 @@ describe('vehicle views', () => {
         ?.textContent,
     ).toBe('Histórico')
 
+    await act(async () => root.unmount())
+  })
+
+  it('preserves an active input when remote records refresh the local view', async () => {
+    const state = { nominalTankCapacityLiters: 3, initialOdometerKm: 1000, initialFullTankAt: null, createdAt: '2026-09-29T10:00:00Z', updatedAt: '2026-09-29T10:00:00Z' }
+    storeStub.getVehicleState.mockResolvedValue(state)
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+    let notify: () => void = () => undefined
+    storeStub.subscribeToLocalChanges.mockImplementationOnce((listener) => { notify = listener; return () => undefined })
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '.home')
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Abastecer'))?.click())
+    const input = container.querySelector('input[name="amount"]') as HTMLInputElement
+    input.focus()
+    storeStub.getVehicleState.mockResolvedValue({ ...state })
+    await act(async () => { notify(); await new Promise((resolve) => setTimeout(resolve, 0)) })
+    expect(document.activeElement).toBe(input)
     await act(async () => root.unmount())
   })
 

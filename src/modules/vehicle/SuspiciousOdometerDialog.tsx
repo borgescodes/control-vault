@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { formatOdometerValue } from './inputFormatters'
 
 type SuspiciousOdometerDialogProps = {
@@ -13,7 +14,7 @@ export default function SuspiciousOdometerDialog({
   onCancel,
   onConfirm,
 }: SuspiciousOdometerDialogProps) {
-  return (
+  return createPortal(
     <div className="vehicle-confirmation-backdrop">
       <div
         aria-label="Confirmar salto de hodômetro"
@@ -42,6 +43,7 @@ export default function SuspiciousOdometerDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -29,6 +29,7 @@ export default function VehicleModule() {
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const vehicleReady = Boolean(vehicleState)
 
   useEffect(() => {
     initializeNavigation()
@@ -60,11 +61,11 @@ export default function VehicleModule() {
   }, [])
 
   useEffect(() => {
-    if (!vehicleState) return
+    if (!vehicleReady) return
     document
       .querySelector<HTMLElement>('[data-view-root="true"]')
       ?.focus()
-  }, [vehicleState, view])
+  }, [vehicleReady, view])
 
   async function handleSaved(message: string) {
     await refresh()

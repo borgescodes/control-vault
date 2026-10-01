@@ -44,6 +44,14 @@ The UI reads and writes IndexedDB. Supabase provides authenticated continuity
 when a connection is available. Odometer and fuel records remain available
 offline, and failed synchronization leaves them pending for the next run.
 
+Every sync pushes pending IDs and then reads all owned server records, including when the local database already contains data. Supabase holds confirmed cross-device records; IndexedDB preserves offline work until acknowledgment. Sync runs after login, local writes, reconnection, focus and visible resume. Pending local writes survive remote merges; another account cannot open the bound personal database.
+
+The header shows `ON` only after successful confirmation, `OFF` without connectivity and `SYNC` for pending, running, failed or unconfirmed synchronization. Remote failures preserve the queue and expose retry. Local save feedback is distinct from server confirmation.
+
+Navigation uses native browser history at `/`, `/abastecer`, `/hodometro` and `/historico`. The fixed bottom navigation reserves content space and hides while a form input is focused. Installation appears when supported; iOS provides home-screen instructions on request. New worker versions expose `Atualizar app` instead of reloading a form automatically.
+
+For the reproducible browser check, build and serve the production bundle on `127.0.0.1:5176`, then run `node tests/browser-reliability.cjs` with Playwright available (`PLAYWRIGHT_MODULE` may point to the bundled installation). It uses real browser storage and service workers with isolated Auth/Data API fixtures; it never writes test records to the personal Supabase project. See `docs/reports/2026-10-01-technical-review.md` for evidence and live-device limitations.
+
 With a cached weekly fuel reference, offline fuel entries can still receive an estimated quantity. Without a cached reference, the local record still succeeds and synchronizes later with null estimation fields.
 
 ## Stack

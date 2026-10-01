@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resetLocalDatabase } from '../infrastructure/local/db'
-import { saveHydratedVehicleData } from '../infrastructure/local/store'
+import { claimSyncOwner, saveHydratedVehicleData } from '../infrastructure/local/store'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -32,7 +32,7 @@ const authStub = vi.hoisted(() => ({
   getCachedSession: vi.fn(),
   signIn: vi.fn(),
   signOut: vi.fn(),
-  subscribeToAuth: vi.fn(() => () => undefined),
+  subscribeToAuth: vi.fn((_listener: (session: { user: { id: string } } | null) => void) => () => undefined),
 }))
 const syncStub = vi.hoisted(() => ({
   runSync: vi.fn(),
@@ -56,6 +56,8 @@ describe('App', () => {
     document.body.innerHTML = ''
     await resetLocalDatabase()
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    window.history.replaceState(null, '', '/')
   })
 
   it('renders the distilled Control Vault shell without Credit Monitor branding', () => {
@@ -182,6 +184,41 @@ describe('App', () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
     })
     expect(syncStub.runSync.mock.calls.length).toBe(before + 1)
+    await act(async () => root.unmount())
+  })
+
+  it.each([true, false])('does not expose another owner database with online=%s', async (online) => {
+    vi.stubGlobal('navigator', { onLine: online })
+    await claimSyncOwner('original-owner')
+    authStub.getCachedSession.mockResolvedValue({ user: { id: 'different-owner' } })
+    syncStub.runSync.mockResolvedValue({ synced: 0, pending: 0, failed: 0 })
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<App />))
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 100)))
+    expect(container.textContent).toContain('outra conta')
+    expect(container.querySelector('.vehicle-view, .home')).toBeNull()
+    expect(syncStub.runSync).not.toHaveBeenCalled()
+    await act(async () => root.unmount())
+  })
+
+  it('preserves a form when the same user session token refreshes', async () => {
+    const session = { user: { id: '11111111-1111-4111-8111-111111111111' } }
+    authStub.getCachedSession.mockResolvedValue(session)
+    syncStub.runSync.mockResolvedValue({ synced: 0, pending: 0, failed: 0 })
+    let notify: (nextSession: typeof session | null) => void = () => undefined
+    authStub.subscribeToAuth.mockImplementationOnce((listener) => { notify = listener; return () => undefined })
+    await saveHydratedVehicleData({ vehicleState: { nominalTankCapacityLiters: 3, initialOdometerKm: 1000, initialFullTankAt: null, createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z' }, odometerReadings: [], fuelEntries: [] })
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<App />))
+    await waitForText(container, 'Atualizar KM')
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Atualizar KM'))?.click())
+    const input = container.querySelector('input[name="odometer"]') as HTMLInputElement
+    input.focus()
+    await act(async () => { notify({ ...session }); await new Promise((resolve) => setTimeout(resolve, 100)) })
+    expect(container.querySelector('input[name="odometer"]')).toBe(input)
+    expect(document.activeElement).toBe(input)
     await act(async () => root.unmount())
   })
 })

@@ -10,7 +10,7 @@ import {
   subscribeToSyncActivity,
   type SyncActivity,
 } from '../infrastructure/sync/sync'
-import { listPending, subscribeToLocalChanges } from '../infrastructure/local/store'
+import { claimSyncOwner, listPending, subscribeToLocalChanges } from '../infrastructure/local/store'
 import ConnectionIndicator, {
   type ConnectionState,
 } from '../shared/ui/ConnectionIndicator'
@@ -28,14 +28,17 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [syncError, setSyncError] = useState(false)
   const [updatePending, setUpdatePending] = useState(false)
+  const [localAccessError, setLocalAccessError] = useState<string | null>(null)
   const [vehicleReadyForUser, setVehicleReadyForUser] = useState<string | null>(
     null,
   )
 
   useEffect(() => {
     let active = true
+    let authChanged = false
     const unsubscribe = subscribeToAuth((nextSession) => {
       if (active) {
+        authChanged = true
         setSession(nextSession)
         setSessionReady(true)
       }
@@ -43,10 +46,10 @@ export default function App() {
 
     void getCachedSession()
       .then((cachedSession) => {
-        if (active) setSession(cachedSession)
+        if (active && !authChanged) setSession(cachedSession)
       })
       .catch(() => {
-        if (active) setSession(null)
+        if (active && !authChanged) setSession(null)
       })
       .finally(() => {
         if (active) setSessionReady(true)
@@ -83,16 +86,18 @@ export default function App() {
     }
 
     let active = true
+    let localAllowed = false
     let resumeTimer: number | undefined
     let countRequest = 0
     const refreshPending = () => {
+      if (!localAllowed) return
       const request = ++countRequest
       void listPending().then((records) => {
         if (active && request === countRequest) setPendingCount(records.length)
       }).catch(() => { if (active) setSyncError(true) })
     }
     const syncWhileOnline = () => {
-      if (navigator.onLine) {
+      if (navigator.onLine && localAllowed) {
         setSyncActivity('syncing')
         void runSync(session.user.id).then((result) => {
           if (!active) return
@@ -115,12 +120,18 @@ export default function App() {
       refreshPending()
       if (change === 'write') setSyncActivity('pending')
     })
-    refreshPending()
+    setVehicleReadyForUser(null)
+    setLocalAccessError(null)
+    setPendingCount(0)
     setSyncActivity('unconfirmed')
     setSyncError(false)
 
     void (async () => {
       try {
+        await claimSyncOwner(session.user.id)
+        if (!active) return
+        localAllowed = true
+        refreshPending()
         if (navigator.onLine) {
           setSyncActivity('syncing')
           const result = await runSync(session.user.id)
@@ -129,10 +140,14 @@ export default function App() {
             setSyncActivity(result.failed > 0 ? 'error' : result.pending > 0 ? 'pending' : 'idle')
           }
         }
-      } catch {
-        if (active) { setSyncError(true); setSyncActivity('error') }
+      } catch (cause) {
+        if (active) {
+          setSyncError(true)
+          setSyncActivity('error')
+          if (!localAllowed) setLocalAccessError(cause instanceof Error ? cause.message : 'Falha ao abrir dados locais')
+        }
       } finally {
-        if (active) { setVehicleReadyForUser(session.user.id); refreshPending() }
+        if (active && localAllowed) { setVehicleReadyForUser(session.user.id); refreshPending() }
       }
     })()
 
@@ -147,11 +162,11 @@ export default function App() {
       window.removeEventListener('focus', scheduleResume)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [session])
+  }, [session?.user.id])
 
   const connectionState: ConnectionState = !online
     ? 'offline'
-    : syncActivity !== 'idle' || pendingCount > 0 || updatePending
+    : syncActivity !== 'idle' || syncError || pendingCount > 0 || updatePending
       ? 'syncing'
       : 'online'
 
@@ -191,7 +206,8 @@ export default function App() {
         <div className="app__content">
           {sessionReady &&
             (session ? (
-              vehicleReadyForUser === session.user.id && <VehicleModule />
+              localAccessError ? <p className="vehicle-alert" role="alert">{localAccessError}</p> :
+                vehicleReadyForUser === session.user.id && <VehicleModule />
             ) : (
               <LoginView />
             ))}
