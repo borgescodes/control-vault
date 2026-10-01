@@ -13,6 +13,11 @@ const actionStub = vi.hoisted(() => ({
   }),
   recordFuel: vi.fn().mockResolvedValue({ kind: 'saved' }),
 }))
+const savedTripActionStub = vi.hoisted(() => ({
+  createSavedTrip: vi.fn(),
+  updateSavedTrip: vi.fn(),
+  deleteSavedTrip: vi.fn().mockResolvedValue(true),
+}))
 const storeStub = vi.hoisted(() => ({
   getVehicleState: vi.fn(),
   listFuelEntries: vi.fn(),
@@ -36,6 +41,7 @@ const priceReference = {
 }
 
 vi.mock('./vehicleActions', () => actionStub)
+vi.mock('./savedTripActions', () => savedTripActionStub)
 vi.mock('../../infrastructure/local/store', () => storeStub)
 vi.mock('../../infrastructure/fuelPrice/fuelPrice', () => priceStub)
 
