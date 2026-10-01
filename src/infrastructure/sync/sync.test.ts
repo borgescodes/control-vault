@@ -8,16 +8,21 @@ import {
 } from '../local/db'
 import {
   getVehicleState,
+  listAllSavedTrips,
   listFuelEntries,
   listOdometerReadings,
   listPending,
+  listSavedTrips,
   saveFuelEntry,
   saveOdometerReading,
+  saveSavedTrip,
   saveVehicleState,
+  softDeleteSavedTrip,
 } from '../local/store'
 import type {
   FuelEntry,
   OdometerReading,
+  SavedTrip,
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 import {
@@ -27,7 +32,7 @@ import {
   syncPending,
 } from './sync'
 
-type Table = 'vehicle_state' | 'odometer_readings' | 'fuel_entries'
+type Table = 'vehicle_state' | 'odometer_readings' | 'fuel_entries' | 'saved_trips'
 type Row = Record<string, unknown>
 
 const supabaseStub = vi.hoisted(() => ({
@@ -93,6 +98,23 @@ function fuelEntry(
   }
 }
 
+function savedTrip(
+  id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  overrides: Partial<SavedTrip> = {},
+): SavedTrip {
+  return {
+    id,
+    origin: 'Casa',
+    destination: 'Juparanã',
+    outboundDistanceKm: 14,
+    returnDistanceKm: 16,
+    deletedAt: null,
+    createdAt,
+    updatedAt,
+    ...overrides,
+  }
+}
+
 function remoteVehicle(owner = userId): Row {
   return {
     user_id: owner,
@@ -139,11 +161,31 @@ function remoteFuel(
   }
 }
 
+function remoteTrip(
+  id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  owner = userId,
+  overrides: Row = {},
+): Row {
+  return {
+    id,
+    user_id: owner,
+    origin: 'Casa',
+    destination: 'Juparanã',
+    outbound_distance_km: 14,
+    return_distance_km: 16,
+    deleted_at: null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    ...overrides,
+  }
+}
+
 function createRemote(initial: Partial<Record<Table, Row[]>> = {}) {
   const rows: Record<Table, Row[]> = {
     vehicle_state: [...(initial.vehicle_state ?? [])],
     odometer_readings: [...(initial.odometer_readings ?? [])],
     fuel_entries: [...(initial.fuel_entries ?? [])],
+    saved_trips: [...(initial.saved_trips ?? [])],
   }
   const upserts: Array<{
     table: Table
@@ -258,6 +300,21 @@ describe('authenticated vehicle sync', () => {
         table: 'fuel_entries',
         onConflict: 'id',
         payload: remoteFuel(),
+      },
+    ])
+  })
+
+  it('maps a pending saved trip to the remote schema', async () => {
+    const remote = createRemote()
+    await saveSavedTrip(savedTrip())
+
+    await syncPending(userId)
+
+    expect(remote.upserts).toEqual([
+      {
+        table: 'saved_trips',
+        onConflict: 'id',
+        payload: remoteTrip(),
       },
     ])
   })
@@ -394,6 +451,65 @@ describe('authenticated vehicle sync', () => {
     ])
   })
 
+  it('hydrates saved trips and remote tombstones without resurrecting them', async () => {
+    createRemote({
+      saved_trips: [
+        remoteTrip(),
+        remoteTrip('dddddddd-dddd-4ddd-8ddd-dddddddddddd', userId, {
+          deleted_at: '2026-10-01T14:00:00.000Z',
+          updated_at: '2026-10-01T14:00:00.000Z',
+        }),
+      ],
+    })
+
+    await refreshFromRemote(userId)
+
+    await expect(listSavedTrips()).resolves.toEqual([
+      { ...savedTrip(), syncStatus: 'synced' },
+    ])
+    await expect(listAllSavedTrips()).resolves.toHaveLength(2)
+  })
+
+  it('syncs saved-trip edits by stable id', async () => {
+    const remote = createRemote({ saved_trips: [remoteTrip()] })
+    await saveSavedTrip(
+      savedTrip(undefined, {
+        destination: 'Trabalho',
+        outboundDistanceKm: 8.4,
+        returnDistanceKm: null,
+        updatedAt: '2026-10-01T15:00:00.000Z',
+      }),
+    )
+
+    await runSync(userId)
+
+    expect(remote.rows.saved_trips).toEqual([
+      expect.objectContaining({
+        id: savedTrip().id,
+        destination: 'Trabalho',
+        outbound_distance_km: 8.4,
+        return_distance_km: null,
+      }),
+    ])
+  })
+
+  it('propagates a saved-trip soft delete as an idempotent update', async () => {
+    const remote = createRemote({ saved_trips: [remoteTrip()] })
+    await saveSavedTrip(savedTrip())
+    await softDeleteSavedTrip(savedTrip().id, '2026-10-01T16:00:00.000Z')
+
+    await runSync(userId)
+
+    expect(remote.rows.saved_trips).toEqual([
+      expect.objectContaining({
+        id: savedTrip().id,
+        deleted_at: '2026-10-01T16:00:00.000Z',
+      }),
+    ])
+    await expect(listSavedTrips()).resolves.toEqual([])
+    await expect(listPending()).resolves.toEqual([])
+  })
+
   it('preserves remote IDs during hydration', async () => {
     const readingId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
     const fuelId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
@@ -414,7 +530,7 @@ describe('authenticated vehicle sync', () => {
 
     await refreshFromRemote(userId)
 
-    expect(remote.selects).toHaveLength(3)
+    expect(remote.selects).toHaveLength(4)
     expect(await getVehicleState()).not.toBeNull()
   })
 
@@ -455,6 +571,7 @@ describe('authenticated vehicle sync', () => {
       { table: 'vehicle_state', column: 'user_id', value: userId },
       { table: 'odometer_readings', column: 'user_id', value: userId },
       { table: 'fuel_entries', column: 'user_id', value: userId },
+      { table: 'saved_trips', column: 'user_id', value: userId },
     ])
     await expect(listOdometerReadings()).resolves.toHaveLength(1)
     await expect(listFuelEntries()).resolves.toHaveLength(1)
