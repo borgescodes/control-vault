@@ -45,6 +45,11 @@ export function getVehicleDashboard(
   fuelEntries: FuelEntry[],
   now: Date,
 ): VehicleDashboard {
+  // Historical entries survive setup changes and synchronization. Only the
+  // current setup's fuel ledger may contribute to operational estimates.
+  const operationalFuelEntries = fuelEntries.filter(
+    (entry) => timestamp(entry.fueledAt) >= timestamp(state.createdAt),
+  )
   const latestReading = readings.reduce<OdometerReading | null>(
     (latest, reading) => {
       if (
@@ -62,7 +67,7 @@ export function getVehicleDashboard(
   )
   // Fuel entries also record accepted mileage, even when their paired reading
   // has an earlier timestamp or has not arrived in the local snapshot yet.
-  const odometerKm = fuelEntries.reduce(
+  const odometerKm = operationalFuelEntries.reduce(
     (latest, entry) => Math.max(latest, entry.odometerKm),
     Math.max(latestReading?.readingKm ?? state.initialOdometerKm, state.initialOdometerKm),
   )
@@ -142,7 +147,7 @@ export function getVehicleDashboard(
     : null
   const fullAnchors = [
     ...(initialAnchor ? [initialAnchor] : []),
-    ...fuelEntries
+    ...operationalFuelEntries
       .filter((entry) => entry.fullTank)
       .map((entry) => ({ odometerKm: entry.odometerKm, at: entry.fueledAt })),
   ]
@@ -156,7 +161,7 @@ export function getVehicleDashboard(
     null,
   )
   const hasFullAnchor = latestFullAnchor !== null
-  const cycles = buildConsumptionCycles(initialAnchor, fuelEntries)
+  const cycles = buildConsumptionCycles(initialAnchor, operationalFuelEntries)
   const consumption = learnConsumption(cycles)
 
   const shared = {
@@ -193,7 +198,7 @@ export function getVehicleDashboard(
     nominalTankCapacityLiters: state.nominalTankCapacityLiters,
     consumptionKmPerLiter: consumption.kmPerLiter,
     initialAnchor,
-    fuelEntries,
+    fuelEntries: operationalFuelEntries,
     currentOdometerKm: odometerKm,
   })
   const rangeKm =

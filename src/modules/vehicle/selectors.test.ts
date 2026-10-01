@@ -56,6 +56,35 @@ function fuel(
 }
 
 describe('getVehicleDashboard', () => {
+  it('keeps pre-setup fuel history out of the current estimates and odometer', () => {
+    const currentState: VehicleState = {
+      ...state,
+      initialOdometerKm: 12_483,
+      initialFullTankAt: '2026-09-30T18:52:20.437Z',
+      createdAt: '2026-09-30T18:52:20.437Z',
+    }
+    const entries = [
+      { ...fuel('legacy-unknown', 125_727, 1, true, '2026-09-29T17:46:15.869Z', 3_000), estimatedLiters: null },
+      fuel('legacy-large', 1_264_727, 2.837, true, '2026-09-29T17:47:37.934Z', 2_000),
+      fuel('full', 12_587.4, 2.843, true, '2026-10-01T02:51:58.174Z', 2_005),
+      fuel('full-same-km', 12_587.4, 2.843, true, '2026-10-01T14:45:20.489Z', 2_005),
+    ]
+    const original = structuredClone(entries)
+    const readings = [reading('current', 12_612.8, '2026-10-01T16:26:00.000Z')]
+    const dashboard = getVehicleDashboard(currentState, readings, entries, new Date('2026-10-01T20:00:00Z'))
+
+    expect(dashboard.odometerKm).toBe(12_612.8)
+    expect(dashboard.consumptionKmPerLiter).toBeCloseTo(36.7218, 4)
+    expect(dashboard.rangeKm).toBeCloseTo(76.2888, 3)
+    expect(dashboard.calibrationCycleCount).toBe(1)
+    expect(dashboard.fuelPercent).toBeCloseTo(76.9437, 3)
+    expect(entries).toEqual(original)
+    const september = getVehicleDashboard(currentState, readings, entries, new Date('2026-09-30T20:00:00Z'))
+    // The first current full tank is Sep 30 in Brazil, Oct 1 in UTC.
+    const currentSeptemberSpend = new Date(entries[2].fueledAt).getMonth() === 8 ? 2_005 : 0
+    expect(september.monthSpendCents).toBe(5_000 + currentSeptemberSpend)
+  })
+
   it('uses recorded fuel mileage when the latest reading precedes a full tank', () => {
     const dashboard = getVehicleDashboard(
       state,

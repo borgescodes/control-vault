@@ -336,6 +336,12 @@ A later full-tank anchor provides a correction point and can reveal model drift.
 
 ## 13. Initial state
 
+The current setup defines the beginning of the operational fuel ledger and
+consumption calibration. Fuel entries predating `vehicle_state.created_at`
+remain visible in history and spending totals, but must not influence current
+odometer selection, full-tank anchors, consumption cycles or fuel/range estimates.
+This also applies when older records arrive through synchronization.
+
 The preferred pilot starts immediately after a known full tank.
 
 Initial setup therefore requires only:
