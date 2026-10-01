@@ -1,6 +1,7 @@
 import type {
   FuelEntry,
   OdometerReading,
+  SavedTrip,
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 import {
@@ -8,6 +9,7 @@ import {
   VEHICLE_STATE_KEY,
   type LocalFuelEntry,
   type LocalOdometerReading,
+  type LocalSavedTrip,
   type LocalVehicleState,
 } from './db'
 
@@ -26,6 +28,11 @@ export type PendingRecord =
       kind: 'fuel_entries'
       id: string
       record: LocalFuelEntry
+    }
+  | {
+      kind: 'saved_trips'
+      id: string
+      record: LocalSavedTrip
     }
 
 const pending = { syncStatus: 'pending' as const }
@@ -59,6 +66,7 @@ export type HydratedVehicleData = {
   vehicleState: VehicleState | null
   odometerReadings: OdometerReading[]
   fuelEntries: FuelEntry[]
+  savedTrips?: SavedTrip[]
 }
 
 export async function saveVehicleState(state: VehicleState): Promise<void> {
@@ -123,6 +131,50 @@ export async function saveFuelEntry(entry: FuelEntry): Promise<void> {
 export async function listFuelEntries(): Promise<LocalFuelEntry[]> {
   const database = await openLocalDatabase()
   return database.getAll('fuel_entries')
+}
+
+export async function saveSavedTrip(trip: SavedTrip): Promise<void> {
+  const database = await openLocalDatabase()
+  await database.put('saved_trips', { ...trip, ...pending })
+  notifyLocalChanges('write')
+}
+
+export async function getSavedTrip(id: string): Promise<LocalSavedTrip | null> {
+  const database = await openLocalDatabase()
+  return (await database.get('saved_trips', id)) ?? null
+}
+
+export async function listAllSavedTrips(): Promise<LocalSavedTrip[]> {
+  const database = await openLocalDatabase()
+  return database.getAll('saved_trips')
+}
+
+export async function listSavedTrips(): Promise<LocalSavedTrip[]> {
+  return (await listAllSavedTrips()).filter((trip) => trip.deletedAt === null)
+}
+
+export async function softDeleteSavedTrip(
+  id: string,
+  deletedAt: string,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction('saved_trips', 'readwrite')
+  const trip = await transaction.store.get(id)
+
+  if (!trip) {
+    await transaction.done
+    return false
+  }
+
+  await transaction.store.put({
+    ...trip,
+    deletedAt,
+    updatedAt: deletedAt,
+    ...pending,
+  })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
 }
 
 export async function initializeLocalVehicle(
@@ -249,10 +301,11 @@ export async function saveFuelAndReadingIfCurrent(
 }
 
 export async function listPending(): Promise<PendingRecord[]> {
-  const [state, readings, entries] = await Promise.all([
+  const [state, readings, entries, trips] = await Promise.all([
     getVehicleState(),
     listOdometerReadings(),
     listFuelEntries(),
+    listAllSavedTrips(),
   ])
   const records: PendingRecord[] = []
 
@@ -284,6 +337,16 @@ export async function listPending(): Promise<PendingRecord[]> {
     }
   }
 
+  for (const trip of trips) {
+    if (trip.syncStatus === 'pending') {
+      records.push({
+        kind: 'saved_trips',
+        id: trip.id,
+        record: trip,
+      })
+    }
+  }
+
   return records
 }
 
@@ -309,13 +372,14 @@ export async function markSynced(
 export async function isLocalDatabaseEmpty(): Promise<boolean> {
   const database = await openLocalDatabase()
   const transaction = database.transaction(
-    ['vehicle_state', 'odometer_readings', 'fuel_entries'],
+    ['vehicle_state', 'odometer_readings', 'fuel_entries', 'saved_trips'],
     'readonly',
   )
   const counts = await Promise.all([
     transaction.objectStore('vehicle_state').count(),
     transaction.objectStore('odometer_readings').count(),
     transaction.objectStore('fuel_entries').count(),
+    transaction.objectStore('saved_trips').count(),
   ])
   await transaction.done
 
@@ -327,7 +391,7 @@ export async function saveHydratedVehicleData(
 ): Promise<void> {
   const database = await openLocalDatabase()
   const transaction = database.transaction(
-    ['vehicle_state', 'odometer_readings', 'fuel_entries'],
+    ['vehicle_state', 'odometer_readings', 'fuel_entries', 'saved_trips'],
     'readwrite',
   )
   const writes: Promise<unknown>[] = []
@@ -350,6 +414,9 @@ export async function saveHydratedVehicleData(
     ...data.fuelEntries.map((entry) =>
       transaction.objectStore('fuel_entries').put({ ...entry, ...synced }),
     ),
+    ...(data.savedTrips ?? []).map((trip) =>
+      transaction.objectStore('saved_trips').put({ ...trip, ...synced }),
+    ),
   )
   await Promise.all(writes)
   await transaction.done
@@ -359,7 +426,7 @@ export async function saveHydratedVehicleData(
 export async function mergeRemoteVehicleData(data: HydratedVehicleData): Promise<void> {
   const database = await openLocalDatabase()
   const transaction = database.transaction(
-    ['vehicle_state', 'odometer_readings', 'fuel_entries'], 'readwrite',
+    ['vehicle_state', 'odometer_readings', 'fuel_entries', 'saved_trips'], 'readwrite',
   )
   const stateStore = transaction.objectStore('vehicle_state')
   if (data.vehicleState && (await stateStore.get(VEHICLE_STATE_KEY))?.syncStatus !== 'pending') {
@@ -375,6 +442,12 @@ export async function mergeRemoteVehicleData(data: HydratedVehicleData): Promise
   for (const entry of data.fuelEntries) {
     if ((await fuelStore.get(entry.id))?.syncStatus !== 'pending') {
       await fuelStore.put({ ...entry, ...synced })
+    }
+  }
+  const tripStore = transaction.objectStore('saved_trips')
+  for (const trip of data.savedTrips ?? []) {
+    if ((await tripStore.get(trip.id))?.syncStatus !== 'pending') {
+      await tripStore.put({ ...trip, ...synced })
     }
   }
   await transaction.done

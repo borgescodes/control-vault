@@ -8,11 +8,12 @@ import {
 import type {
   FuelEntry,
   OdometerReading,
+  SavedTrip,
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 
 export const LOCAL_DATABASE_NAME = 'control-vault'
-export const LOCAL_DATABASE_VERSION = 3
+export const LOCAL_DATABASE_VERSION = 4
 export const VEHICLE_STATE_KEY = 'primary'
 
 export type SyncStatus = 'pending' | 'synced'
@@ -20,6 +21,7 @@ export type SyncStatus = 'pending' | 'synced'
 export type LocalVehicleState = VehicleState & { syncStatus: SyncStatus }
 export type LocalOdometerReading = OdometerReading & { syncStatus: SyncStatus }
 export type LocalFuelEntry = FuelEntry & { syncStatus: SyncStatus }
+export type LocalSavedTrip = SavedTrip & { syncStatus: SyncStatus }
 
 export interface ControlVaultDatabase extends DBSchema {
   sync_metadata: {
@@ -38,6 +40,10 @@ export interface ControlVaultDatabase extends DBSchema {
     key: string
     value: LocalFuelEntry
   }
+  saved_trips: {
+    key: string
+    value: LocalSavedTrip
+  }
 }
 
 let databasePromise: Promise<IDBPDatabase<ControlVaultDatabase>> | undefined
@@ -48,6 +54,7 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
     LOCAL_DATABASE_VERSION,
     {
       upgrade(database, oldVersion, _newVersion, transaction) {
+        if (oldVersion < 4) database.createObjectStore('saved_trips', { keyPath: 'id' })
         if (oldVersion < 3) database.createObjectStore('sync_metadata')
         if (oldVersion < 1) {
           database.createObjectStore('vehicle_state')
