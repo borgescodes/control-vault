@@ -86,6 +86,25 @@ export default function VehicleModule() {
   }, [])
 
   useEffect(() => {
+    if (!vehicleReady || !isTripView(view)) return
+
+    let active = true
+    const applyRefresh = (reference: FuelPriceReference) => {
+      if (active) setTripPriceReference(reference)
+    }
+
+    void getFuelPriceReference(new Date(), applyRefresh)
+      .then((reference) => {
+        if (active) setTripPriceReference(reference)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [vehicleReady, view])
+
+  useEffect(() => {
     if (!vehicleReady) return
     document
       .querySelector<HTMLElement>('[data-view-root="true"]')
@@ -96,6 +115,16 @@ export default function VehicleModule() {
     await refresh()
     setNotice(message)
     backToPreviousView()
+  }
+
+  async function handleTripSaved(tripId: string) {
+    await refresh()
+    replaceTo('trip-detail', tripId)
+  }
+
+  async function handleTripDeleted() {
+    await refresh()
+    replaceTo('trips')
   }
 
   function openView(nextView: VehicleView) {
@@ -129,7 +158,17 @@ export default function VehicleModule() {
     fuelEntries,
     new Date(),
   )
-  const hasPending = vehicleState.syncStatus === 'pending' || readings.some((record) => record.syncStatus === 'pending') || fuelEntries.some((record) => record.syncStatus === 'pending')
+  const visibleTrips = savedTrips.filter((trip) => trip.deletedAt === null)
+  const hasPending =
+    vehicleState.syncStatus === 'pending' ||
+    readings.some((record) => record.syncStatus === 'pending') ||
+    fuelEntries.some((record) => record.syncStatus === 'pending') ||
+    savedTrips.some((record) => record.syncStatus === 'pending')
+  const tripNavigationActive = isTripView(view)
+  const tripId = currentTripId()
+  const selectedTrip = tripId
+    ? visibleTrips.find((trip) => trip.id === tripId) ?? null
+    : null
 
   const navigation = (
     <nav className="vehicle-navigation" aria-label="Navegação principal">
