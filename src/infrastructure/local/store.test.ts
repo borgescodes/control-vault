@@ -253,6 +253,8 @@ describe('local vehicle store', () => {
 })
 
 
+const postResetTimestamp = '2026-10-02T12:00:00.000Z'
+
 async function createLegacyV1Database() {
   await resetLocalDatabase()
 
@@ -277,9 +279,9 @@ async function createLegacyV1Database() {
         {
           tankCapacityLiters: 14,
           initialOdometerKm: 12_000,
-          initialFullTankAt: timestamp,
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          initialFullTankAt: postResetTimestamp,
+          createdAt: postResetTimestamp,
+          updatedAt: postResetTimestamp,
           syncStatus: 'synced',
         },
         'primary',
@@ -290,9 +292,9 @@ async function createLegacyV1Database() {
         amountCents: 7_500,
         liters: 10,
         fullTank: true,
-        fueledAt: timestamp,
-        createdAt: timestamp,
-        updatedAt: timestamp,
+        fueledAt: postResetTimestamp,
+        createdAt: postResetTimestamp,
+        updatedAt: postResetTimestamp,
         syncStatus: 'pending',
       })
 
@@ -315,7 +317,7 @@ describe('local vehicle store v1 to v2 migration', () => {
     expect(state).toMatchObject({
       nominalTankCapacityLiters: 14,
       initialOdometerKm: 12_000,
-      initialFullTankAt: timestamp,
+      initialFullTankAt: postResetTimestamp,
       syncStatus: 'synced',
     })
     expect(state).not.toHaveProperty('tankCapacityLiters')
