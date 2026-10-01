@@ -28,3 +28,14 @@ export type FuelEntry = {
   createdAt: string
   updatedAt: string
 }
+
+export type SavedTrip = {
+  id: string
+  origin: string
+  destination: string
+  outboundDistanceKm: number
+  returnDistanceKm: number | null
+  deletedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
