@@ -1,5 +1,7 @@
 # Control Vault
 
+<img src="public/logo.png" alt="Control Vault" width="96" height="96" />
+
 Control Vault is a personal, local-first app. The vehicle module records odometer readings and fuel spending, estimates fuel quantity from a weekly municipal gasoline reference, learns approximate consumption, and estimates remaining range.
 
 ## Vehicle MVP

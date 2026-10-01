@@ -169,6 +169,17 @@ input::placeholder {
     max(18px, env(safe-area-inset-left));
 }
 
+.app__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app__brand img {
+  display: block;
+  flex: 0 0 auto;
+}
+
 .app__header h1 {
   margin: 0;
   font-family: var(--font-metric);

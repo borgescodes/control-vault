@@ -114,7 +114,10 @@ export default function App() {
     <main className="app">
       <section className="app__shell">
         <header className="app__header">
-          <h1>CONTROL VAULT</h1>
+          <div className="app__brand">
+            <img src="/logo.png" alt="" width="32" height="32" />
+            <h1>CONTROL VAULT</h1>
+          </div>
           {session && (
             <div className="app__header-actions">
               <ConnectionIndicator state={connectionState} />
