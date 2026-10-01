@@ -31,6 +31,30 @@ export type PendingRecord =
 const pending = { syncStatus: 'pending' as const }
 const synced = { syncStatus: 'synced' as const }
 
+type LocalChange = 'write' | 'refresh'
+const listeners = new Set<(change: LocalChange) => void>()
+
+export function subscribeToLocalChanges(listener: (change: LocalChange) => void) {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+function notifyLocalChanges(change: LocalChange) {
+  for (const listener of listeners) listener(change)
+}
+
+export async function claimSyncOwner(userId: string): Promise<void> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction('sync_metadata', 'readwrite')
+  const owner = await transaction.store.get('owner')
+  if (owner && owner !== userId) {
+    await transaction.done
+    throw new Error('Dados locais pertencem a outra conta. Entre com a conta original.')
+  }
+  if (!owner) await transaction.store.put(userId, 'owner')
+  await transaction.done
+}
+
 export type HydratedVehicleData = {
   vehicleState: VehicleState | null
   odometerReadings: OdometerReading[]
@@ -44,6 +68,7 @@ export async function saveVehicleState(state: VehicleState): Promise<void> {
     { ...state, ...pending },
     VEHICLE_STATE_KEY,
   )
+  notifyLocalChanges('write')
 }
 
 export async function getVehicleState(): Promise<LocalVehicleState | null> {
@@ -56,6 +81,7 @@ export async function saveOdometerReading(
 ): Promise<void> {
   const database = await openLocalDatabase()
   await database.put('odometer_readings', { ...reading, ...pending })
+  notifyLocalChanges('write')
 }
 
 export async function saveOdometerReadingIfCurrent(
@@ -77,6 +103,7 @@ export async function saveOdometerReadingIfCurrent(
 
   await store.put({ ...reading, ...pending })
   await transaction.done
+  notifyLocalChanges('write')
   return true
 }
 
@@ -90,6 +117,7 @@ export async function listOdometerReadings(): Promise<
 export async function saveFuelEntry(entry: FuelEntry): Promise<void> {
   const database = await openLocalDatabase()
   await database.put('fuel_entries', { ...entry, ...pending })
+  notifyLocalChanges('write')
 }
 
 export async function listFuelEntries(): Promise<LocalFuelEntry[]> {
@@ -123,6 +151,7 @@ export async function initializeLocalVehicle(
 
     await Promise.all(writes)
     await transaction.done
+    notifyLocalChanges('write')
   } catch (error) {
     try {
       transaction.abort()
@@ -160,6 +189,7 @@ export async function saveFuelAndReading(
 
     await Promise.all(writes)
     await transaction.done
+    notifyLocalChanges('write')
   } catch (error) {
     try {
       transaction.abort()
@@ -204,6 +234,7 @@ export async function saveFuelAndReadingIfCurrent(
     writes.push(readingStore.put({ ...reading, ...pending }))
     await Promise.all(writes)
     await transaction.done
+    notifyLocalChanges('write')
     return true
   } catch (error) {
     try {
@@ -259,42 +290,20 @@ export async function listPending(): Promise<PendingRecord[]> {
 export async function markSynced(
   kind: PendingRecord['kind'],
   id: string,
+  expectedRecord?: PendingRecord['record'],
 ): Promise<void> {
   const database = await openLocalDatabase()
-
-  if (kind === 'vehicle_state') {
-    if (id !== VEHICLE_STATE_KEY) {
-      return
-    }
-    const state = await database.get('vehicle_state', VEHICLE_STATE_KEY)
-    if (state) {
-      await database.put(
-        'vehicle_state',
-        { ...state, syncStatus: 'synced' },
-        VEHICLE_STATE_KEY,
-      )
-    }
-    return
+  if (kind === 'vehicle_state' && id !== VEHICLE_STATE_KEY) return
+  const transaction = database.transaction(kind, 'readwrite')
+  const store = transaction.objectStore(kind)
+  const record = await store.get(id)
+  if (record && (!expectedRecord || Object.entries(expectedRecord).every(
+    ([key, value]) => Object.is(value, (record as unknown as Record<string, unknown>)[key]),
+  ))) {
+    await store.put({ ...record, ...synced }, kind === 'vehicle_state' ? VEHICLE_STATE_KEY : undefined)
   }
-
-  if (kind === 'odometer_readings') {
-    const reading = await database.get('odometer_readings', id)
-    if (reading) {
-      await database.put('odometer_readings', {
-        ...reading,
-        syncStatus: 'synced',
-      })
-    }
-    return
-  }
-
-  const entry = await database.get('fuel_entries', id)
-  if (entry) {
-    await database.put('fuel_entries', {
-      ...entry,
-      syncStatus: 'synced',
-    })
-  }
+  await transaction.done
+  notifyLocalChanges('refresh')
 }
 
 export async function isLocalDatabaseEmpty(): Promise<boolean> {
@@ -344,4 +353,30 @@ export async function saveHydratedVehicleData(
   )
   await Promise.all(writes)
   await transaction.done
+  notifyLocalChanges('refresh')
+}
+
+export async function mergeRemoteVehicleData(data: HydratedVehicleData): Promise<void> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['vehicle_state', 'odometer_readings', 'fuel_entries'], 'readwrite',
+  )
+  const stateStore = transaction.objectStore('vehicle_state')
+  if (data.vehicleState && (await stateStore.get(VEHICLE_STATE_KEY))?.syncStatus !== 'pending') {
+    await stateStore.put({ ...data.vehicleState, ...synced }, VEHICLE_STATE_KEY)
+  }
+  const readingStore = transaction.objectStore('odometer_readings')
+  for (const reading of data.odometerReadings) {
+    if ((await readingStore.get(reading.id))?.syncStatus !== 'pending') {
+      await readingStore.put({ ...reading, ...synced })
+    }
+  }
+  const fuelStore = transaction.objectStore('fuel_entries')
+  for (const entry of data.fuelEntries) {
+    if ((await fuelStore.get(entry.id))?.syncStatus !== 'pending') {
+      await fuelStore.put({ ...entry, ...synced })
+    }
+  }
+  await transaction.done
+  notifyLocalChanges('refresh')
 }

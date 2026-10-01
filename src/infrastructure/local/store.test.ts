@@ -20,6 +20,9 @@ import {
   saveFuelEntry,
   saveOdometerReading,
   saveVehicleState,
+  claimSyncOwner,
+  mergeRemoteVehicleData,
+  subscribeToLocalChanges,
 } from './store'
 
 const timestamp = '2026-09-29T12:00:00.000Z'
@@ -67,6 +70,49 @@ function fuelEntry(id: string): FuelEntry {
 describe('local vehicle store', () => {
   beforeEach(resetLocalDatabase)
   afterAll(resetLocalDatabase)
+
+  it('notifies observers only after durable compound local writes', async () => {
+    const changes: string[] = []
+    const unsubscribe = subscribeToLocalChanges((change) => changes.push(change))
+    try {
+      await initializeLocalVehicle(vehicleState(), odometerReading('initial'))
+      await saveFuelAndReading(fuelEntry('fill'), odometerReading('fill-reading', 'fuel_entry'))
+      expect(changes).toEqual(['write', 'write'])
+    } finally { unsubscribe() }
+  })
+
+  it('keeps a write changed during its remote acknowledgment pending', async () => {
+    const sent = fuelEntry('race');
+    await saveFuelEntry(sent)
+    await saveFuelEntry({ ...sent, amountCents: 8_000 })
+    await markSynced('fuel_entries', sent.id, { ...sent, syncStatus: 'pending' })
+    expect((await listFuelEntries())[0]).toMatchObject({ amountCents: 8_000, syncStatus: 'pending' })
+  })
+
+  it('merges confirmed server data without replacing pending local writes', async () => {
+    await saveFuelEntry(fuelEntry('pending'))
+    await saveFuelEntry(fuelEntry('confirmed'))
+    await markSynced('fuel_entries', 'confirmed')
+    await mergeRemoteVehicleData({ vehicleState: null, odometerReadings: [], fuelEntries: [
+      { ...fuelEntry('pending'), amountCents: 1_000 },
+      { ...fuelEntry('confirmed'), amountCents: 2_000 },
+      fuelEntry('another-device'),
+    ] })
+    expect(await listFuelEntries()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'pending', amountCents: 7_500, syncStatus: 'pending' }),
+      expect.objectContaining({ id: 'confirmed', amountCents: 2_000, syncStatus: 'synced' }),
+      expect.objectContaining({ id: 'another-device', syncStatus: 'synced' }),
+    ]))
+  })
+
+  it('binds the personal database to one sync owner without deleting data', async () => {
+    await saveFuelEntry(fuelEntry('personal'))
+    await claimSyncOwner('owner-a')
+    await closeLocalDatabase()
+    await claimSyncOwner('owner-a')
+    await expect(claimSyncOwner('owner-b')).rejects.toThrow('outra conta')
+    expect(await listFuelEntries()).toHaveLength(1)
+  })
 
   it('returns a saved record immediately with pending sync status', async () => {
     const state = vehicleState()

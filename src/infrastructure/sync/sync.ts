@@ -4,10 +4,10 @@ import type {
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 import {
-  isLocalDatabaseEmpty,
+  claimSyncOwner,
   listPending,
   markSynced,
-  saveHydratedVehicleData,
+  mergeRemoteVehicleData,
   type PendingRecord,
 } from '../local/store'
 import { supabase } from '../supabase/client'
@@ -109,7 +109,7 @@ async function pushRecord(record: PendingRecord, userId: string) {
   if (record.kind === 'vehicle_state') {
     return supabase
       .from('vehicle_state')
-      .upsert(toRemoteVehicleState(record, userId), { onConflict: 'user_id' })
+      .upsert(toRemoteVehicleState(record, userId), { onConflict: 'user_id', ignoreDuplicates: true })
   }
 
   if (record.kind === 'odometer_readings') {
@@ -129,6 +129,7 @@ export async function syncPending(userId: string): Promise<SyncResult> {
   if (!hasUserId(userId)) {
     return { synced: 0, pending: records.length, failed: 0 }
   }
+  await claimSyncOwner(userId)
 
   let synced = 0
   let failed = 0
@@ -137,13 +138,15 @@ export async function syncPending(userId: string): Promise<SyncResult> {
     try {
       const { error } = await pushRecord(record, userId)
       if (error) {
+        logSyncFailure(record.kind, error)
         failed += 1
         continue
       }
 
-      await markSynced(record.kind, record.id)
+      await markSynced(record.kind, record.id, record.record)
       synced += 1
-    } catch {
+    } catch (error) {
+      logSyncFailure(record.kind, error)
       failed += 1
     }
   }
@@ -209,24 +212,25 @@ async function readOwnedRows(
   userId: string,
 ): Promise<RemoteFuelEntry[]>
 async function readOwnedRows(table: string, userId: string): Promise<unknown[]> {
-  const { data, error } = await supabase
-    .from(table)
-    .select('*')
-    .eq('user_id', userId)
-
-  if (error) {
-    throw error
+  const rows: unknown[] = []
+  const pageSize = 1000
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase.from(table).select('*')
+      .eq('user_id', userId).order(table === 'vehicle_state' ? 'user_id' : 'id')
+      .range(start, start + pageSize - 1)
+    if (error) throw error
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) return rows
   }
-
-  return data ?? []
 }
 
-export async function hydrateFromRemoteIfLocalEmpty(
+export async function refreshFromRemote(
   userId: string,
 ): Promise<void> {
-  if (!hasUserId(userId) || !(await isLocalDatabaseEmpty())) {
+  if (!hasUserId(userId)) {
     return
   }
+  await claimSyncOwner(userId)
 
   const [vehicleRows, odometerRows, fuelRows] = await Promise.all([
     readOwnedRows('vehicle_state', userId),
@@ -234,7 +238,7 @@ export async function hydrateFromRemoteIfLocalEmpty(
     readOwnedRows('fuel_entries', userId),
   ])
 
-  await saveHydratedVehicleData({
+  await mergeRemoteVehicleData({
     vehicleState: vehicleRows[0]
       ? fromRemoteVehicleState(vehicleRows[0])
       : null,
@@ -243,11 +247,19 @@ export async function hydrateFromRemoteIfLocalEmpty(
   })
 }
 
-export type SyncActivity = 'idle' | 'syncing'
+export type SyncActivity = 'unconfirmed' | 'idle' | 'syncing' | 'pending' | 'error'
+
+let lastActivity: SyncActivity = 'unconfirmed'
+
+function logSyncFailure(operation: string, error: unknown) {
+  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : 'network_or_storage'
+  console.warn('[Control Vault sync]', { operation, code })
+}
 
 const syncActivityListeners = new Set<(activity: SyncActivity) => void>()
 
 function emitSyncActivity(activity: SyncActivity) {
+  lastActivity = activity
   for (const listener of syncActivityListeners) listener(activity)
 }
 
@@ -255,45 +267,51 @@ export function subscribeToSyncActivity(
   listener: (activity: SyncActivity) => void,
 ): () => void {
   syncActivityListeners.add(listener)
-  listener(inFlight ? 'syncing' : 'idle')
+  listener(lastActivity)
   return () => syncActivityListeners.delete(listener)
 }
 
 let inFlight: Promise<SyncResult> | null = null
 let rerunRequested = false
+let inFlightUserId: string | null = null
 
 export function runSync(userId: string): Promise<SyncResult> {
   if (inFlight) {
+    if (inFlightUserId !== userId) return Promise.reject(new Error('Sincronização de outra conta em andamento'))
     rerunRequested = true
     return inFlight
   }
 
+  inFlightUserId = userId
   emitSyncActivity('syncing')
 
   const current = (async () => {
     const total: SyncResult = { synced: 0, pending: 0, failed: 0 }
     do {
       rerunRequested = false
-      await hydrateFromRemoteIfLocalEmpty(userId)
       const pass = await syncPending(userId)
+      await refreshFromRemote(userId)
       total.synced += pass.synced
-      total.pending = pass.pending
+      total.pending = (await listPending()).length
       total.failed += pass.failed
     } while (rerunRequested)
     return total
   })()
   inFlight = current
   void current.then(
-    () => {
+    (result) => {
       if (inFlight === current) {
         inFlight = null
-        emitSyncActivity('idle')
+        inFlightUserId = null
+        emitSyncActivity(result.failed > 0 ? 'error' : result.pending > 0 ? 'pending' : hasUserId(userId) ? 'idle' : 'unconfirmed')
       }
     },
-    () => {
+    (error) => {
       if (inFlight === current) {
         inFlight = null
-        emitSyncActivity('idle')
+        inFlightUserId = null
+        logSyncFailure('refresh', error)
+        emitSyncActivity('error')
       }
     },
   )
@@ -308,6 +326,8 @@ export async function syncCurrentSessionIfOnline(): Promise<void> {
   const { data, error } = await supabase.auth.getSession()
   const currentUserId = data.session?.user.id
   if (error || !currentUserId) {
+    emitSyncActivity('unconfirmed')
+    if (error) logSyncFailure('session', error)
     return
   }
 

@@ -21,7 +21,7 @@ import type {
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 import {
-  hydrateFromRemoteIfLocalEmpty,
+  refreshFromRemote,
   runSync,
   syncCurrentSessionIfOnline,
   syncPending,
@@ -158,7 +158,7 @@ function createRemote(initial: Partial<Record<Table, Row[]>> = {}) {
   supabaseStub.from.mockImplementation((table: Table) => ({
     upsert: async (
       payload: Row,
-      options?: { onConflict?: string },
+      options?: { onConflict?: string; ignoreDuplicates?: boolean },
     ) => {
       upserts.push({ table, payload, onConflict: options?.onConflict })
       await upsertGate
@@ -173,22 +173,22 @@ function createRemote(initial: Partial<Record<Table, Row[]>> = {}) {
       )
       if (index === -1) {
         rows[table].push({ ...payload })
-      } else {
+      } else if (!options?.ignoreDuplicates) {
         rows[table][index] = { ...payload }
       }
       return { error: null }
     },
     select: () => ({
-      eq: async (column: string, value: string) => {
+      eq: (column: string, value: string) => ({ order: () => ({ range: async (start: number, end: number) => {
         selects.push({ table, column, value })
         if (failingSelects.has(table)) {
           return { data: null, error: new Error('remote read failed') }
         }
         return {
-          data: rows[table].filter((row) => row[column] === value),
+          data: rows[table].filter((row) => row[column] === value).slice(start, end + 1),
           error: null,
         }
-      },
+      } }) }),
     }),
   }))
 
@@ -380,7 +380,7 @@ describe('authenticated vehicle sync', () => {
       fuel_entries: [remoteFuel()],
     })
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     await expect(getVehicleState()).resolves.toEqual({
       ...vehicleState({ updatedAt }),
@@ -402,25 +402,26 @@ describe('authenticated vehicle sync', () => {
       fuel_entries: [remoteFuel(fuelId)],
     })
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     expect((await listOdometerReadings())[0].id).toBe(readingId)
     expect((await listFuelEntries())[0].id).toBe(fuelId)
   })
 
-  it('skips every remote read when any local data exists', async () => {
+  it('fetches remote records even when local data already exists', async () => {
     const remote = createRemote({ vehicle_state: [remoteVehicle()] })
     await saveOdometerReading(odometerReading())
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
-    expect(remote.selects).toEqual([])
+    expect(remote.selects).toHaveLength(3)
+    expect(await getVehicleState()).not.toBeNull()
   })
 
   it('accepts an empty remote account without creating local data', async () => {
     createRemote()
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     await expect(getVehicleState()).resolves.toBeNull()
     await expect(listOdometerReadings()).resolves.toEqual([])
@@ -434,7 +435,7 @@ describe('authenticated vehicle sync', () => {
     })
     remote.failingSelects.add('fuel_entries')
 
-    await expect(hydrateFromRemoteIfLocalEmpty(userId)).rejects.toThrow(
+    await expect(refreshFromRemote(userId)).rejects.toThrow(
       'remote read failed',
     )
     await expect(getVehicleState()).resolves.toBeNull()
@@ -448,7 +449,7 @@ describe('authenticated vehicle sync', () => {
       fuel_entries: [remoteFuel(), remoteFuel(undefined, otherUserId)],
     })
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     expect(remote.selects).toEqual([
       { table: 'vehicle_state', column: 'user_id', value: userId },
@@ -462,7 +463,7 @@ describe('authenticated vehicle sync', () => {
   it('does not hydrate for an invalid user ID', async () => {
     createRemote({ vehicle_state: [remoteVehicle()] })
 
-    await hydrateFromRemoteIfLocalEmpty('')
+    await refreshFromRemote('')
 
     expect(supabaseStub.from).not.toHaveBeenCalled()
   })
@@ -475,6 +476,37 @@ describe('authenticated vehicle sync', () => {
 
     expect(result).toEqual({ synced: 1, pending: 0, failed: 0 })
     expect(remote.rows.vehicle_state).toHaveLength(1)
+  })
+
+  it('receives another device records on the next run without clearing local data', async () => {
+    const remote = createRemote({ vehicle_state: [remoteVehicle()], fuel_entries: [remoteFuel()] })
+    await runSync(userId)
+    remote.rows.fuel_entries.push(remoteFuel('new-device-record'))
+    await runSync(userId)
+    expect(await listFuelEntries()).toHaveLength(2)
+    expect(remote.upserts).toHaveLength(0)
+  })
+
+  it('does not reset an existing server vehicle when another device initializes offline', async () => {
+    const remote = createRemote({ vehicle_state: [remoteVehicle()] })
+    await saveVehicleState(vehicleState({ initialOdometerKm: 500 }))
+    await runSync(userId)
+    expect(remote.rows.vehicle_state[0].initial_odometer_km).toBe(1000)
+    expect((await getVehicleState())?.initialOdometerKm).toBe(1000)
+  })
+
+  it('fetches every page beyond the server row limit', async () => {
+    createRemote({ fuel_entries: Array.from({ length: 1001 }, (_, index) => remoteFuel(`fuel-${index}`)) })
+    await runSync(userId)
+    expect(await listFuelEntries()).toHaveLength(1001)
+  })
+
+  it('keeps local pending data and pulls other-device records after a write failure', async () => {
+    const remote = createRemote({ fuel_entries: [remoteFuel('other-device')] })
+    await saveFuelEntry(fuelEntry())
+    remote.failingUpserts.add(`fuel_entries:${fuelEntry().id}`)
+    expect((await runSync(userId)).pending).toBe(1)
+    expect(await listFuelEntries()).toHaveLength(2)
   })
 
   it('runSync hydrates before checking pending records', async () => {
@@ -546,7 +578,7 @@ describe('authenticated vehicle sync', () => {
 
   it('survives closing and reopening the local database after hydration', async () => {
     createRemote({ fuel_entries: [remoteFuel()] })
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     await closeLocalDatabase()
 
@@ -676,7 +708,7 @@ describe('vehicle model v2 sync mappings', () => {
       ],
     })
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
@@ -698,7 +730,7 @@ describe('vehicle model v2 sync mappings', () => {
       ],
     })
 
-    await hydrateFromRemoteIfLocalEmpty(userId)
+    await refreshFromRemote(userId)
 
     await expect(getVehicleState()).resolves.toEqual(
       expect.objectContaining({ initialFullTankAt: null }),

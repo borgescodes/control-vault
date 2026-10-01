@@ -12,7 +12,7 @@ import type {
 } from '../../modules/vehicle/domain/types'
 
 export const LOCAL_DATABASE_NAME = 'control-vault'
-export const LOCAL_DATABASE_VERSION = 2
+export const LOCAL_DATABASE_VERSION = 3
 export const VEHICLE_STATE_KEY = 'primary'
 
 export type SyncStatus = 'pending' | 'synced'
@@ -22,6 +22,10 @@ export type LocalOdometerReading = OdometerReading & { syncStatus: SyncStatus }
 export type LocalFuelEntry = FuelEntry & { syncStatus: SyncStatus }
 
 export interface ControlVaultDatabase extends DBSchema {
+  sync_metadata: {
+    key: 'owner'
+    value: string
+  }
   vehicle_state: {
     key: typeof VEHICLE_STATE_KEY
     value: LocalVehicleState
@@ -44,6 +48,7 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
     LOCAL_DATABASE_VERSION,
     {
       upgrade(database, oldVersion, _newVersion, transaction) {
+        if (oldVersion < 3) database.createObjectStore('sync_metadata')
         if (oldVersion < 1) {
           database.createObjectStore('vehicle_state')
           database.createObjectStore('odometer_readings', { keyPath: 'id' })
