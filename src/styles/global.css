@@ -228,6 +228,11 @@ input::placeholder {
 
 .app__sync-feedback button { padding: 0 4px; font-size: inherit; }
 
+.app__pwa { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; padding-inline: max(18px, env(safe-area-inset-left)); font-size: .75rem; color: var(--muted); }
+.app__pwa:empty { display: none; }
+.app__pwa button { padding: 0; font-size: inherit; color: var(--accent-end); }
+.app__pwa p { width: 100%; margin: 0 0 12px; line-height: 1.5; }
+
 .app__signout {
   min-width: 44px;
   min-height: 44px;

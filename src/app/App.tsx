@@ -16,6 +16,7 @@ import ConnectionIndicator, {
 } from '../shared/ui/ConnectionIndicator'
 import VehicleModule from '../modules/vehicle/VehicleModule'
 import LoginView from './LoginView'
+import PwaControls from './PwaControls'
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -26,6 +27,7 @@ export default function App() {
   const [syncActivity, setSyncActivity] = useState<SyncActivity>('unconfirmed')
   const [pendingCount, setPendingCount] = useState(0)
   const [syncError, setSyncError] = useState(false)
+  const [updatePending, setUpdatePending] = useState(false)
   const [vehicleReadyForUser, setVehicleReadyForUser] = useState<string | null>(
     null,
   )
@@ -149,7 +151,7 @@ export default function App() {
 
   const connectionState: ConnectionState = !online
     ? 'offline'
-    : syncActivity !== 'idle' || pendingCount > 0
+    : syncActivity !== 'idle' || pendingCount > 0 || updatePending
       ? 'syncing'
       : 'online'
 
@@ -177,6 +179,7 @@ export default function App() {
             </div>
           )}
         </header>
+        <PwaControls onUpdateState={setUpdatePending} />
         {session && (syncError || pendingCount > 0) && (
           <div className="app__sync-feedback" role="status">
             <span>{syncError ? 'Sincronização não concluída' : `${pendingCount} pendente${pendingCount === 1 ? '' : 's'} de sincronização`}</span>

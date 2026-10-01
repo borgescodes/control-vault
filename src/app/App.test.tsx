@@ -44,6 +44,9 @@ const syncStub = vi.hoisted(() => ({
 
 vi.mock('../infrastructure/auth/session', () => authStub)
 vi.mock('../infrastructure/sync/sync', () => syncStub)
+vi.mock('../infrastructure/pwa/register', () => ({
+  registerPwa: () => ({ update: async () => undefined, dispose: () => undefined }),
+}))
 
 import App from './App'
 import LoginView from './LoginView'
