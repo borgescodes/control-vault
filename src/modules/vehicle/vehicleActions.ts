@@ -17,6 +17,7 @@ import {
 } from './domain/config'
 import { validateOdometer } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
+import { fullTankFingerprint } from './fuelEntries'
 
 export type RecordResult =
   | { kind: 'saved' }
@@ -193,10 +194,16 @@ export async function recordFuel(
   }
 
   let validation: ReturnType<typeof validateOdometer> | undefined
+  let duplicate = false
   const saved = await saveFuelAndReadingIfCurrent(
     entry,
     reading,
-    (latest) => {
+    (latest, existingEntries) => {
+      const fingerprint = fullTankFingerprint(entry)
+      if (fingerprint !== null && existingEntries.some((existing) => fullTankFingerprint(existing) === fingerprint)) {
+        duplicate = true
+        return false
+      }
       validation = validateOdometer(latest, input.odometerKm)
       return (
         validation.kind === 'valid' ||
@@ -206,6 +213,7 @@ export async function recordFuel(
   )
 
   if (!saved) {
+    if (duplicate) return { kind: 'invalid', reason: 'Abastecimento já registrado' }
     if (validation?.kind === 'suspicious') {
       return {
         kind: 'requires_confirmation',

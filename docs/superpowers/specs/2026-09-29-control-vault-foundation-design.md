@@ -404,6 +404,13 @@ The exact component layout is a frontend implementation concern, provided it res
 
 ## 17. Error handling
 
+An identical full-tank submission at the same odometer (same amount, volume and
+price-reference metadata) is a repeated event, even if submitted at a later
+time. Reject new repeats atomically with the fuel/reading write. Existing repeats
+are represented once, using the earliest event, in history and derived totals;
+preserve stored records. Partial refuels and full refuels with different data
+remain distinct. This does not change synchronization IDs or formulas.
+
 Domain validation happens before persistence.
 
 Important failures:

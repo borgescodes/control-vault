@@ -56,6 +56,31 @@ function fuel(
 }
 
 describe('getVehicleDashboard', () => {
+  it('does not resurrect a pre-setup full tank through a later duplicate', () => {
+    const currentState = {
+      ...state, initialOdometerKm: 1_000, initialFullTankAt: null,
+      createdAt: '2026-09-20T10:00:00Z',
+    }
+    const original = fuel('original', 1_100, 3, true, '2026-09-19T10:00:00Z', 2_005)
+    const copy = { ...original, id: 'copy', fueledAt: '2026-09-21T10:00:00Z' }
+    const dashboard = getVehicleDashboard(currentState, [], [copy, original], now)
+    expect(dashboard.odometerKm).toBe(1_000)
+    expect(dashboard.rangeState).toBe('awaiting_full_tank')
+    expect(dashboard.fuelPercent).toBeNull()
+    expect(dashboard.monthSpendCents).toBe(2_005)
+  })
+
+  it('counts identical full-tank records once, retaining the earliest event date', () => {
+    const entries = [
+      fuel('later-copy', 1_100, 3, true, '2026-09-21T10:00:00Z', 2_005),
+      fuel('original', 1_100, 3, true, '2026-09-20T10:00:00Z', 2_005),
+    ]
+    const dashboard = getVehicleDashboard(state, [], entries, now)
+    expect(dashboard.monthSpendCents).toBe(2_005)
+    expect(dashboard.monthFuelEntryCount).toBe(1)
+    expect(entries).toHaveLength(2)
+  })
+
   it('keeps pre-setup fuel history out of the current estimates and odometer', () => {
     const currentState: VehicleState = {
       ...state,

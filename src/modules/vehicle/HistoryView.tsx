@@ -1,5 +1,6 @@
 import { formatOdometerValue } from './inputFormatters'
 import type { FuelEntry, OdometerReading } from './domain/types'
+import { uniqueFuelEntries } from './fuelEntries'
 
 type HistoryViewProps = {
   fuelEntries: FuelEntry[]
@@ -62,7 +63,7 @@ export default function HistoryView({
         value: `${formatOdometerValue(reading.readingKm)} km`,
         detail: null,
       })),
-    ...fuelEntries.map((entry) => ({
+    ...uniqueFuelEntries(fuelEntries).map((entry) => ({
       id: `fuel-${entry.id}`,
       at: entry.fueledAt,
       kind: 'fuel' as const,

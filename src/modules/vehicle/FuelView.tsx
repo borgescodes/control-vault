@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
   getFuelPriceReference,
@@ -43,6 +43,7 @@ export default function FuelView({
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const saving = useRef(false)
   const [priceReference, setPriceReference] =
     useState<FuelPriceReference | null>(null)
 
@@ -82,6 +83,8 @@ export default function FuelView({
   const amountInvalid = amountDigits.length > 0 && !amountValid
 
   async function save(input: FuelInput, confirmSuspicious = false) {
+    if (saving.current) return
+    saving.current = true
     setError(null)
     setSubmitting(true)
 
@@ -103,6 +106,7 @@ export default function FuelView({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao salvar')
     } finally {
+      saving.current = false
       setSubmitting(false)
     }
   }

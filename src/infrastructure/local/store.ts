@@ -257,7 +257,7 @@ export async function saveFuelAndReading(
 export async function saveFuelAndReadingIfCurrent(
   entry: FuelEntry,
   reading: OdometerReading,
-  shouldSave: (latestOdometerKm: number | null) => boolean,
+  shouldSave: (latestOdometerKm: number | null, fuelEntries: FuelEntry[]) => boolean,
 ): Promise<boolean> {
   const database = await openLocalDatabase()
   const transaction = database.transaction(
@@ -270,7 +270,8 @@ export async function saveFuelAndReadingIfCurrent(
     ? Math.max(...readings.map(({ readingKm }) => readingKm))
     : null
 
-  if (!shouldSave(latestOdometerKm)) {
+  const existingFuelEntries = await transaction.objectStore('fuel_entries').getAll()
+  if (!shouldSave(latestOdometerKm, existingFuelEntries)) {
     await transaction.done
     return false
   }

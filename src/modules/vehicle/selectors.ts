@@ -6,6 +6,7 @@ import {
 } from './domain/consumption'
 import { RANGE_SAFETY_FACTOR } from './domain/config'
 import { estimateFuelRemaining } from './domain/fuelEstimate'
+import { uniqueFuelEntries } from './fuelEntries'
 import type {
   FuelEntry,
   OdometerReading,
@@ -47,7 +48,8 @@ export function getVehicleDashboard(
 ): VehicleDashboard {
   // Historical entries survive setup changes and synchronization. Only the
   // current setup's fuel ledger may contribute to operational estimates.
-  const operationalFuelEntries = fuelEntries.filter(
+  const canonicalFuelEntries = uniqueFuelEntries(fuelEntries)
+  const operationalFuelEntries = canonicalFuelEntries.filter(
     (entry) => timestamp(entry.fueledAt) >= timestamp(state.createdAt),
   )
   const latestReading = readings.reduce<OdometerReading | null>(
@@ -72,7 +74,7 @@ export function getVehicleDashboard(
     Math.max(latestReading?.readingKm ?? state.initialOdometerKm, state.initialOdometerKm),
   )
 
-  const monthEntries = fuelEntries.filter((entry) => {
+  const monthEntries = canonicalFuelEntries.filter((entry) => {
     const fueledAt = new Date(entry.fueledAt)
     return (
       fueledAt.getFullYear() === now.getFullYear() &&

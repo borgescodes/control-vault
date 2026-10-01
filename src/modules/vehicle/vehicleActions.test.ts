@@ -44,6 +44,35 @@ function nextUuid(sequence: number): ReturnType<Crypto['randomUUID']> {
 }
 
 describe('vehicle actions', () => {
+  it('rejects a repeated full tank at the same mileage with a later timestamp', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    const input = { odometerKm: 1_100, amountCents: 2_005, fullTank: true, fueledAt: laterAt }
+    expect(await recordFuel(input)).toEqual({ kind: 'saved' })
+    expect(await recordFuel({ ...input, fueledAt: '2026-10-01T10:00:00.000Z' })).toEqual({
+      kind: 'invalid', reason: 'Abastecimento já registrado',
+    })
+    expect(await listFuelEntries()).toHaveLength(1)
+    expect(await listOdometerReadings()).toHaveLength(2)
+  })
+
+  it('prevents concurrent repeated full tanks atomically', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    const input = { odometerKm: 1_100, amountCents: 2_005, fullTank: true, fueledAt: laterAt }
+    const results = await Promise.all([recordFuel(input), recordFuel(input)])
+    expect(results.filter(({ kind }) => kind === 'saved')).toHaveLength(1)
+    expect(results.filter(({ kind }) => kind === 'invalid')).toHaveLength(1)
+    expect(await listFuelEntries()).toHaveLength(1)
+    expect(await listOdometerReadings()).toHaveLength(2)
+  })
+
+  it('preserves separate partial refuels at the same mileage', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    const input = { odometerKm: 1_100, amountCents: 1_000, fullTank: false, fueledAt: laterAt }
+    expect(await recordFuel(input)).toEqual({ kind: 'saved' })
+    expect(await recordFuel({ ...input, fueledAt: '2026-10-01T10:00:00.000Z' })).toEqual({ kind: 'saved' })
+    expect(await listFuelEntries()).toHaveLength(2)
+  })
+
   let sequence = 0
 
   beforeEach(async () => {
