@@ -18,11 +18,10 @@ import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
-
-type View = 'home' | 'odometer' | 'fuel' | 'history'
+import { backToPreviousView, currentView, initializeNavigation, navigateTo, type VehicleView } from './navigation'
 
 export default function VehicleModule() {
-  const [view, setView] = useState<View>('home')
+  const [view, setView] = useState<VehicleView>(currentView)
   const [vehicleState, setVehicleState] = useState<
     LocalVehicleState | null | undefined
   >(undefined)
@@ -30,6 +29,13 @@ export default function VehicleModule() {
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    initializeNavigation()
+    const handlePopState = () => { setView(currentView()) }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   async function refresh() {
     const [state, nextReadings, nextFuelEntries] = await Promise.all([
@@ -63,12 +69,12 @@ export default function VehicleModule() {
   async function handleSaved(message: string) {
     await refresh()
     setNotice(message)
-    setView('home')
+    backToPreviousView()
   }
 
-  function openView(nextView: View) {
+  function openView(nextView: VehicleView) {
     if (nextView !== 'home') setNotice(null)
-    setView(nextView)
+    navigateTo(nextView)
   }
 
   if (vehicleState === undefined) {
@@ -99,26 +105,6 @@ export default function VehicleModule() {
   )
   const hasPending = vehicleState.syncStatus === 'pending' || readings.some((record) => record.syncStatus === 'pending') || fuelEntries.some((record) => record.syncStatus === 'pending')
 
-  if (view === 'odometer') {
-    return (
-      <OdometerView
-        currentOdometerKm={dashboard.odometerKm}
-        onBack={() => openView('home')}
-        onSaved={() => handleSaved('Hodômetro atualizado')}
-      />
-    )
-  }
-
-  if (view === 'fuel') {
-    return (
-      <FuelView
-        currentOdometerKm={dashboard.odometerKm}
-        onBack={() => openView('home')}
-        onSaved={() => handleSaved('Abastecimento salvo')}
-      />
-    )
-  }
-
   const navigation = (
     <nav className="vehicle-navigation" aria-label="Navegação principal">
       <button
@@ -139,6 +125,15 @@ export default function VehicleModule() {
       </button>
     </nav>
   )
+
+  if (view === 'odometer' || view === 'fuel') {
+    const EntryView = view === 'fuel' ? FuelView : OdometerView
+    return <>
+      <EntryView currentOdometerKm={dashboard.odometerKm} onBack={backToPreviousView}
+        onSaved={() => handleSaved(view === 'fuel' ? 'Abastecimento salvo' : 'Hodômetro atualizado')} />
+      {navigation}
+    </>
+  }
 
   if (view === 'history') {
     return (

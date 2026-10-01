@@ -90,6 +90,7 @@ function dashboard(
 
 describe('vehicle views', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/')
     actionStub.initializeVehicle.mockClear()
     actionStub.recordOdometer.mockClear()
     actionStub.recordFuel.mockClear()
@@ -205,7 +206,8 @@ describe('vehicle views', () => {
       false,
     )
 
-    expect(container.textContent).not.toContain('Preço ref.')
+    expect(container.textContent?.replace(/\u00a0/g, ' ')).toContain('Preço de referência: R$ 7,05/L')
+    expect(container.textContent).toContain('Máximo estimado')
     expect(container.textContent).toContain('≤ R$ 28,88')
 
     const submit = container.querySelector(

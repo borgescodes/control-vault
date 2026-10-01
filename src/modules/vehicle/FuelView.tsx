@@ -205,9 +205,13 @@ export default function FuelView({
               className="field-limit"
               id="fuel-amount-hint"
             >
-              ≤ {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}
+              <span>Preço de referência: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(priceReference.precoMedio)}/L</span>
+              <span>ANP · Paragominas · {priceReference.semanaInicio} a {priceReference.semanaFim}</span>
+              <span>Máximo estimado: ≤ {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}</span>
+              {amountCents > 0 && <span>Volume estimado: ≈ {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format((amountCents / 100) / priceReference.precoMedio)} L</span>}
             </small>
           )}
+          {priceReference === null && <small className="field-hint">Preço de referência indisponível · registro sem estimativa de volume</small>}
         </label>
 
         <label className="vehicle-toggle">
