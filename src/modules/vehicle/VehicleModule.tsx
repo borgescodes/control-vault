@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import {
   getVehicleState,
+  listAllSavedTrips,
   listFuelEntries,
   listOdometerReadings,
   subscribeToLocalChanges,
@@ -9,8 +10,13 @@ import {
 import type {
   LocalFuelEntry,
   LocalOdometerReading,
+  LocalSavedTrip,
   LocalVehicleState,
 } from '../../infrastructure/local/db'
+import {
+  getFuelPriceReference,
+  type FuelPriceReference,
+} from '../../infrastructure/fuelPrice/fuelPrice'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
@@ -18,7 +24,22 @@ import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
-import { backToPreviousView, currentView, initializeNavigation, navigateTo, type VehicleView } from './navigation'
+import TripDetailView from './TripDetailView'
+import TripFormView from './TripFormView'
+import TripsView from './TripsView'
+import {
+  backToPreviousView,
+  currentTripId,
+  currentView,
+  initializeNavigation,
+  navigateTo,
+  replaceTo,
+  type VehicleView,
+} from './navigation'
+
+function isTripView(view: VehicleView): boolean {
+  return view === 'trips' || view === 'trip-new' || view === 'trip-detail' || view === 'trip-edit'
+}
 
 export default function VehicleModule() {
   const [view, setView] = useState<VehicleView>(currentView)
@@ -27,6 +48,8 @@ export default function VehicleModule() {
   >(undefined)
   const [readings, setReadings] = useState<LocalOdometerReading[]>([])
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
+  const [savedTrips, setSavedTrips] = useState<LocalSavedTrip[]>([])
+  const [tripPriceReference, setTripPriceReference] = useState<FuelPriceReference | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const vehicleReady = Boolean(vehicleState)
@@ -39,14 +62,16 @@ export default function VehicleModule() {
   }, [])
 
   async function refresh() {
-    const [state, nextReadings, nextFuelEntries] = await Promise.all([
+    const [state, nextReadings, nextFuelEntries, nextTrips] = await Promise.all([
       getVehicleState(),
       listOdometerReadings(),
       listFuelEntries(),
+      listAllSavedTrips(),
     ])
     setVehicleState(state)
     setReadings(nextReadings)
     setFuelEntries(nextFuelEntries)
+    setSavedTrips(nextTrips)
   }
 
   useEffect(() => {
