@@ -56,6 +56,32 @@ function fuel(
 }
 
 describe('getVehicleDashboard', () => {
+  it('uses recorded fuel mileage when the latest reading precedes a full tank', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('later-reading', 1_050, '2026-09-29T10:00:00.000Z')],
+      [fuel('full', 1_100, 3, true, '2026-09-28T10:00:00.000Z')],
+      now,
+    )
+
+    expect(dashboard.odometerKm).toBe(1_100)
+    expect(dashboard.fuelPercent).toBe(100)
+    expect(dashboard.rangeState).toBe('ready')
+  })
+
+  it('includes mileage from partial fuel entries without changing the records', () => {
+    const entries = [
+      fuel('full', 1_100, 3, true, '2026-09-28T10:00:00.000Z'),
+      fuel('partial', 1_120, 0.5, false, '2026-09-29T10:00:00.000Z'),
+    ]
+    const original = structuredClone(entries)
+    const dashboard = getVehicleDashboard(state, [], entries, now)
+
+    expect(dashboard.odometerKm).toBe(1_120)
+    expect(dashboard.remainingLiters).toBeCloseTo(2.9)
+    expect(entries).toEqual(original)
+  })
+
   it('uses the latest reading and the higher odometer on a time tie', () => {
     const dashboard = getVehicleDashboard(
       state,

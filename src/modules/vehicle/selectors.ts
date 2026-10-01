@@ -60,7 +60,12 @@ export function getVehicleDashboard(
     },
     null,
   )
-  const odometerKm = latestReading?.readingKm ?? state.initialOdometerKm
+  // Fuel entries also record accepted mileage, even when their paired reading
+  // has an earlier timestamp or has not arrived in the local snapshot yet.
+  const odometerKm = fuelEntries.reduce(
+    (latest, entry) => Math.max(latest, entry.odometerKm),
+    Math.max(latestReading?.readingKm ?? state.initialOdometerKm, state.initialOdometerKm),
+  )
 
   const monthEntries = fuelEntries.filter((entry) => {
     const fueledAt = new Date(entry.fueledAt)
