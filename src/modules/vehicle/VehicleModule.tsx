@@ -4,6 +4,7 @@ import {
   getVehicleState,
   listFuelEntries,
   listOdometerReadings,
+  subscribeToLocalChanges,
 } from '../../infrastructure/local/store'
 import type {
   LocalFuelEntry,
@@ -42,10 +43,14 @@ export default function VehicleModule() {
   }
 
   useEffect(() => {
-    void refresh().catch(() => {
+    let active = true
+    const update = () => { if (active) void refresh().catch(() => {
       setError('Falha ao carregar')
       setVehicleState(null)
-    })
+    }) }
+    update()
+    const unsubscribe = subscribeToLocalChanges(update)
+    return () => { active = false; unsubscribe() }
   }, [])
 
   useEffect(() => {
@@ -92,6 +97,7 @@ export default function VehicleModule() {
     fuelEntries,
     new Date(),
   )
+  const hasPending = vehicleState.syncStatus === 'pending' || readings.some((record) => record.syncStatus === 'pending') || fuelEntries.some((record) => record.syncStatus === 'pending')
 
   if (view === 'odometer') {
     return (
@@ -150,7 +156,7 @@ export default function VehicleModule() {
     <>
       <HomeView
         dashboard={dashboard}
-        notice={notice}
+        notice={notice ? `${notice} localmente${hasPending ? ' · sincronização pendente' : ' · sincronizado'}` : null}
         onFuel={() => openView('fuel')}
         onOdometer={() => openView('odometer')}
       />

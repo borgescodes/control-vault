@@ -17,6 +17,8 @@ export default function ConnectionIndicator({
       className="app__connection"
       data-state={state}
       role="status"
-    />
+    >
+      {state === 'online' ? 'ON' : state === 'offline' ? 'OFF' : 'SYNC'}
+    </span>
   )
 }

@@ -196,17 +196,15 @@ input::placeholder {
 
 .app__connection {
   display: inline-block;
-  width: 8px;
-  height: 8px;
   flex: 0 0 auto;
-  border: 1px solid var(--faint);
-  border-radius: 50%;
+  color: var(--faint);
+  font-family: var(--font-metric);
+  font-size: .68rem;
+  font-weight: 700;
 }
 
 .app__connection[data-state='online'] {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(168, 85, 247, .4);
+  color: var(--accent);
 }
 
 .app__connection[data-state='offline'] {
@@ -214,10 +212,20 @@ input::placeholder {
 }
 
 .app__connection[data-state='syncing'] {
-  border-color: var(--accent);
-  border-top-color: transparent;
-  animation: connection-spin 700ms linear infinite;
+  color: var(--warning);
 }
+
+.app__sync-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left));
+  color: var(--warning);
+  font-size: .7rem;
+}
+
+.app__sync-feedback button { padding: 0 4px; font-size: inherit; }
 
 .app__signout {
   min-width: 44px;

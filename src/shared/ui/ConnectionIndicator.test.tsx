@@ -5,14 +5,14 @@ import ConnectionIndicator from './ConnectionIndicator'
 
 describe('ConnectionIndicator', () => {
   it.each([
-    ['online', 'Online'],
-    ['offline', 'Offline'],
-    ['syncing', 'Sincronizando'],
-  ] as const)('renders %s as a non-verbal accessible signal', (state, label) => {
+    ['online', 'Online', 'ON'],
+    ['offline', 'Offline', 'OFF'],
+    ['syncing', 'Sincronizando', 'SYNC'],
+  ] as const)('renders %s as an accessible textual signal', (state, label, text) => {
     const markup = renderToStaticMarkup(<ConnectionIndicator state={state} />)
 
     expect(markup).toContain(`data-state="${state}"`)
     expect(markup).toContain(`aria-label="${label}"`)
-    expect(markup).not.toContain(`>${label}<`)
+    expect(markup).toContain(`>${text}<`)
   })
 })

@@ -160,4 +160,25 @@ describe('App', () => {
     expect(container.textContent).not.toContain('Configurar veículo')
     await act(async () => root.unmount())
   })
+
+  it('retries on focus and visible resume without showing ON after failure', async () => {
+    authStub.getCachedSession.mockResolvedValue({ user: { id: '11111111-1111-4111-8111-111111111111' } })
+    syncStub.runSync.mockRejectedValue(new Error('unavailable'))
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<App />))
+    await waitForSyncStart()
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 100)))
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('SYNC')
+    expect(container.textContent).toContain('Sincronização não concluída')
+    const before = syncStub.runSync.mock.calls.length
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    })
+    expect(syncStub.runSync.mock.calls.length).toBe(before + 1)
+    await act(async () => root.unmount())
+  })
 })

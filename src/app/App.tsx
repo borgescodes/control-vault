@@ -8,7 +8,9 @@ import {
 import {
   runSync,
   subscribeToSyncActivity,
+  type SyncActivity,
 } from '../infrastructure/sync/sync'
+import { listPending, subscribeToLocalChanges } from '../infrastructure/local/store'
 import ConnectionIndicator, {
   type ConnectionState,
 } from '../shared/ui/ConnectionIndicator'
@@ -21,7 +23,9 @@ export default function App() {
   const [online, setOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,
   )
-  const [syncing, setSyncing] = useState(false)
+  const [syncActivity, setSyncActivity] = useState<SyncActivity>('unconfirmed')
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncError, setSyncError] = useState(false)
   const [vehicleReadyForUser, setVehicleReadyForUser] = useState<string | null>(
     null,
   )
@@ -53,11 +57,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true)
-    const handleOffline = () => setOnline(false)
-    const unsubscribe = subscribeToSyncActivity((activity) =>
-      setSyncing(activity === 'syncing'),
-    )
+    const handleOnline = () => { setOnline(true); setSyncActivity('unconfirmed') }
+    const handleOffline = () => { setOnline(false); setSyncActivity('unconfirmed') }
+    const unsubscribe = subscribeToSyncActivity((activity) => {
+      setSyncActivity(activity)
+      setSyncError(activity === 'error')
+    })
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
@@ -76,38 +81,83 @@ export default function App() {
     }
 
     let active = true
+    let resumeTimer: number | undefined
+    let countRequest = 0
+    const refreshPending = () => {
+      const request = ++countRequest
+      void listPending().then((records) => {
+        if (active && request === countRequest) setPendingCount(records.length)
+      }).catch(() => { if (active) setSyncError(true) })
+    }
     const syncWhileOnline = () => {
       if (navigator.onLine) {
-        void runSync(session.user.id).catch(() => undefined)
+        setSyncActivity('syncing')
+        void runSync(session.user.id).then((result) => {
+          if (!active) return
+          setSyncError(result.failed > 0)
+          setSyncActivity(result.failed > 0 ? 'error' : result.pending > 0 ? 'pending' : 'idle')
+          refreshPending()
+        }).catch(() => {
+          if (active) { setSyncError(true); setSyncActivity('error') }
+        })
       }
     }
+    const scheduleResume = () => {
+      window.clearTimeout(resumeTimer)
+      resumeTimer = window.setTimeout(syncWhileOnline, 60)
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleResume()
+    }
+    const unsubscribeLocal = subscribeToLocalChanges((change) => {
+      refreshPending()
+      if (change === 'write') setSyncActivity('pending')
+    })
+    refreshPending()
+    setSyncActivity('unconfirmed')
+    setSyncError(false)
 
     void (async () => {
       try {
-        if (navigator.onLine) await runSync(session.user.id)
+        if (navigator.onLine) {
+          setSyncActivity('syncing')
+          const result = await runSync(session.user.id)
+          if (active) {
+            setSyncError(result.failed > 0)
+            setSyncActivity(result.failed > 0 ? 'error' : result.pending > 0 ? 'pending' : 'idle')
+          }
+        }
       } catch {
-        // Local data remains authoritative when remote sync is unavailable.
+        if (active) { setSyncError(true); setSyncActivity('error') }
       } finally {
-        if (active) setVehicleReadyForUser(session.user.id)
+        if (active) { setVehicleReadyForUser(session.user.id); refreshPending() }
       }
     })()
 
-    window.addEventListener('online', syncWhileOnline)
+    window.addEventListener('online', scheduleResume)
+    window.addEventListener('focus', scheduleResume)
+    document.addEventListener('visibilitychange', handleVisibility)
     return () => {
       active = false
-      window.removeEventListener('online', syncWhileOnline)
+      window.clearTimeout(resumeTimer)
+      unsubscribeLocal()
+      window.removeEventListener('online', scheduleResume)
+      window.removeEventListener('focus', scheduleResume)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [session])
 
   const connectionState: ConnectionState = !online
     ? 'offline'
-    : syncing
+    : syncActivity !== 'idle' || pendingCount > 0
       ? 'syncing'
       : 'online'
 
   async function handleSignOut() {
-    await signOut()
-    setSession(null)
+    try {
+      await signOut()
+      setSession(null)
+    } catch { setSyncError(true) }
   }
 
   return (
@@ -127,6 +177,14 @@ export default function App() {
             </div>
           )}
         </header>
+        {session && (syncError || pendingCount > 0) && (
+          <div className="app__sync-feedback" role="status">
+            <span>{syncError ? 'Sincronização não concluída' : `${pendingCount} pendente${pendingCount === 1 ? '' : 's'} de sincronização`}</span>
+            {online && <button type="button" onClick={() => {
+              void runSync(session.user.id).catch(() => setSyncError(true))
+            }}>Tentar novamente</button>}
+          </div>
+        )}
         <div className="app__content">
           {sessionReady &&
             (session ? (

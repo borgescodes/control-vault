@@ -17,6 +17,7 @@ const storeStub = vi.hoisted(() => ({
   getVehicleState: vi.fn(),
   listFuelEntries: vi.fn(),
   listOdometerReadings: vi.fn(),
+  subscribeToLocalChanges: vi.fn(() => () => undefined),
 }))
 const priceStub = vi.hoisted(() => ({
   getFuelPriceReference: vi.fn(),
