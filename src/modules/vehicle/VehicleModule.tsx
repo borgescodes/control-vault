@@ -181,6 +181,14 @@ export default function VehicleModule() {
         <span>Início</span>
       </button>
       <button
+        aria-current={tripNavigationActive ? 'page' : undefined}
+        onClick={() => openView('trips')}
+        type="button"
+      >
+        <VehicleIcon name="route" />
+        <span>Percursos</span>
+      </button>
+      <button
         aria-current={view === 'history' ? 'page' : undefined}
         onClick={() => openView('history')}
         type="button"
@@ -206,6 +214,89 @@ export default function VehicleModule() {
         <HistoryView
           fuelEntries={fuelEntries}
           odometerReadings={readings}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trips') {
+    return (
+      <>
+        <TripsView
+          consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
+          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          onNew={() => navigateTo('trip-new')}
+          onOpen={(id) => navigateTo('trip-detail', id)}
+          trips={visibleTrips}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trip-new') {
+    return (
+      <>
+        <TripFormView
+          onBack={backToPreviousView}
+          onSaved={(trip) => handleTripSaved(trip.id)}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trip-detail' || view === 'trip-edit') {
+    if (!selectedTrip) {
+      return (
+        <>
+          <section
+            className="vehicle-view trip-missing"
+            data-view-root="true"
+            tabIndex={-1}
+          >
+            <header className="view-header">
+              <button
+                aria-label="Voltar"
+                className="view-back"
+                onClick={backToPreviousView}
+                type="button"
+              >
+                <VehicleIcon name="back" />
+              </button>
+              <div>
+                <h2>Percurso indisponível</h2>
+              </div>
+            </header>
+          </section>
+          {navigation}
+        </>
+      )
+    }
+
+    if (view === 'trip-edit') {
+      return (
+        <>
+          <TripFormView
+            initialTrip={selectedTrip}
+            onBack={backToPreviousView}
+            onSaved={(trip) => handleTripSaved(trip.id)}
+          />
+          {navigation}
+        </>
+      )
+    }
+
+    return (
+      <>
+        <TripDetailView
+          consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
+          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          onBack={backToPreviousView}
+          onDeleted={handleTripDeleted}
+          onEdit={() => navigateTo('trip-edit', selectedTrip.id)}
+          trip={selectedTrip}
         />
         {navigation}
       </>
