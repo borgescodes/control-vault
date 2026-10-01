@@ -17,6 +17,7 @@ const storeStub = vi.hoisted(() => ({
   getVehicleState: vi.fn(),
   listFuelEntries: vi.fn(),
   listOdometerReadings: vi.fn(),
+  listAllSavedTrips: vi.fn(),
   subscribeToLocalChanges: vi.fn((_listener: () => void) => () => undefined),
 }))
 const priceStub = vi.hoisted(() => ({
@@ -97,6 +98,8 @@ describe('vehicle views', () => {
     storeStub.getVehicleState.mockReset()
     storeStub.listFuelEntries.mockReset()
     storeStub.listOdometerReadings.mockReset()
+    storeStub.listAllSavedTrips.mockReset()
+    storeStub.listAllSavedTrips.mockResolvedValue([])
     priceStub.getFuelPriceReference.mockReset()
     priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
   })
@@ -573,9 +576,21 @@ describe('vehicle views', () => {
     const nav = container.querySelector('.vehicle-navigation')
     expect(nav?.querySelector('[aria-current="page"]')?.textContent).toBe('Início')
     expect(nav?.querySelector('[data-icon="home"]')).not.toBeNull()
+    expect(nav?.querySelector('[data-icon="route"]')).not.toBeNull()
     expect(nav?.querySelector('[data-icon="history"]')).not.toBeNull()
 
-    const historyButton = Array.from(nav?.querySelectorAll('button') ?? []).find(
+    const tripsButton = Array.from(nav?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent === 'Percursos',
+    )
+    await act(async () => tripsButton?.click())
+    await waitForSelector(container, '.trips')
+    expect(
+      container.querySelector('.vehicle-navigation [aria-current="page"]')
+        ?.textContent,
+    ).toBe('Percursos')
+
+    const currentNav = container.querySelector('.vehicle-navigation')
+    const historyButton = Array.from(currentNav?.querySelectorAll('button') ?? []).find(
       (button) => button.textContent === 'Histórico',
     )
     await act(async () => historyButton?.click())
