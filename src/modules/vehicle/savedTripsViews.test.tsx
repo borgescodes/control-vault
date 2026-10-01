@@ -1,5 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('./savedTripActions', () => ({
+  deleteSavedTrip: vi.fn().mockResolvedValue(true),
+}))
 
 import type { SavedTrip } from './domain/types'
 import TripDetailView from './TripDetailView'
