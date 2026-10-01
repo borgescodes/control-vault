@@ -9,7 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo.png'],
+      includeAssets: ['favicon-main.ico', 'apple-touch-icon.png', 'logo.png'],
       manifest: {
         id: '/',
         scope: '/',
