@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import {
   getVehicleState,
+  listAllSavedTrips,
   listFuelEntries,
   listOdometerReadings,
   subscribeToLocalChanges,
@@ -9,8 +10,13 @@ import {
 import type {
   LocalFuelEntry,
   LocalOdometerReading,
+  LocalSavedTrip,
   LocalVehicleState,
 } from '../../infrastructure/local/db'
+import {
+  getFuelPriceReference,
+  type FuelPriceReference,
+} from '../../infrastructure/fuelPrice/fuelPrice'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
@@ -18,7 +24,22 @@ import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
-import { backToPreviousView, currentView, initializeNavigation, navigateTo, type VehicleView } from './navigation'
+import TripDetailView from './TripDetailView'
+import TripFormView from './TripFormView'
+import TripsView from './TripsView'
+import {
+  backToPreviousView,
+  currentTripId,
+  currentView,
+  initializeNavigation,
+  navigateTo,
+  replaceTo,
+  type VehicleView,
+} from './navigation'
+
+function isTripView(view: VehicleView): boolean {
+  return view === 'trips' || view === 'trip-new' || view === 'trip-detail' || view === 'trip-edit'
+}
 
 export default function VehicleModule() {
   const [view, setView] = useState<VehicleView>(currentView)
@@ -27,6 +48,8 @@ export default function VehicleModule() {
   >(undefined)
   const [readings, setReadings] = useState<LocalOdometerReading[]>([])
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
+  const [savedTrips, setSavedTrips] = useState<LocalSavedTrip[]>([])
+  const [tripPriceReference, setTripPriceReference] = useState<FuelPriceReference | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const vehicleReady = Boolean(vehicleState)
@@ -39,14 +62,16 @@ export default function VehicleModule() {
   }, [])
 
   async function refresh() {
-    const [state, nextReadings, nextFuelEntries] = await Promise.all([
+    const [state, nextReadings, nextFuelEntries, nextTrips] = await Promise.all([
       getVehicleState(),
       listOdometerReadings(),
       listFuelEntries(),
+      listAllSavedTrips(),
     ])
     setVehicleState(state)
     setReadings(nextReadings)
     setFuelEntries(nextFuelEntries)
+    setSavedTrips(nextTrips)
   }
 
   useEffect(() => {
@@ -61,6 +86,25 @@ export default function VehicleModule() {
   }, [])
 
   useEffect(() => {
+    if (!vehicleReady || !isTripView(view)) return
+
+    let active = true
+    const applyRefresh = (reference: FuelPriceReference) => {
+      if (active) setTripPriceReference(reference)
+    }
+
+    void getFuelPriceReference(new Date(), applyRefresh)
+      .then((reference) => {
+        if (active) setTripPriceReference(reference)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [vehicleReady, view])
+
+  useEffect(() => {
     if (!vehicleReady) return
     document
       .querySelector<HTMLElement>('[data-view-root="true"]')
@@ -71,6 +115,16 @@ export default function VehicleModule() {
     await refresh()
     setNotice(message)
     backToPreviousView()
+  }
+
+  async function handleTripSaved(tripId: string) {
+    await refresh()
+    replaceTo('trip-detail', tripId)
+  }
+
+  async function handleTripDeleted() {
+    await refresh()
+    replaceTo('trips')
   }
 
   function openView(nextView: VehicleView) {
@@ -104,7 +158,17 @@ export default function VehicleModule() {
     fuelEntries,
     new Date(),
   )
-  const hasPending = vehicleState.syncStatus === 'pending' || readings.some((record) => record.syncStatus === 'pending') || fuelEntries.some((record) => record.syncStatus === 'pending')
+  const visibleTrips = savedTrips.filter((trip) => trip.deletedAt === null)
+  const hasPending =
+    vehicleState.syncStatus === 'pending' ||
+    readings.some((record) => record.syncStatus === 'pending') ||
+    fuelEntries.some((record) => record.syncStatus === 'pending') ||
+    savedTrips.some((record) => record.syncStatus === 'pending')
+  const tripNavigationActive = isTripView(view)
+  const tripId = currentTripId()
+  const selectedTrip = tripId
+    ? visibleTrips.find((trip) => trip.id === tripId) ?? null
+    : null
 
   const navigation = (
     <nav className="vehicle-navigation" aria-label="Navegação principal">
@@ -115,6 +179,14 @@ export default function VehicleModule() {
       >
         <VehicleIcon name="home" />
         <span>Início</span>
+      </button>
+      <button
+        aria-current={tripNavigationActive ? 'page' : undefined}
+        onClick={() => openView('trips')}
+        type="button"
+      >
+        <VehicleIcon name="route" />
+        <span>Percursos</span>
       </button>
       <button
         aria-current={view === 'history' ? 'page' : undefined}
@@ -142,6 +214,89 @@ export default function VehicleModule() {
         <HistoryView
           fuelEntries={fuelEntries}
           odometerReadings={readings}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trips') {
+    return (
+      <>
+        <TripsView
+          consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
+          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          onNew={() => navigateTo('trip-new')}
+          onOpen={(id) => navigateTo('trip-detail', id)}
+          trips={visibleTrips}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trip-new') {
+    return (
+      <>
+        <TripFormView
+          onBack={backToPreviousView}
+          onSaved={(trip) => handleTripSaved(trip.id)}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'trip-detail' || view === 'trip-edit') {
+    if (!selectedTrip) {
+      return (
+        <>
+          <section
+            className="vehicle-view trip-missing"
+            data-view-root="true"
+            tabIndex={-1}
+          >
+            <header className="view-header">
+              <button
+                aria-label="Voltar"
+                className="view-back"
+                onClick={backToPreviousView}
+                type="button"
+              >
+                <VehicleIcon name="back" />
+              </button>
+              <div>
+                <h2>Percurso indisponível</h2>
+              </div>
+            </header>
+          </section>
+          {navigation}
+        </>
+      )
+    }
+
+    if (view === 'trip-edit') {
+      return (
+        <>
+          <TripFormView
+            initialTrip={selectedTrip}
+            onBack={backToPreviousView}
+            onSaved={(trip) => handleTripSaved(trip.id)}
+          />
+          {navigation}
+        </>
+      )
+    }
+
+    return (
+      <>
+        <TripDetailView
+          consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
+          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          onBack={backToPreviousView}
+          onDeleted={handleTripDeleted}
+          onEdit={() => navigateTo('trip-edit', selectedTrip.id)}
+          trip={selectedTrip}
         />
         {navigation}
       </>

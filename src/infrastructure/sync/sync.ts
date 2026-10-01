@@ -1,6 +1,7 @@
 import type {
   FuelEntry,
   OdometerReading,
+  SavedTrip,
   VehicleState,
 } from '../../modules/vehicle/domain/types'
 import {
@@ -33,6 +34,18 @@ type RemoteOdometerReading = {
   reading_km: number
   recorded_at: string
   source: OdometerReading['source']
+  created_at: string
+  updated_at: string
+}
+
+type RemoteSavedTrip = {
+  id: string
+  user_id: string
+  origin: string
+  destination: string
+  outbound_distance_km: number
+  return_distance_km: number | null
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -85,6 +98,23 @@ function toRemoteOdometerReading(
   }
 }
 
+function toRemoteSavedTrip(
+  record: PendingRecord & { kind: 'saved_trips' },
+  userId: string,
+): RemoteSavedTrip {
+  return {
+    id: record.record.id,
+    user_id: userId,
+    origin: record.record.origin,
+    destination: record.record.destination,
+    outbound_distance_km: record.record.outboundDistanceKm,
+    return_distance_km: record.record.returnDistanceKm,
+    deleted_at: record.record.deletedAt,
+    created_at: record.record.createdAt,
+    updated_at: record.record.updatedAt,
+  }
+}
+
 function toRemoteFuelEntry(
   record: PendingRecord & { kind: 'fuel_entries' },
   userId: string,
@@ -118,9 +148,15 @@ async function pushRecord(record: PendingRecord, userId: string) {
       .upsert(toRemoteOdometerReading(record, userId), { onConflict: 'id' })
   }
 
+  if (record.kind === 'fuel_entries') {
+    return supabase
+      .from('fuel_entries')
+      .upsert(toRemoteFuelEntry(record, userId), { onConflict: 'id' })
+  }
+
   return supabase
-    .from('fuel_entries')
-    .upsert(toRemoteFuelEntry(record, userId), { onConflict: 'id' })
+    .from('saved_trips')
+    .upsert(toRemoteSavedTrip(record, userId), { onConflict: 'id' })
 }
 
 export async function syncPending(userId: string): Promise<SyncResult> {
@@ -183,6 +219,19 @@ function nullableNumber(value: number | null): number | null {
   return value === null ? null : Number(value)
 }
 
+function fromRemoteSavedTrip(row: RemoteSavedTrip): SavedTrip {
+  return {
+    id: row.id,
+    origin: row.origin,
+    destination: row.destination,
+    outboundDistanceKm: Number(row.outbound_distance_km),
+    returnDistanceKm: nullableNumber(row.return_distance_km),
+    deletedAt: row.deleted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 function fromRemoteFuelEntry(row: RemoteFuelEntry): FuelEntry {
   return {
     id: row.id,
@@ -211,6 +260,10 @@ async function readOwnedRows(
   table: 'fuel_entries',
   userId: string,
 ): Promise<RemoteFuelEntry[]>
+async function readOwnedRows(
+  table: 'saved_trips',
+  userId: string,
+): Promise<RemoteSavedTrip[]>
 async function readOwnedRows(table: string, userId: string): Promise<unknown[]> {
   const rows: unknown[] = []
   const pageSize = 1000
@@ -232,10 +285,11 @@ export async function refreshFromRemote(
   }
   await claimSyncOwner(userId)
 
-  const [vehicleRows, odometerRows, fuelRows] = await Promise.all([
+  const [vehicleRows, odometerRows, fuelRows, tripRows] = await Promise.all([
     readOwnedRows('vehicle_state', userId),
     readOwnedRows('odometer_readings', userId),
     readOwnedRows('fuel_entries', userId),
+    readOwnedRows('saved_trips', userId),
   ])
 
   await mergeRemoteVehicleData({
@@ -244,6 +298,7 @@ export async function refreshFromRemote(
       : null,
     odometerReadings: odometerRows.map(fromRemoteOdometerReading),
     fuelEntries: fuelRows.map(fromRemoteFuelEntry),
+    savedTrips: tripRows.map(fromRemoteSavedTrip),
   })
 }
 
