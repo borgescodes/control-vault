@@ -21,7 +21,7 @@ export function limitMoneyDigits(
 
 export function limitOdometerDigits(current: string, nextValue: string): string {
   const digits = digitsOnly(nextValue)
-  return Number(digits || 0) <= MAX_ODOMETER_KM * 10 ? digits : current
+  return digits.length <= 7 && Number(digits || 0) <= MAX_ODOMETER_KM * 10 ? digits : current
 }
 
 export function odometerDigitsFromKm(value: number): string {
@@ -41,6 +41,10 @@ export function parseMoneyCents(value: string): number {
 export function formatOdometerInput(value: string): string {
   const digits = digitsOnly(value)
   return digits ? (Number(digits) / 10).toFixed(1) : ''
+}
+
+export function formatDistanceInput(value: string): string {
+  return formatOdometerInput(value).replace('.', ',')
 }
 
 export function parseOdometerKm(value: string): number {

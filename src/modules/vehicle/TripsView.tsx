@@ -29,11 +29,10 @@ function costLabel(
     fuelPricePerLiter,
   })
 
-  if (estimate.total.liters === null) return 'Aguardando calibração'
+  if (estimate.total.liters === null) return 'Calibrando'
   if (estimate.total.costCents === null) return 'Preço indisponível'
 
-  const suffix = trip.returnDistanceKm === null ? 'ida' : 'total'
-  return `≈ ${currency.format(estimate.total.costCents / 100)} ${suffix}`
+  return `≈ ${currency.format(estimate.total.costCents / 100)}`
 }
 
 export default function TripsView({
@@ -54,21 +53,14 @@ export default function TripsView({
       data-view-root="true"
       tabIndex={-1}
     >
-      <header className="trips__header">
+      <header className="view-header trips__header">
         <h2 id="trips-title">Percursos</h2>
-        <button className="button-secondary trips__new" onClick={onNew} type="button">
+        <button className="button-primary trips__new" onClick={onNew} type="button">
           Novo
         </button>
       </header>
 
-      {ordered.length === 0 ? (
-        <div className="trips-empty">
-          <p>Nenhum percurso salvo.</p>
-          <button className="button-primary" onClick={onNew} type="button">
-            Novo percurso
-          </button>
-        </div>
-      ) : (
+      {ordered.length > 0 && (
         <ul className="trip-list">
           {ordered.map((trip) => {
             const totalDistanceKm =
@@ -82,14 +74,14 @@ export default function TripsView({
                   onClick={() => onOpen(trip.id)}
                   type="button"
                 >
-                  <span className="trip-row__route">
+                  <span className="trip-row__route" title={`${trip.origin} > ${trip.destination}`}>
                     <span>{trip.origin}</span>
                     <span aria-hidden="true" className="trip-row__arrow">&gt;</span>
                     <span>{trip.destination}</span>
                   </span>
                   <span className="trip-row__summary">
-                    <span>{distance.format(totalDistanceKm)} km</span>
-                    <span>
+                    <span className="trip-row__distance">{distance.format(totalDistanceKm)} km</span>
+                    <span className="trip-row__cost">
                       {costLabel(
                         trip,
                         consumptionKmPerLiter,

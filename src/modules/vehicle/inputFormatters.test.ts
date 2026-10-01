@@ -4,6 +4,7 @@ import {
   digitsOnly,
   formatMoneyInput,
   formatOdometerInput,
+  formatDistanceInput,
   limitMoneyDigits,
   limitOdometerDigits,
   odometerDigitsFromKm,
@@ -47,6 +48,18 @@ describe('vehicle input formatters', () => {
 
 
 describe('vehicle input limits', () => {
+  it('formats distance with shifted tenths and a pt-BR comma', () => {
+    expect(['1', '14', '140', '145'].map(formatDistanceInput)).toEqual(['0,1', '1,4', '14,0', '14,5'])
+    expect(formatDistanceInput('')).toBe('')
+    expect(parseOdometerKm('145')).toBe(14.5)
+  })
+
+  it('bounds digit length even for leading zeros and strips arbitrary characters', () => {
+    expect(limitOdometerDigits('145', '0'.repeat(100))).toBe('145')
+    expect(limitOdometerDigits('145', '999999999999999999')).toBe('145')
+    expect(limitOdometerDigits('', 'abc14,5 km')).toBe('145')
+    expect(limitOdometerDigits('145', '')).toBe('')
+  })
   it('limits the money mask to R$ 99,99 independently of the business cap', () => {
     expect(limitMoneyDigits('2820', '2821')).toBe('2821')
     expect(limitMoneyDigits('9998', '9999')).toBe('9999')

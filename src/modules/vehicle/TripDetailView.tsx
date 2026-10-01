@@ -44,11 +44,11 @@ function MetricBlock({
       <h3>{title}</h3>
       <dl>
         <div>
-          <dt>Distãncia</dt>
+          <dt className="sr-only">Distância</dt>
           <dd>{distance.format(estimate.distanceKm)} km</dd>
         </div>
         <div>
-          <dt>Combustível</dt>
+          <dt className="sr-only">Combustível</dt>
           <dd>
             {estimate.liters === null
               ? 'Calibrando'
@@ -56,10 +56,10 @@ function MetricBlock({
           </dd>
         </div>
         <div>
-          <dt>Custo</dt>
+          <dt className="sr-only">Custo</dt>
           <dd>
             {estimate.liters === null
-              ? 'Aguardando calibração'
+              ? 'Calibrando'
               : estimate.costCents === null
                 ? 'Preço indisponível'
                 : `≈ ${currency.format(estimate.costCents / 100)}`}
@@ -128,31 +128,27 @@ export default function TripDetailView({
           <VehicleIcon name="back" />
         </button>
         <div className="trip-detail__header-copy">
-          <span className="ui-label">Percurso</span>
-          <h2 id="trip-detail-title">
-            {trip.origin} &gt; {trip.destination}
+          <h2 className="trip-row__route" id="trip-detail-title" title={`${trip.origin} > ${trip.destination}`}>
+            <span>{trip.origin}</span>
+            <span aria-hidden="true" className="trip-row__arrow">&gt;</span>
+            <span>{trip.destination}</span>
           </h2>
         </div>
-        <button
-          className="button-secondary trip-detail__edit"
-          onClick={onEdit}
-          type="button"
-        >
-          Editar
-        </button>
       </header>
 
-      <MetricBlock estimate={estimate.outbound} title="Ida" />
-      {estimate.returnTrip && (
-        <MetricBlock estimate={estimate.returnTrip} title="Volta" />
-      )}
-      {estimate.returnTrip && (
-        <MetricBlock estimate={estimate.total} title="Total" />
-      )}
+      <div className="trip-detail__legs">
+        <MetricBlock estimate={estimate.outbound} title="Ida" />
+        {estimate.returnTrip && (
+          <MetricBlock estimate={estimate.returnTrip} title="Volta" />
+        )}
+        {estimate.returnTrip && (
+          <MetricBlock estimate={estimate.total} title="Total" />
+        )}
+      </div>
 
       <dl className="trip-detail__references">
         <div>
-          <dt>Consumo atual</dt>
+          <dt>Consumo</dt>
           <dd>
             {consumptionKmPerLiter === null
               ? 'Calibrando'
@@ -160,7 +156,7 @@ export default function TripDetailView({
           </dd>
         </div>
         <div>
-          <dt>Gasolina</dt>
+          <dt>Preço</dt>
           <dd>
             {fuelPricePerLiter === null
               ? 'Indisponível'
@@ -177,13 +173,18 @@ export default function TripDetailView({
 
       <div className="trip-detail__danger">
         {!confirmDelete ? (
+          <>
+          <button className="button-quiet trip-detail__edit" onClick={onEdit} type="button">
+            Editar
+          </button>
           <button
-            className="button-quiet"
+            className="button-quiet trip-detail__delete"
             onClick={() => setConfirmDelete(true)}
             type="button"
           >
-            Excluir percurso
+            Excluir
           </button>
+          </>
         ) : (
           <div
             className="trip-detail__delete-confirm"

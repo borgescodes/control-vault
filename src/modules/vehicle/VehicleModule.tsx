@@ -173,28 +173,28 @@ export default function VehicleModule() {
   const navigation = (
     <nav className="vehicle-navigation" aria-label="Navegação principal">
       <button
+        aria-label="Início"
         aria-current={view === 'home' ? 'page' : undefined}
         onClick={() => openView('home')}
         type="button"
       >
         <VehicleIcon name="home" />
-        <span>Início</span>
       </button>
       <button
+        aria-label="Percursos"
         aria-current={tripNavigationActive ? 'page' : undefined}
         onClick={() => openView('trips')}
         type="button"
       >
         <VehicleIcon name="route" />
-        <span>Percursos</span>
       </button>
       <button
+        aria-label="Histórico"
         aria-current={view === 'history' ? 'page' : undefined}
         onClick={() => openView('history')}
         type="button"
       >
         <VehicleIcon name="history" />
-        <span>Histórico</span>
       </button>
     </nav>
   )

@@ -51,6 +51,7 @@ import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import SetupView from './SetupView'
 import VehicleModule from './VehicleModule'
+import TripFormView from './TripFormView'
 import type { VehicleDashboard } from './selectors'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -112,6 +113,41 @@ describe('vehicle views', () => {
 
   afterEach(() => {
     document.body.innerHTML = ''
+  })
+
+  it('uses bounded shifted tenths for both trip legs and submits numeric kilometers', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const onSaved = vi.fn()
+    const saved = { id: 'trip-1', origin: 'Casa', destination: 'Trabalho', outboundDistanceKm: 14.5, returnDistanceKm: 16, deletedAt: null, createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z' }
+    savedTripActionStub.createSavedTrip.mockResolvedValue({ kind: 'saved', trip: saved })
+    await act(async () => root.render(<TripFormView onBack={() => undefined} onSaved={onSaved} />))
+    expect(container.querySelector('input[name="trip-return-distance"]')).toBeNull()
+    await act(async () => (container.querySelector('input[type="checkbox"]') as HTMLInputElement).click())
+    for (const name of ['trip-outbound-distance', 'trip-return-distance']) {
+      const input = container.querySelector(`input[name="${name}"]`) as HTMLInputElement
+      expect(input.maxLength).toBe(8)
+      expect(input.inputMode).toBe('numeric')
+      for (const [digits, expected] of [['1', '0,1'], ['14', '1,4'], ['140', '14,0'], ['145', '14,5'], ['abc145x', '14,5'], ['9999990', '999999,0'], ['9999999', '999999,0'], ['0'.repeat(100), '999999,0']]) {
+        await act(async () => setInputValue(input, digits))
+        expect(input.value).toBe(expected)
+      }
+      await act(async () => setInputValue(input, '145'))
+      input.setSelectionRange(input.value.length, input.value.length)
+      await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true })))
+      expect(input.value).toBe('1,4')
+    }
+    await act(async () => {
+      setInputValue(container.querySelector('input[name="trip-origin"]') as HTMLInputElement, 'Casa')
+      setInputValue(container.querySelector('input[name="trip-destination"]') as HTMLInputElement, 'Trabalho')
+      setInputValue(container.querySelector('input[name="trip-outbound-distance"]') as HTMLInputElement, '145')
+      setInputValue(container.querySelector('input[name="trip-return-distance"]') as HTMLInputElement, '160')
+    })
+    await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(savedTripActionStub.createSavedTrip).toHaveBeenLastCalledWith({ origin: 'Casa', destination: 'Trabalho', outboundDistanceKm: 14.5, returnDistanceKm: 16 }, expect.any(String))
+    expect(onSaved).toHaveBeenCalledWith(saved)
+    await act(async () => root.unmount())
   })
 
   it('submits setup with the implicit odometer decimal and optional full tank', async () => {
@@ -558,7 +594,7 @@ describe('vehicle views', () => {
     await act(async () => errorRoot.unmount())
   })
 
-  it('uses a shared text navigation for home and history', async () => {
+  it('uses accessible icon-only navigation for all three destinations', async () => {
     storeStub.getVehicleState.mockResolvedValue({
       nominalTankCapacityLiters: 3,
       initialOdometerKm: 1_000,
@@ -579,32 +615,16 @@ describe('vehicle views', () => {
       container.querySelector('[data-view-root="true"]'),
     )
 
-    const nav = container.querySelector('.vehicle-navigation')
-    expect(nav?.querySelector('[aria-current="page"]')?.textContent).toBe('Início')
-    expect(nav?.querySelector('[data-icon="home"]')).not.toBeNull()
-    expect(nav?.querySelector('[data-icon="route"]')).not.toBeNull()
-    expect(nav?.querySelector('[data-icon="history"]')).not.toBeNull()
-
-    const tripsButton = Array.from(nav?.querySelectorAll('button') ?? []).find(
-      (button) => button.textContent === 'Percursos',
-    )
-    await act(async () => tripsButton?.click())
-    await waitForSelector(container, '.trips')
-    expect(
-      container.querySelector('.vehicle-navigation [aria-current="page"]')
-        ?.textContent,
-    ).toBe('Percursos')
-
-    const currentNav = container.querySelector('.vehicle-navigation')
-    const historyButton = Array.from(currentNav?.querySelectorAll('button') ?? []).find(
-      (button) => button.textContent === 'Histórico',
-    )
-    await act(async () => historyButton?.click())
-    expect(container.querySelector('.history')).not.toBeNull()
-    expect(
-      container.querySelector('.vehicle-navigation [aria-current="page"]')
-        ?.textContent,
-    ).toBe('Histórico')
+    const nav = container.querySelector('.vehicle-navigation')!
+    expect(nav.textContent?.trim()).toBe('')
+    expect(Array.from(nav.querySelectorAll('button')).map(button => button.getAttribute('aria-label'))).toEqual(['Início', 'Percursos', 'Histórico'])
+    expect(nav.querySelector('[aria-current="page"]')?.getAttribute('aria-label')).toBe('Início')
+    for (const icon of ['home', 'route', 'history']) expect(nav.querySelector(`[data-icon="${icon}"]`)).not.toBeNull()
+    for (const [label, selector] of [['Percursos', '.trips'], ['Histórico', '.history'], ['Início', '.home']]) {
+      await act(async () => (container.querySelector(`.vehicle-navigation button[aria-label="${label}"]`) as HTMLButtonElement).click())
+      await waitForSelector(container, selector)
+      expect(container.querySelector('.vehicle-navigation [aria-current="page"]')?.getAttribute('aria-label')).toBe(label)
+    }
 
     await act(async () => root.unmount())
   })

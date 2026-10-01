@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import type { SavedTrip } from './domain/types'
+import { formatDistanceInput, limitOdometerDigits, odometerDigitsFromKm, parseOdometerKm } from './inputFormatters'
 import {
   createSavedTrip,
   updateSavedTrip,
@@ -14,25 +15,39 @@ type TripFormViewProps = {
   onSaved: (trip: SavedTrip) => void | Promise<void>
 }
 
-function distanceInputValue(value: number | null): string {
-  if (value === null) return ''
-
-  return new Intl.NumberFormat('pt-BR', {
-    maximumFractionDigits: 1,
-    useGrouping: false,
-  }).format(value)
-}
-
-function parseDistance(value: string): number | null {
-  const trimmed = value.trim()
-  if (!/^\d+(?:[.,]\d)?$/.test(trimmed)) return null
-
-  const parsed = Number(trimmed.replace(',', '.'))
-  return Number.isFinite(parsed) &&
-    parsed > 0 &&
-    parsed <= 999_999
-    ? parsed
-    : null
+function DistanceField({ label, name, digits, onChange }: {
+  label: string
+  name: string
+  digits: string
+  onChange: (digits: string) => void
+}) {
+  return (
+    <label>
+      {label}
+      <div className="trip-distance-input">
+        <input
+          autoComplete="off"
+          inputMode="numeric"
+          maxLength={8}
+          name={name}
+          onChange={(event) => onChange(limitOdometerDigits(digits, event.target.value))}
+          onFocus={(event) => event.currentTarget.select()}
+          onKeyDown={(event) => {
+            if (event.key === 'Backspace') {
+              event.preventDefault()
+              const input = event.currentTarget
+              onChange(input.selectionStart === 0 && input.selectionEnd === input.value.length ? '' : digits.slice(0, -1))
+            }
+          }}
+          placeholder="0,0"
+          required
+          type="text"
+          value={formatDistanceInput(digits)}
+        />
+        <span>km</span>
+      </div>
+    </label>
+  )
 }
 
 export default function TripFormView({
@@ -45,28 +60,28 @@ export default function TripFormView({
     initialTrip?.destination ?? '',
   )
   const [outboundDistance, setOutboundDistance] = useState(() =>
-    distanceInputValue(initialTrip?.outboundDistanceKm ?? null),
+    initialTrip ? odometerDigitsFromKm(initialTrip.outboundDistanceKm) : '',
   )
   const [hasReturn, setHasReturn] = useState(
     initialTrip !== null && initialTrip.returnDistanceKm !== null,
   )
   const [returnDistance, setReturnDistance] = useState(() =>
-    distanceInputValue(initialTrip?.returnDistanceKm ?? null),
+    initialTrip?.returnDistanceKm != null ? odometerDigitsFromKm(initialTrip.returnDistanceKm) : '',
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const outboundDistanceKm = parseDistance(outboundDistance)
+  const outboundDistanceKm = parseOdometerKm(outboundDistance)
   const returnDistanceKm = hasReturn
-    ? parseDistance(returnDistance)
+    ? parseOdometerKm(returnDistance)
     : null
   const valid =
     origin.trim().length > 0 &&
     origin.trim().length <= 80 &&
     destination.trim().length > 0 &&
     destination.trim().length <= 80 &&
-    outboundDistanceKm !== null &&
-    (!hasReturn || returnDistanceKm !== null)
+    outboundDistanceKm > 0 &&
+    (!hasReturn || (returnDistanceKm !== null && returnDistanceKm > 0))
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -154,24 +169,7 @@ export default function TripFormView({
           />
         </label>
 
-        <label>
-          Distância da ida
-          <div className="trip-distance-input">
-            <input
-              autoComplete="off"
-              inputMode="decimal"
-              name="trip-outbound-distance"
-              onChange={(event) =>
-                setOutboundDistance(event.target.value)
-              }
-              placeholder="0,0"
-              required
-              type="text"
-              value={outboundDistance}
-            />
-            <span>km</span>
-          </div>
-        </label>
+        <DistanceField label="Ida" name="trip-outbound-distance" digits={outboundDistance} onChange={setOutboundDistance} />
 
         <label className="vehicle-toggle">
           <input
@@ -179,28 +177,11 @@ export default function TripFormView({
             onChange={(event) => setHasReturn(event.target.checked)}
             type="checkbox"
           />
-          <span>Cadastrar volta</span>
+          <span>Volta</span>
         </label>
 
         {hasReturn && (
-          <label>
-            Distância da volta
-            <div className="trip-distance-input">
-              <input
-                autoComplete="off"
-                inputMode="decimal"
-                name="trip-return-distance"
-                onChange={(event) =>
-                  setReturnDistance(event.target.value)
-                }
-                placeholder="0,0"
-                required
-                type="text"
-                value={returnDistance}
-              />
-              <span>km</span>
-            </div>
-          </label>
+          <DistanceField label="Volta" name="trip-return-distance" digits={returnDistance} onChange={setReturnDistance} />
         )}
 
         {error && (
@@ -211,10 +192,11 @@ export default function TripFormView({
 
         <button
           aria-busy={submitting}
-          className="button-primary vehicle-form__submit"
+          className="button-primary button-with-icon vehicle-form__submit"
           disabled={submitting || !valid}
           type="submit"
         >
+          <VehicleIcon name="route" />
           {submitting ? 'Salvando…' : 'Salvar percurso'}
         </button>
       </form>
