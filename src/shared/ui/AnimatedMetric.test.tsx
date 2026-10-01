@@ -53,7 +53,7 @@ describe('AnimatedMetric', () => {
     expect(container.textContent).toBe('100')
   })
 
-  it('restarts once when the metric value changes', async () => {
+  it('continues from the current reading when the metric value changes', async () => {
     const view = (value: number) => (
       <AnimatedMetric format={(next) => String(Math.round(next))} value={value} />
     )
@@ -63,7 +63,7 @@ describe('AnimatedMetric', () => {
     expect(container.textContent).toBe('100')
 
     await act(async () => root.render(view(200)))
-    expect(container.textContent).toBe('0')
+    expect(container.textContent).toBe('100')
     await act(async () => frame?.(880))
     expect(container.textContent).toBe('200')
   })
@@ -81,5 +81,17 @@ describe('AnimatedMetric', () => {
 
     expect(container.textContent).toBe('108 km')
     expect(requestAnimationFrame).not.toHaveBeenCalled()
+  })
+
+  it('finishes immediately when reduced motion is enabled during an animation', async () => {
+    let change: (() => void) | undefined
+    const media = { matches: false, addEventListener: vi.fn((_event, callback) => { change = callback }), removeEventListener: vi.fn() }
+    vi.stubGlobal('matchMedia', () => media)
+    await act(async () => root.render(<AnimatedMetric value={100} format={String} />))
+    await act(async () => frame?.(440))
+    media.matches = true
+    await act(async () => change?.())
+    expect(container.textContent).toBe('100')
+    expect(cancelAnimationFrame).toHaveBeenCalled()
   })
 })

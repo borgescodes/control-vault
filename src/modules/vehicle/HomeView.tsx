@@ -2,6 +2,7 @@ import AnimatedMetric from '../../shared/ui/AnimatedMetric'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import { formatOdometerValue } from './inputFormatters'
 import type { VehicleDashboard } from './selectors'
+import FuelProgress from './FuelProgress'
 
 type HomeViewProps = {
   dashboard: VehicleDashboard
@@ -99,22 +100,7 @@ export default function HomeView({
                 <span>{integer.format(displayFuelPercent)}%</span>
               </div>
             )}
-            <div
-              aria-label={`Combustível: ${integer.format(displayFuelPercent)}%`}
-              aria-valuemax={100}
-              aria-valuemin={0}
-              aria-valuenow={Math.round(displayFuelPercent)}
-              className="fuel-progress"
-              role="progressbar"
-            >
-              <div
-                className="fuel-progress__value"
-                style={{ width: `${displayFuelPercent}%` }}
-              />
-              <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--one" />
-              <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--two" />
-              <span aria-hidden="true" className="fuel-progress__tick fuel-progress__tick--three" />
-            </div>
+            <FuelProgress percent={displayFuelPercent} />
           </section>
         )}
 
