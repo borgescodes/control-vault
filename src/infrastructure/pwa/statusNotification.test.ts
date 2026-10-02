@@ -61,7 +61,6 @@ describe('status notification', () => {
         icon: '/pwa-192.png',
         tag: 'control-vault-status',
         requireInteraction: true,
-        renotify: false,
         silent: true,
         data: { url: '/' },
       }),
