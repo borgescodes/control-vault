@@ -265,7 +265,7 @@ export default function App() {
         {(session || offlineLocalAccess) && (syncError || pendingCount > 0) && (
           <div className="app__sync-feedback" role="status">
             <span>{syncError ? 'Sincronização não concluída' : `${pendingCount} pendente${pendingCount === 1 ? '' : 's'} de sincronização`}</span>
-            {online && <button type="button" onClick={() => {
+            {online && session && <button type="button" onClick={() => {
               void runSync(session.user.id).catch(() => setSyncError(true))
             }}>Tentar novamente</button>}
           </div>
