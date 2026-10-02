@@ -54,7 +54,6 @@ async function showStatusNotification(
     icon: '/pwa-192.png',
     tag: STATUS_NOTIFICATION_TAG,
     requireInteraction: true,
-    renotify: false,
     silent: true,
     data: { url: '/' },
   })
