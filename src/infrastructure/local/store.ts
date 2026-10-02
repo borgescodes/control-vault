@@ -62,6 +62,11 @@ export async function claimSyncOwner(userId: string): Promise<void> {
   await transaction.done
 }
 
+export async function getSyncOwner(): Promise<string | null> {
+  const database = await openLocalDatabase()
+  return (await database.get('sync_metadata', 'owner')) ?? null
+}
+
 export type HydratedVehicleData = {
   vehicleState: VehicleState | null
   odometerReadings: OdometerReading[]
