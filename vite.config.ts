@@ -42,6 +42,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['/notification-sw.js'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         clientsClaim: true,
