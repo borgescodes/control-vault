@@ -143,10 +143,7 @@ export default function App() {
   }, [localOwner, online, session])
 
   useEffect(() => {
-    if (!session) {
-      setVehicleReadyForUser(null)
-      return
-    }
+    if (!session) return
 
     let active = true
     let localAllowed = false
