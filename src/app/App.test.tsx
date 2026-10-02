@@ -166,6 +166,93 @@ describe('App', () => {
     await act(async () => root.unmount())
   })
 
+  it('opens cached local vehicle data on an offline cold start even when auth never resolves', async () => {
+    const owner = '11111111-1111-4111-8111-111111111111'
+    vi.stubGlobal('navigator', {
+      onLine: false,
+      userAgent: 'test',
+      platform: '',
+      maxTouchPoints: 0,
+    })
+    await claimSyncOwner(owner)
+    await saveHydratedVehicleData({
+      vehicleState: {
+        nominalTankCapacityLiters: 3,
+        initialOdometerKm: 12_710,
+        initialFullTankAt: '2026-10-01T10:00:00.000Z',
+        createdAt: '2026-10-01T10:00:00.000Z',
+        updatedAt: '2026-10-01T10:00:00.000Z',
+      },
+      odometerReadings: [],
+      fuelEntries: [],
+    })
+    authStub.getCachedSession.mockImplementation(
+      () => new Promise(() => undefined),
+    )
+    syncStub.runSync.mockResolvedValue({ synced: 0, pending: 0, failed: 0 })
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<App />))
+    await waitForText(container, 'Atualizar KM')
+
+    expect(container.textContent).toContain('Atualizar KM')
+    expect(container.textContent).toContain('OFF')
+    expect(container.textContent).not.toContain('Entrar')
+    expect(syncStub.runSync).not.toHaveBeenCalled()
+
+    await act(async () => root.unmount())
+  })
+
+  it('recovers the cached session and synchronizes after an offline cold start reconnects', async () => {
+    const owner = '11111111-1111-4111-8111-111111111111'
+    const testNavigator = {
+      onLine: false,
+      userAgent: 'test',
+      platform: '',
+      maxTouchPoints: 0,
+    }
+    vi.stubGlobal('navigator', testNavigator)
+    await claimSyncOwner(owner)
+    await saveHydratedVehicleData({
+      vehicleState: {
+        nominalTankCapacityLiters: 3,
+        initialOdometerKm: 12_710,
+        initialFullTankAt: '2026-10-01T10:00:00.000Z',
+        createdAt: '2026-10-01T10:00:00.000Z',
+        updatedAt: '2026-10-01T10:00:00.000Z',
+      },
+      odometerReadings: [],
+      fuelEntries: [],
+    })
+    authStub.getCachedSession
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValue({ user: { id: owner } })
+    syncStub.runSync.mockResolvedValue({ synced: 0, pending: 0, failed: 0 })
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<App />))
+    await waitForText(container, 'Atualizar KM')
+    expect(syncStub.runSync).not.toHaveBeenCalled()
+
+    testNavigator.onLine = true
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    })
+
+    expect(authStub.getCachedSession).toHaveBeenCalledTimes(2)
+    expect(syncStub.runSync).toHaveBeenCalledWith(owner)
+    expect(container.textContent).toContain('Atualizar KM')
+
+    await act(async () => root.unmount())
+  })
+
   it('retries on focus and visible resume without showing ON after failure', async () => {
     authStub.getCachedSession.mockResolvedValue({ user: { id: '11111111-1111-4111-8111-111111111111' } })
     syncStub.runSync.mockRejectedValue(new Error('unavailable'))
