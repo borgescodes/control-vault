@@ -856,6 +856,18 @@ button:active .vehicle-icon {
   white-space: nowrap;
 }
 
+.home__notification-enable {
+  display: block;
+  min-height: 32px;
+  margin: 8px auto 0;
+  padding: 0 6px;
+  color: var(--accent-end);
+  font-size: .75rem;
+  font-weight: 680;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
 .home__month {
   margin-top: 34px;
 }
