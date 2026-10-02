@@ -17,6 +17,14 @@ import {
   getFuelPriceReference,
   type FuelPriceReference,
 } from '../../infrastructure/fuelPrice/fuelPrice'
+import {
+  canOfferStatusNotification,
+  clearStatusNotification,
+  enableStatusNotification,
+  isStatusNotificationEnabled,
+  updateStatusNotification,
+  type StatusNotificationSnapshot,
+} from '../../infrastructure/pwa/statusNotification'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
@@ -52,6 +60,12 @@ export default function VehicleModule() {
   const [tripPriceReference, setTripPriceReference] = useState<FuelPriceReference | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [statusNotificationEnabled, setStatusNotificationEnabled] = useState(
+    () => isStatusNotificationEnabled(),
+  )
+  const [statusNotificationAvailable, setStatusNotificationAvailable] = useState(
+    () => canOfferStatusNotification(),
+  )
   const vehicleReady = Boolean(vehicleState)
 
   useEffect(() => {
@@ -103,6 +117,37 @@ export default function VehicleModule() {
       active = false
     }
   }, [vehicleReady, view])
+
+  useEffect(() => {
+    if (!vehicleState || !statusNotificationEnabled) return
+
+    const dashboard = getVehicleDashboard(
+      vehicleState,
+      readings,
+      fuelEntries,
+      new Date(),
+    )
+    const snapshot: StatusNotificationSnapshot | null =
+      dashboard.consumptionKmPerLiter !== null &&
+      dashboard.rangeKm !== null &&
+      dashboard.fuelPercent !== null
+        ? {
+            consumptionKmPerLiter: dashboard.consumptionKmPerLiter,
+            rangeKm: dashboard.rangeKm,
+            fuelPercent: dashboard.fuelPercent,
+          }
+        : null
+
+    void (snapshot
+      ? updateStatusNotification(snapshot)
+      : clearStatusNotification()
+    ).catch(() => undefined)
+  }, [
+    fuelEntries,
+    readings,
+    statusNotificationEnabled,
+    vehicleState,
+  ])
 
   useEffect(() => {
     if (!vehicleReady) return
@@ -158,6 +203,32 @@ export default function VehicleModule() {
     fuelEntries,
     new Date(),
   )
+  const statusNotificationSnapshot: StatusNotificationSnapshot | null =
+    dashboard.consumptionKmPerLiter !== null &&
+    dashboard.rangeKm !== null &&
+    dashboard.fuelPercent !== null
+      ? {
+          consumptionKmPerLiter: dashboard.consumptionKmPerLiter,
+          rangeKm: dashboard.rangeKm,
+          fuelPercent: dashboard.fuelPercent,
+        }
+      : null
+
+  async function handleEnableStatusNotification() {
+    if (!statusNotificationSnapshot) return
+
+    try {
+      const enabled = await enableStatusNotification(
+        statusNotificationSnapshot,
+      )
+      setStatusNotificationEnabled(enabled)
+      setStatusNotificationAvailable(
+        enabled ? true : canOfferStatusNotification(),
+      )
+    } catch {
+      setStatusNotificationAvailable(canOfferStatusNotification())
+    }
+  }
   const visibleTrips = savedTrips.filter((trip) => trip.deletedAt === null)
   const hasPending =
     vehicleState.syncStatus === 'pending' ||
@@ -308,6 +379,13 @@ export default function VehicleModule() {
       <HomeView
         dashboard={dashboard}
         notice={notice ? `${notice} localmente${hasPending ? ' · sincronização pendente' : ' · sincronizado'}` : null}
+        onEnableStatusNotification={
+          statusNotificationAvailable &&
+          !statusNotificationEnabled &&
+          statusNotificationSnapshot
+            ? () => void handleEnableStatusNotification()
+            : undefined
+        }
         onFuel={() => openView('fuel')}
         onOdometer={() => openView('odometer')}
       />
