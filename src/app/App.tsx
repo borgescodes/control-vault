@@ -10,7 +10,12 @@ import {
   subscribeToSyncActivity,
   type SyncActivity,
 } from '../infrastructure/sync/sync'
-import { claimSyncOwner, listPending, subscribeToLocalChanges } from '../infrastructure/local/store'
+import {
+  claimSyncOwner,
+  getSyncOwner,
+  listPending,
+  subscribeToLocalChanges,
+} from '../infrastructure/local/store'
 import ConnectionIndicator, {
   type ConnectionState,
 } from '../shared/ui/ConnectionIndicator'
@@ -21,6 +26,7 @@ import PwaControls from './PwaControls'
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [sessionReady, setSessionReady] = useState(false)
+  const [localOwner, setLocalOwner] = useState<string | null | undefined>(undefined)
   const [online, setOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,
   )
@@ -35,29 +41,56 @@ export default function App() {
 
   useEffect(() => {
     let active = true
-    let authChanged = false
+    let sessionRequest = 0
+
+    const refreshCachedSession = () => {
+      const request = ++sessionRequest
+      void getCachedSession()
+        .then((cachedSession) => {
+          if (active && request === sessionRequest) setSession(cachedSession)
+        })
+        .catch(() => {
+          if (active && request === sessionRequest) setSession(null)
+        })
+        .finally(() => {
+          if (active && request === sessionRequest) setSessionReady(true)
+        })
+    }
+
     const unsubscribe = subscribeToAuth((nextSession) => {
       if (active) {
-        authChanged = true
+        sessionRequest += 1
         setSession(nextSession)
         setSessionReady(true)
       }
     })
 
-    void getCachedSession()
-      .then((cachedSession) => {
-        if (active && !authChanged) setSession(cachedSession)
+    refreshCachedSession()
+    window.addEventListener('online', refreshCachedSession)
+
+    return () => {
+      active = false
+      window.removeEventListener('online', refreshCachedSession)
+      unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void getSyncOwner()
+      .then((owner) => {
+        if (active) setLocalOwner(owner)
       })
-      .catch(() => {
-        if (active && !authChanged) setSession(null)
-      })
-      .finally(() => {
-        if (active) setSessionReady(true)
+      .catch((cause) => {
+        if (!active) return
+        setLocalOwner(null)
+        setLocalAccessError(
+          cause instanceof Error ? cause.message : 'Falha ao abrir dados locais',
+        )
       })
 
     return () => {
       active = false
-      unsubscribe()
     }
   }, [])
 
@@ -78,6 +111,36 @@ export default function App() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  useEffect(() => {
+    if (session || online || !localOwner) return
+
+    let active = true
+    const refreshPending = () => {
+      void listPending()
+        .then((records) => {
+          if (active) setPendingCount(records.length)
+        })
+        .catch(() => {
+          if (active) setSyncError(true)
+        })
+    }
+    const unsubscribeLocal = subscribeToLocalChanges((change) => {
+      refreshPending()
+      if (change === 'write') setSyncActivity('pending')
+    })
+
+    setLocalAccessError(null)
+    setSyncError(false)
+    setSyncActivity('unconfirmed')
+    setVehicleReadyForUser(localOwner)
+    refreshPending()
+
+    return () => {
+      active = false
+      unsubscribeLocal()
+    }
+  }, [localOwner, online, session])
 
   useEffect(() => {
     if (!session) {
@@ -164,6 +227,8 @@ export default function App() {
     }
   }, [session?.user.id])
 
+  const offlineLocalAccess = !online && !session && Boolean(localOwner)
+
   const connectionState: ConnectionState = !online
     ? 'offline'
     : syncActivity !== 'idle' || syncError || pendingCount > 0 || updatePending
@@ -185,17 +250,19 @@ export default function App() {
             <img src="/logo.png" alt="" width="32" height="32" />
             <h1>CONTROL VAULT</h1>
           </div>
-          {session && (
+          {(session || offlineLocalAccess) && (
             <div className="app__header-actions">
               <ConnectionIndicator state={connectionState} />
-              <button className="app__signout" onClick={handleSignOut} type="button">
-                Sair
-              </button>
+              {session && (
+                <button className="app__signout" onClick={handleSignOut} type="button">
+                  Sair
+                </button>
+              )}
             </div>
           )}
         </header>
         <PwaControls onUpdateState={setUpdatePending} />
-        {session && (syncError || pendingCount > 0) && (
+        {(session || offlineLocalAccess) && (syncError || pendingCount > 0) && (
           <div className="app__sync-feedback" role="status">
             <span>{syncError ? 'Sincronização não concluída' : `${pendingCount} pendente${pendingCount === 1 ? '' : 's'} de sincronização`}</span>
             {online && <button type="button" onClick={() => {
@@ -204,13 +271,17 @@ export default function App() {
           </div>
         )}
         <div className="app__content">
-          {sessionReady &&
-            (session ? (
-              localAccessError ? <p className="vehicle-alert" role="alert">{localAccessError}</p> :
-                vehicleReadyForUser === session.user.id && <VehicleModule />
+          {localAccessError ? (
+            <p className="vehicle-alert" role="alert">{localAccessError}</p>
+          ) : offlineLocalAccess && vehicleReadyForUser === localOwner ? (
+            <VehicleModule />
+          ) : sessionReady ? (
+            session ? (
+              vehicleReadyForUser === session.user.id && <VehicleModule />
             ) : (
               <LoginView />
-            ))}
+            )
+          ) : null}
         </div>
       </section>
     </main>
