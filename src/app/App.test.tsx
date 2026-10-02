@@ -252,6 +252,7 @@ describe('App', () => {
 
     expect(authStub.getCachedSession).toHaveBeenCalledTimes(2)
     expect(syncStub.runSync).toHaveBeenCalledWith(owner)
+    await waitForText(container, 'Atualizar KM')
     expect(container.textContent).toContain('Atualizar KM')
 
     await act(async () => root.unmount())
