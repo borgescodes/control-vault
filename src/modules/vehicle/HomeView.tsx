@@ -7,6 +7,7 @@ import FuelProgress from './FuelProgress'
 type HomeViewProps = {
   dashboard: VehicleDashboard
   notice?: string | null
+  onEnableStatusNotification?: () => void
   onFuel: () => void
   onOdometer: () => void
 }
@@ -37,6 +38,7 @@ function formatMonthDistance(dashboard: VehicleDashboard): string {
 export default function HomeView({
   dashboard,
   notice = null,
+  onEnableStatusNotification,
   onFuel,
   onOdometer,
 }: HomeViewProps) {
@@ -152,6 +154,17 @@ export default function HomeView({
           Abastecer
         </button>
       </div>
+
+      {onEnableStatusNotification && (
+        <button
+          aria-label="Ativar resumo na barra de notificações"
+          className="home__notification-enable"
+          onClick={onEnableStatusNotification}
+          type="button"
+        >
+          Ativar resumo
+        </button>
+      )}
 
       <section className="home__month" aria-labelledby="month-title">
         <h2 className="ui-label" id="month-title">Este mês</h2>
