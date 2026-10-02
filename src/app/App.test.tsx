@@ -208,8 +208,11 @@ describe('App', () => {
 
   it('recovers the cached session and synchronizes after an offline cold start reconnects', async () => {
     const owner = '11111111-1111-4111-8111-111111111111'
+    let online = false
     const testNavigator = {
-      onLine: false,
+      get onLine() {
+        return online
+      },
       userAgent: 'test',
       platform: '',
       maxTouchPoints: 0,
@@ -240,11 +243,12 @@ describe('App', () => {
     await waitForText(container, 'Atualizar KM')
     expect(syncStub.runSync).not.toHaveBeenCalled()
 
-    testNavigator.onLine = true
+    online = true
     await act(async () => {
       window.dispatchEvent(new Event('online'))
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
+    await waitForSyncStart()
 
     expect(authStub.getCachedSession).toHaveBeenCalledTimes(2)
     expect(syncStub.runSync).toHaveBeenCalledWith(owner)
