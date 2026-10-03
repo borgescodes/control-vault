@@ -128,11 +128,8 @@ export default function VehicleModule() {
       new Date(),
     )
     const snapshot: StatusNotificationSnapshot | null =
-      dashboard.consumptionKmPerLiter !== null &&
-      dashboard.rangeKm !== null &&
-      dashboard.fuelPercent !== null
+      dashboard.rangeKm !== null && dashboard.fuelPercent !== null
         ? {
-            consumptionKmPerLiter: dashboard.consumptionKmPerLiter,
             rangeKm: dashboard.rangeKm,
             fuelPercent: dashboard.fuelPercent,
           }
@@ -204,11 +201,8 @@ export default function VehicleModule() {
     new Date(),
   )
   const statusNotificationSnapshot: StatusNotificationSnapshot | null =
-    dashboard.consumptionKmPerLiter !== null &&
-    dashboard.rangeKm !== null &&
-    dashboard.fuelPercent !== null
+    dashboard.rangeKm !== null && dashboard.fuelPercent !== null
       ? {
-          consumptionKmPerLiter: dashboard.consumptionKmPerLiter,
           rangeKm: dashboard.rangeKm,
           fuelPercent: dashboard.fuelPercent,
         }
