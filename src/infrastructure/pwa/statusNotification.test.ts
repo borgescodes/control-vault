@@ -10,7 +10,6 @@ import {
 } from './statusNotification'
 
 const snapshot = {
-  consumptionKmPerLiter: 36.74,
   rangeKm: 54.2,
   fuelPercent: 53.4,
 }
@@ -24,7 +23,7 @@ describe('status notification', () => {
   it('formats the compact body with non-breaking separators', () => {
     const body = formatStatusNotificationBody(snapshot)
 
-    expect(body).toBe('36,7\u00a0km/L\u00a0•\u00a054\u00a0km\u00a0•\u00a053%')
+    expect(body).toBe('54\u00a0km\u00a0•\u00a053%')
     expect(body).not.toContain(' ')
     expect(body).not.toContain('\n')
   })
@@ -57,8 +56,9 @@ describe('status notification', () => {
     expect(showNotification).toHaveBeenLastCalledWith(
       '',
       expect.objectContaining({
-        body: '36,7\u00a0km/L\u00a0•\u00a054\u00a0km\u00a0•\u00a053%',
+        body: '54\u00a0km\u00a0•\u00a053%',
         badge: '/pwa-192.png',
+        icon: '/notification-icon.svg',
         tag: 'control-vault-status',
         requireInteraction: true,
         silent: true,
@@ -67,7 +67,6 @@ describe('status notification', () => {
     )
 
     await updateStatusNotification({
-      consumptionKmPerLiter: 40,
       rangeKm: 80,
       fuelPercent: 75,
     })
@@ -76,7 +75,7 @@ describe('status notification', () => {
     expect(showNotification).toHaveBeenLastCalledWith(
       '',
       expect.objectContaining({
-        body: '40,0\u00a0km/L\u00a0•\u00a080\u00a0km\u00a0•\u00a075%',
+        body: '80\u00a0km\u00a0•\u00a075%',
         tag: 'control-vault-status',
       }),
     )
