@@ -58,7 +58,7 @@ describe('status notification', () => {
       'CONTROL VAULT',
       expect.objectContaining({
         body: '36,7\u00a0km/L\u00a0•\u00a054\u00a0km\u00a0•\u00a053%',
-        icon: '/pwa-192.png',
+        badge: '/pwa-192.png',
         tag: 'control-vault-status',
         requireInteraction: true,
         silent: true,
