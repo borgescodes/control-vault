@@ -49,7 +49,7 @@ async function showStatusNotification(
   snapshot: StatusNotificationSnapshot,
 ): Promise<void> {
   const registration = await navigator.serviceWorker.ready
-  await registration.showNotification('CONTROL VAULT', {
+  await registration.showNotification('', {
     body: formatStatusNotificationBody(snapshot),
     badge: '/pwa-192.png',
     tag: STATUS_NOTIFICATION_TAG,
