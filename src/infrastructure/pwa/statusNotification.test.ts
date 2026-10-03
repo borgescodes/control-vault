@@ -55,7 +55,7 @@ describe('status notification', () => {
     await expect(enableStatusNotification(snapshot)).resolves.toBe(true)
     expect(isStatusNotificationEnabled()).toBe(true)
     expect(showNotification).toHaveBeenLastCalledWith(
-      'CONTROL VAULT',
+      '',
       expect.objectContaining({
         body: '36,7\u00a0km/L\u00a0•\u00a054\u00a0km\u00a0•\u00a053%',
         badge: '/pwa-192.png',
