@@ -2,27 +2,20 @@ const STATUS_NOTIFICATION_KEY = 'control-vault.status-notification.enabled'
 const STATUS_NOTIFICATION_TAG = 'control-vault-status'
 
 export type StatusNotificationSnapshot = {
-  consumptionKmPerLiter: number
   rangeKm: number
   fuelPercent: number
 }
 
-const decimal = new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-})
 const integer = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 0,
 })
 
 export function formatStatusNotificationBody({
-  consumptionKmPerLiter,
   rangeKm,
   fuelPercent,
 }: StatusNotificationSnapshot): string {
   const percent = Math.max(0, Math.min(100, fuelPercent))
   return [
-    `${decimal.format(consumptionKmPerLiter)}\u00a0km/L`,
     `${integer.format(rangeKm)}\u00a0km`,
     `${integer.format(percent)}%`,
   ].join('\u00a0•\u00a0')
@@ -52,6 +45,7 @@ async function showStatusNotification(
   await registration.showNotification('', {
     body: formatStatusNotificationBody(snapshot),
     badge: '/pwa-192.png',
+    icon: '/notification-icon.svg',
     tag: STATUS_NOTIFICATION_TAG,
     requireInteraction: true,
     silent: true,
