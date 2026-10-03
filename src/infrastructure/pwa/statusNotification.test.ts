@@ -74,7 +74,7 @@ describe('status notification', () => {
 
     expect(showNotification).toHaveBeenCalledTimes(2)
     expect(showNotification).toHaveBeenLastCalledWith(
-      'CONTROL VAULT',
+      '',
       expect.objectContaining({
         body: '40,0\u00a0km/L\u00a0•\u00a080\u00a0km\u00a0•\u00a075%',
         tag: 'control-vault-status',
