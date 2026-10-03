@@ -51,7 +51,7 @@ async function showStatusNotification(
   const registration = await navigator.serviceWorker.ready
   await registration.showNotification('CONTROL VAULT', {
     body: formatStatusNotificationBody(snapshot),
-    icon: '/pwa-192.png',
+    badge: '/pwa-192.png',
     tag: STATUS_NOTIFICATION_TAG,
     requireInteraction: true,
     silent: true,
