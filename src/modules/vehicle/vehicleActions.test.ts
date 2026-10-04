@@ -264,7 +264,7 @@ describe('vehicle actions', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 3_249,
+        amountCents: 2_888,
         fullTank: false,
         fueledAt: laterAt,
         priceReference,
@@ -536,7 +536,7 @@ describe('vehicle practical limits', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_888,
+        amountCents: 3_249,
         fullTank: false,
         fueledAt: laterAt,
       }),
