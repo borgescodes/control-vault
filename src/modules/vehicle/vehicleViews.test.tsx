@@ -160,7 +160,7 @@ describe('vehicle views', () => {
     const original = {
       id: 'first', odometerKm: 1_200, amountCents: 2_005, estimatedLiters: 2.843,
       referencePricePerLiter: 7.05, referenceWeekStart: null, referenceWeekEnd: null,
-      fullTank: true, fueledAt: '2026-09-30T20:00:00Z', createdAt: '2026-09-30T20:00:00Z', updatedAt: '2026-09-30T20:00:00Z',
+      fullTank: true, fueledAt: '2026-09-30T20:00:00Z', deletedAt: null, createdAt: '2026-09-30T20:00:00Z', updatedAt: '2026-09-30T20:00:00Z',
     }
     const markup = renderToStaticMarkup(<HistoryView fuelEntries={[
       { ...original, id: 'copy', fueledAt: '2026-10-01T20:00:00Z' }, original,
@@ -592,6 +592,7 @@ describe('vehicle views', () => {
             referenceWeekEnd: null,
             fullTank: true,
             fueledAt: '2026-09-29T12:00:00.000Z',
+            deletedAt: null,
             createdAt: '2026-09-29T12:00:00.000Z',
             updatedAt: '2026-09-29T12:00:00.000Z',
           },

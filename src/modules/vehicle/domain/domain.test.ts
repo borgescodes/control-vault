@@ -36,6 +36,7 @@ function fuelEntry(
     referenceWeekEnd: null,
     fullTank,
     fueledAt,
+    deletedAt: null,
     createdAt: fueledAt,
     updatedAt: fueledAt,
   }

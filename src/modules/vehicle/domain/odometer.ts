@@ -48,11 +48,10 @@ export function getLatestOdometerKm(
   fuelEntries: FuelEntry[],
   fallbackKm?: number,
 ): number | null {
-  const values = getOdometerTimeline(readings, fuelEntries)
-    .map(({ odometerKm }) => odometerKm)
-
-  if (fallbackKm !== undefined) values.push(fallbackKm)
-  return values.length > 0 ? Math.max(...values) : null
+  const timeline = getOdometerTimeline(readings, fuelEntries)
+  return timeline.length > 0
+    ? timeline[timeline.length - 1].odometerKm
+    : fallbackKm ?? null
 }
 
 export function validateOdometer(

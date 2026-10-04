@@ -92,6 +92,7 @@ function fuelEntry(
     referenceWeekEnd: null,
     fullTank: true,
     fueledAt: updatedAt,
+    deletedAt: null,
     createdAt,
     updatedAt,
     ...overrides,

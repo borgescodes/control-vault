@@ -199,7 +199,7 @@ describe('vehicle actions', () => {
     expect(lower).toMatchObject({ kind: 'invalid' })
     expect(
       (await listOdometerReadings()).map(({ readingKm }) => readingKm).sort(),
-    ).toEqual([1_000])
+    ).toEqual([1_000, 1_100])
   })
 
   it('does not write an odometer regression', async () => {
@@ -367,7 +367,7 @@ describe('vehicle actions', () => {
     ])
     expect(
       (await listOdometerReadings()).map(({ readingKm }) => readingKm).sort(),
-    ).toEqual([1_000, 1_100])
+    ).toEqual([1_000])
   })
 
   it('keeps refuel mileage only in the fuel entry', async () => {
@@ -417,7 +417,7 @@ describe('vehicle actions', () => {
     })
 
     await expect(listFuelEntries()).resolves.toHaveLength(1)
-    await expect(listOdometerReadings()).resolves.toHaveLength(2)
+    await expect(listOdometerReadings()).resolves.toHaveLength(1)
   })
 
   it.each([0, -1])('rejects amountCents=%s', async (amountCents) => {
@@ -480,11 +480,9 @@ describe('vehicle actions', () => {
 
   it('does not report success when the fuel transaction fails', async () => {
     await initializeVehicle(1_000, true, initialAt)
-    randomUUID
-      .mockReturnValueOnce(nextUuid(100))
-      .mockReturnValueOnce(
-        undefined as unknown as ReturnType<Crypto['randomUUID']>,
-      )
+    randomUUID.mockReturnValueOnce(
+      undefined as unknown as ReturnType<Crypto['randomUUID']>,
+    )
 
     await expect(
       recordFuel({
