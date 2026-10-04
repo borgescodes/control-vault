@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { buildConsumptionCycles, learnConsumption } from './consumption'
 import {
-  NOMINAL_TANK_CAPACITY_LITERS,
+  DEFAULT_TANK_CAPACITY_LITERS,
   RANGE_SAFETY_FACTOR,
   SUSPICIOUS_ODOMETER_DELTA_KM,
 } from './config'
@@ -53,7 +53,7 @@ function cycle(kmPerLiter: number): ConsumptionCycle {
 
 describe('vehicle domain configuration', () => {
   it('uses the approved tank capacity and suspicious delta', () => {
-    expect(NOMINAL_TANK_CAPACITY_LITERS).toBe(3)
+    expect(DEFAULT_TANK_CAPACITY_LITERS).toBe(3.5)
     expect(RANGE_SAFETY_FACTOR).toBe(0.9)
     expect(SUSPICIOUS_ODOMETER_DELTA_KM).toBe(500)
   })

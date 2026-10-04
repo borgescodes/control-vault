@@ -102,7 +102,7 @@ describe('vehicle views', () => {
     document.body.append(container)
     const root = createRoot(container)
     const onSaved = vi.fn()
-    await act(async () => root.render(<FuelView currentOdometerKm={1_000} onBack={() => undefined} onSaved={onSaved} tankCapacityLiters={3.5} />))
+    await act(async () => root.render(<FuelView currentOdometerKm={1_000} onBack={() => undefined} onSaved={onSaved} tankCapacityLiters={3} />))
     await act(async () => setInputValue(container.querySelector('input[name="amount"]') as HTMLInputElement, '1000'))
     await act(async () => {
       const form = container.querySelector('form')!
@@ -273,7 +273,7 @@ describe('vehicle views', () => {
     const root = createRoot(container)
 
     await act(async () => {
-      root.render(<FuelView currentOdometerKm={12_000} onBack={() => undefined} onSaved={() => undefined} tankCapacityLiters={3.5} />)
+      root.render(<FuelView currentOdometerKm={12_000} onBack={() => undefined} onSaved={() => undefined} tankCapacityLiters={3} />)
     })
 
     const odometer = container.querySelector(
@@ -381,7 +381,7 @@ describe('vehicle views', () => {
           currentOdometerKm={12_000}
           onBack={() => undefined}
           onSaved={() => undefined}
-          tankCapacityLiters={3.5}
+          tankCapacityLiters={3}
         />,
       )
     })
@@ -496,7 +496,7 @@ describe('vehicle views', () => {
           currentOdometerKm={12_345.6}
           onBack={() => undefined}
           onSaved={() => undefined}
-          tankCapacityLiters={3.5}
+          tankCapacityLiters={3}
         />,
       )
     })

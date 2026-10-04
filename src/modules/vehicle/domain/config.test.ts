@@ -9,14 +9,14 @@ describe('dynamic fuel amount limit', () => {
     [7.053, 2_820],
     [8.2, 3_280],
   ])('allows four liters at R$ %s/L', (pricePerLiter, expectedCents) => {
-    expect(getMaxFuelAmountCents(pricePerLiter)).toBe(expectedCents)
+    expect(getMaxFuelAmountCents(pricePerLiter, 3)).toBe(expectedCents)
   })
 
   it('rounds the reference price to the displayed cent before applying four liters', () => {
-    expect(getMaxFuelAmountCents(7.001)).toBe(2_800)
-    expect(getMaxFuelAmountCents(7.005)).toBe(2_804)
-    expect(getMaxFuelAmountCents(8.075)).toBe(3_232)
-    expect(getMaxFuelAmountCents(8.165)).toBe(3_268)
+    expect(getMaxFuelAmountCents(7.001, 3)).toBe(2_800)
+    expect(getMaxFuelAmountCents(7.005, 3)).toBe(2_804)
+    expect(getMaxFuelAmountCents(8.075, 3)).toBe(3_232)
+    expect(getMaxFuelAmountCents(8.165, 3)).toBe(3_268)
   })
 
   it.each([
@@ -26,6 +26,6 @@ describe('dynamic fuel amount limit', () => {
     pricePerLiter,
     expectedCents,
   ) => {
-    expect(getMaxFuelAmountCents(pricePerLiter)).toBe(expectedCents)
+    expect(getMaxFuelAmountCents(pricePerLiter, 3)).toBe(expectedCents)
   })
 })
