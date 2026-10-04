@@ -110,6 +110,17 @@ describe('getVehicleDashboard', () => {
     expect(september.monthSpendCents).toBe(5_000 + currentSeptemberSpend)
   })
 
+  it('ignores legacy fuel-generated odometer readings', () => {
+    const legacyFuelReading: OdometerReading = {
+      ...reading('legacy-fuel-reading', 9_999, '2026-09-29T11:00:00.000Z'),
+      source: 'fuel_entry',
+    }
+
+    const dashboard = getVehicleDashboard(state, [legacyFuelReading], [], now)
+
+    expect(dashboard.odometerKm).toBe(state.initialOdometerKm)
+  })
+
   it('uses recorded fuel mileage when the latest reading precedes a full tank', () => {
     const dashboard = getVehicleDashboard(
       state,

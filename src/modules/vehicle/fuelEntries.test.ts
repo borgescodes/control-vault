@@ -16,6 +16,18 @@ describe('uniqueFuelEntries', () => {
     expect(entries).toEqual(before)
   })
 
+  it('excludes tombstoned fuel entries before duplicate filtering', () => {
+    expect(uniqueFuelEntries([
+      original,
+      {
+        ...original,
+        id: 'deleted',
+        fueledAt: '2026-10-01T20:00:00Z',
+        deletedAt: '2026-10-02T10:00:00Z',
+      },
+    ])).toEqual([original])
+  })
+
   it('preserves repeated partial refuels', () => {
     expect(uniqueFuelEntries([
       { ...original, fullTank: false }, { ...original, id: 'other', fullTank: false },

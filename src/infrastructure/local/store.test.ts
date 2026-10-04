@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto'
 
+import { openDB } from 'idb'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type {
@@ -333,5 +334,53 @@ describe('local vehicle store v1 to v2 migration', () => {
       }),
     ])
     expect(entries[0]).not.toHaveProperty('liters')
+  })
+})
+
+
+async function seedVersion5FuelWithoutDeletedAt() {
+  await resetLocalDatabase()
+  const database = await openDB(LOCAL_DATABASE_NAME, 5, {
+    upgrade(db) {
+      db.createObjectStore('vehicle_state')
+      db.createObjectStore('sync_metadata')
+      db.createObjectStore('odometer_readings', { keyPath: 'id' })
+      db.createObjectStore('fuel_entries', { keyPath: 'id' })
+      db.createObjectStore('saved_trips', { keyPath: 'id' })
+    },
+  })
+
+  await database.put('fuel_entries', {
+    id: 'version-5-fuel',
+    odometerKm: 12_100,
+    amountCents: 2_191,
+    estimatedLiters: 3.11,
+    referencePricePerLiter: 7.05,
+    referenceWeekStart: '2026-09-27',
+    referenceWeekEnd: '2026-10-03',
+    fullTank: false,
+    fueledAt: '2026-10-03T18:00:00.000Z',
+    createdAt: '2026-10-03T18:00:00.000Z',
+    updatedAt: '2026-10-03T18:00:00.000Z',
+    syncStatus: 'synced',
+  })
+  database.close()
+}
+
+describe('local vehicle store v5 to v6 migration', () => {
+  beforeEach(resetLocalDatabase)
+  afterAll(resetLocalDatabase)
+
+  it('backfills deletedAt null without changing the fuel record', async () => {
+    await seedVersion5FuelWithoutDeletedAt()
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'version-5-fuel',
+        amountCents: 2_191,
+        deletedAt: null,
+        syncStatus: 'synced',
+      }),
+    ])
   })
 })
