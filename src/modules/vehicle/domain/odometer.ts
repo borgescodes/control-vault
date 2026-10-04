@@ -49,9 +49,21 @@ export function getLatestOdometerKm(
   fallbackKm?: number,
 ): number | null {
   const timeline = getOdometerTimeline(readings, fuelEntries)
-  return timeline.length > 0
-    ? timeline[timeline.length - 1].odometerKm
-    : fallbackKm ?? null
+  const latestManual = timeline
+    .filter((event) => event.source === 'manual')
+    .at(-1)?.odometerKm
+  const highestFuel = timeline
+    .filter((event) => event.source === 'fuel')
+    .reduce<number | null>(
+      (highest, event) =>
+        highest === null ? event.odometerKm : Math.max(highest, event.odometerKm),
+      null,
+    )
+
+  const candidates = [latestManual, highestFuel, fallbackKm].filter(
+    (value): value is number => value !== undefined && value !== null,
+  )
+  return candidates.length > 0 ? Math.max(...candidates) : null
 }
 
 export function validateOdometer(
