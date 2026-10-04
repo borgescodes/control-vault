@@ -114,6 +114,48 @@ describe('vehicle views', () => {
     await act(async () => root.unmount())
   })
 
+  it('uses the configured tank capacity for the dynamic fuel ceiling', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const onSaved = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <FuelView
+          currentOdometerKm={1_000}
+          onBack={() => undefined}
+          onSaved={onSaved}
+          tankCapacityLiters={3.5}
+        />,
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      setInputValue(
+        container.querySelector('input[name="amount"]') as HTMLInputElement,
+        '3000',
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(actionStub.recordFuel).toHaveBeenCalledOnce()
+    expect(actionStub.recordFuel).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 3_000 }),
+      false,
+    )
+    expect(onSaved).toHaveBeenCalledOnce()
+    await act(async () => root.unmount())
+  })
+
   it('renders repeated full-tank entries once using the earliest timestamp', () => {
     const original = {
       id: 'first', odometerKm: 1_200, amountCents: 2_005, estimatedLiters: 2.843,

@@ -22,6 +22,7 @@ import {
   initializeVehicle,
   recordFuel,
   recordOdometer,
+  updateTankCapacity,
 } from './vehicleActions'
 
 const initialAt = '2026-09-29T10:00:00.000Z'
@@ -93,7 +94,7 @@ describe('vehicle actions', () => {
     await initializeVehicle(1_000, false, initialAt)
 
     await expect(getVehicleState()).resolves.toMatchObject({
-      nominalTankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3.5,
       initialOdometerKm: 1_000,
       initialFullTankAt: null,
       createdAt: initialAt,
@@ -106,10 +107,43 @@ describe('vehicle actions', () => {
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(getVehicleState()).resolves.toMatchObject({
-      nominalTankCapacityLiters: 3,
+      nominalTankCapacityLiters: 3.5,
       initialFullTankAt: initialAt,
     })
   })
+
+  it('updates tank capacity without resetting the vehicle epoch', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(updateTankCapacity(3.5, laterAt)).resolves.toEqual({
+      kind: 'saved',
+    })
+
+    await expect(getVehicleState()).resolves.toMatchObject({
+      nominalTankCapacityLiters: 3.5,
+      initialOdometerKm: 1_000,
+      initialFullTankAt: initialAt,
+      createdAt: initialAt,
+      updatedAt: laterAt,
+      syncStatus: 'pending',
+    })
+    expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid tank capacity %s',
+    async (capacity) => {
+      await initializeVehicle(1_000, true, initialAt)
+
+      await expect(updateTankCapacity(capacity, laterAt)).resolves.toMatchObject({
+        kind: 'invalid',
+      })
+      await expect(getVehicleState()).resolves.toMatchObject({
+        nominalTankCapacityLiters: 3.5,
+        updatedAt: initialAt,
+      })
+    },
+  )
 
   it('creates the initial manual odometer reading', async () => {
     await initializeVehicle(1_000, false, initialAt)
@@ -230,7 +264,7 @@ describe('vehicle actions', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_888,
+        amountCents: 3_249,
         fullTank: false,
         fueledAt: laterAt,
         priceReference,
@@ -515,7 +549,7 @@ describe('vehicle practical limits', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 2_889,
+        amountCents: 3_250,
         fullTank: false,
         fueledAt: laterAt,
       }),
