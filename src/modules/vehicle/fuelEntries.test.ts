@@ -5,7 +5,7 @@ import { uniqueFuelEntries } from './fuelEntries'
 const original: FuelEntry = {
   id: 'original', odometerKm: 1_100, amountCents: 2_005, estimatedLiters: 2.843,
   referencePricePerLiter: 7.05, referenceWeekStart: '2026-09-21', referenceWeekEnd: '2026-09-27',
-  fullTank: true, fueledAt: '2026-09-30T20:00:00Z', createdAt: '2026-09-30T20:00:00Z', updatedAt: '2026-09-30T20:00:00Z',
+  fullTank: true, fueledAt: '2026-09-30T20:00:00Z', deletedAt: null, createdAt: '2026-09-30T20:00:00Z', updatedAt: '2026-09-30T20:00:00Z',
 }
 
 describe('uniqueFuelEntries', () => {

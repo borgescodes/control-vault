@@ -25,6 +25,7 @@ export type FuelEntry = {
   referenceWeekEnd: string | null
   fullTank: boolean
   fueledAt: string
+  deletedAt: string | null
   createdAt: string
   updatedAt: string
 }

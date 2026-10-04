@@ -1,9 +1,59 @@
 import { SUSPICIOUS_ODOMETER_DELTA_KM } from './config'
+import type { FuelEntry, OdometerReading } from './types'
 
 export type OdometerValidation =
   | { kind: 'valid'; deltaKm: number }
   | { kind: 'suspicious'; deltaKm: number }
   | { kind: 'invalid'; deltaKm: number }
+
+export type OdometerTimelineEntry = {
+  id: string
+  at: string
+  odometerKm: number
+  source: 'manual' | 'fuel'
+}
+
+export function getOdometerTimeline(
+  readings: OdometerReading[],
+  fuelEntries: FuelEntry[],
+): OdometerTimelineEntry[] {
+  return [
+    ...readings
+      .filter((reading) => reading.source === 'manual')
+      .map((reading) => ({
+        id: reading.id,
+        at: reading.recordedAt,
+        odometerKm: reading.readingKm,
+        source: 'manual' as const,
+      })),
+    ...fuelEntries
+      .filter((entry) => entry.deletedAt === null)
+      .map((entry) => ({
+        id: entry.id,
+        at: entry.fueledAt,
+        odometerKm: entry.odometerKm,
+        source: 'fuel' as const,
+      })),
+  ].sort(
+    (left, right) =>
+      left.at.localeCompare(right.at) ||
+      left.odometerKm - right.odometerKm ||
+      left.source.localeCompare(right.source) ||
+      left.id.localeCompare(right.id),
+  )
+}
+
+export function getLatestOdometerKm(
+  readings: OdometerReading[],
+  fuelEntries: FuelEntry[],
+  fallbackKm?: number,
+): number | null {
+  const values = getOdometerTimeline(readings, fuelEntries)
+    .map(({ odometerKm }) => odometerKm)
+
+  if (fallbackKm !== undefined) values.push(fallbackKm)
+  return values.length > 0 ? Math.max(...values) : null
+}
 
 export function validateOdometer(
   latestKm: number | null,

@@ -13,7 +13,7 @@ import type {
 } from '../../modules/vehicle/domain/types'
 
 export const LOCAL_DATABASE_NAME = 'control-vault'
-export const LOCAL_DATABASE_VERSION = 5
+export const LOCAL_DATABASE_VERSION = 6
 export const VEHICLE_STATE_KEY = 'primary'
 
 export type SyncStatus = 'pending' | 'synced'
@@ -99,22 +99,38 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
                   referencePricePerLiter: null,
                   referenceWeekStart: null,
                   referenceWeekEnd: null,
+                  deletedAt: null,
                 } as unknown as LocalFuelEntry)
               }),
             ),
           )
         }
 
-        if (oldVersion > 0 && oldVersion < 5) {
-          // Authorized vehicle reset on 2026-10-01. Preserve trips and any
-          // records created after the reset, including delayed app upgrades.
-          const resetAt = Date.parse('2026-10-01T21:25:39.000Z')
+        if (oldVersion > 0 && oldVersion < 6) {
           void (async () => {
-            for (const name of ['vehicle_state', 'odometer_readings', 'fuel_entries'] as const) {
-              let cursor = await transaction.objectStore(name).openCursor()
+            if (oldVersion < 5) {
+              // Authorized vehicle reset on 2026-10-01. Preserve trips and any
+              // records created after the reset, including delayed app upgrades.
+              const resetAt = Date.parse('2026-10-01T21:25:39.000Z')
+              for (const name of ['vehicle_state', 'odometer_readings', 'fuel_entries'] as const) {
+                let cursor = await transaction.objectStore(name).openCursor()
+                while (cursor) {
+                  const createdAt = Date.parse(cursor.value.createdAt)
+                  if (!Number.isFinite(createdAt) || createdAt <= resetAt) {
+                    await cursor.delete()
+                  }
+                  cursor = await cursor.continue()
+                }
+              }
+            }
+
+            if (oldVersion >= 2) {
+              const fuelStore = transaction.objectStore('fuel_entries')
+              let cursor = await fuelStore.openCursor()
               while (cursor) {
-                const createdAt = Date.parse(cursor.value.createdAt)
-                if (!Number.isFinite(createdAt) || createdAt <= resetAt) await cursor.delete()
+                if (!('deletedAt' in cursor.value)) {
+                  await cursor.update({ ...cursor.value, deletedAt: null })
+                }
                 cursor = await cursor.continue()
               }
             }

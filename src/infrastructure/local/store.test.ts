@@ -63,6 +63,7 @@ function fuelEntry(id: string): FuelEntry {
     referenceWeekEnd: null,
     fullTank: true,
     fueledAt: timestamp,
+    deletedAt: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   }

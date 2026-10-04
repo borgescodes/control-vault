@@ -5,7 +5,7 @@ import {
 import {
   getVehicleState,
   initializeLocalVehicle,
-  saveFuelAndReadingIfCurrent,
+  saveFuelEntryIfCurrent,
   saveOdometerReadingIfCurrent,
   saveVehicleState,
 } from '../../infrastructure/local/store'
@@ -220,23 +220,14 @@ export async function recordFuel(
     referenceWeekEnd: reference?.semanaFim ?? null,
     fullTank: input.fullTank,
     fueledAt: input.fueledAt,
+    deletedAt: null,
     createdAt: input.fueledAt,
     updatedAt: input.fueledAt,
   }
-  const reading: OdometerReading = {
-    id: createUuid(),
-    readingKm: input.odometerKm,
-    recordedAt: input.fueledAt,
-    source: 'fuel_entry',
-    createdAt: input.fueledAt,
-    updatedAt: input.fueledAt,
-  }
-
   let validation: ReturnType<typeof validateOdometer> | undefined
   let duplicate = false
-  const saved = await saveFuelAndReadingIfCurrent(
+  const saved = await saveFuelEntryIfCurrent(
     entry,
-    reading,
     (latest, existingEntries) => {
       const fingerprint = fullTankFingerprint(entry)
       if (fingerprint !== null && existingEntries.some((existing) => fullTankFingerprint(existing) === fingerprint)) {

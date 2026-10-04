@@ -6,6 +6,10 @@ import {
 } from './domain/consumption'
 import { RANGE_SAFETY_FACTOR } from './domain/config'
 import { estimateFuelRemaining } from './domain/fuelEstimate'
+import {
+  getLatestOdometerKm,
+  getOdometerTimeline,
+} from './domain/odometer'
 import { uniqueFuelEntries } from './fuelEntries'
 import type {
   FuelEntry,
@@ -52,27 +56,22 @@ export function getVehicleDashboard(
   const operationalFuelEntries = canonicalFuelEntries.filter(
     (entry) => timestamp(entry.fueledAt) >= timestamp(state.createdAt),
   )
-  const latestReading = readings.reduce<OdometerReading | null>(
-    (latest, reading) => {
-      if (
-        !latest ||
-        reading.recordedAt > latest.recordedAt ||
-        (reading.recordedAt === latest.recordedAt &&
-          reading.readingKm > latest.readingKm)
-      ) {
-        return reading
-      }
-
-      return latest
-    },
-    null,
+  const createdAt = timestamp(state.createdAt)
+  const operationalReadings = readings.filter(
+    (reading) =>
+      reading.source === 'manual' &&
+      timestamp(reading.recordedAt) >= createdAt,
   )
-  // Fuel entries also record accepted mileage, even when their paired reading
-  // has an earlier timestamp or has not arrived in the local snapshot yet.
-  const odometerKm = operationalFuelEntries.reduce(
-    (latest, entry) => Math.max(latest, entry.odometerKm),
-    Math.max(latestReading?.readingKm ?? state.initialOdometerKm, state.initialOdometerKm),
+  const operationalTimeline = getOdometerTimeline(
+    operationalReadings,
+    operationalFuelEntries,
   )
+  const odometerKm =
+    getLatestOdometerKm(
+      operationalReadings,
+      operationalFuelEntries,
+      state.initialOdometerKm,
+    ) ?? state.initialOdometerKm
 
   const monthEntries = canonicalFuelEntries.filter((entry) => {
     const fueledAt = new Date(entry.fueledAt)
@@ -93,24 +92,22 @@ export function getVehicleDashboard(
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
   const nowTime = now.getTime()
-  const monthBaseline = readings.reduce<OdometerReading | null>(
-    (latest, reading) => {
-      const at = timestamp(reading.recordedAt)
-      if (!Number.isFinite(at) || at > monthStart) return latest
-      if (!latest || at > timestamp(latest.recordedAt)) return reading
-      return latest
-    },
-    null,
-  )
+  const monthBaseline = operationalTimeline.reduce<
+    (typeof operationalTimeline)[number] | null
+  >((latest, event) => {
+    const at = timestamp(event.at)
+    if (!Number.isFinite(at) || at > monthStart) return latest
+    if (!latest || at > timestamp(latest.at)) return event
+    return latest
+  }, null)
 
   let monthDistanceKm: number | null = null
   let monthDistanceState: MonthDistanceState = 'unavailable'
 
   if (monthBaseline) {
-    monthDistanceKm = Math.max(0, odometerKm - monthBaseline.readingKm)
+    monthDistanceKm = Math.max(0, odometerKm - monthBaseline.odometerKm)
     monthDistanceState = 'complete'
   } else {
-    const createdAt = timestamp(state.createdAt)
     if (
       Number.isFinite(createdAt) &&
       createdAt >= monthStart &&
@@ -122,19 +119,19 @@ export function getVehicleDashboard(
   }
 
   const cutoff = nowTime - 30 * DAY_MS
-  const recentReadings = readings
-    .map((reading) => ({ reading, at: timestamp(reading.recordedAt) }))
+  const recentEvents = operationalTimeline
+    .map((event) => ({ event, at: timestamp(event.at) }))
     .filter(
       ({ at }) => Number.isFinite(at) && at >= cutoff && at <= nowTime,
     )
     .sort((left, right) => left.at - right.at)
 
   let recentDailyDistanceKm: number | null = null
-  if (recentReadings.length >= 2) {
-    const first = recentReadings[0]
-    const last = recentReadings[recentReadings.length - 1]
+  if (recentEvents.length >= 2) {
+    const first = recentEvents[0]
+    const last = recentEvents[recentEvents.length - 1]
     const elapsedDays = (last.at - first.at) / DAY_MS
-    const distanceKm = last.reading.readingKm - first.reading.readingKm
+    const distanceKm = last.event.odometerKm - first.event.odometerKm
 
     if (elapsedDays >= 7 && distanceKm > 0) {
       recentDailyDistanceKm = distanceKm / elapsedDays

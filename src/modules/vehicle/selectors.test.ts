@@ -50,6 +50,7 @@ function fuel(
     referenceWeekEnd: null,
     fullTank,
     fueledAt,
+    deletedAt: null,
     createdAt: fueledAt,
     updatedAt: fueledAt,
   }

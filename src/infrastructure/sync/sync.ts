@@ -243,6 +243,7 @@ function fromRemoteFuelEntry(row: RemoteFuelEntry): FuelEntry {
     referenceWeekEnd: row.reference_week_end,
     fullTank: row.full_tank,
     fueledAt: row.fueled_at,
+    deletedAt: null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

@@ -10,7 +10,8 @@ export function fullTankFingerprint(entry: FuelEntry): string | null {
 
 export function uniqueFuelEntries(entries: FuelEntry[]): FuelEntry[] {
   const seen = new Set<string>()
-  return [...entries]
+  return entries
+    .filter((entry) => entry.deletedAt === null)
     .sort((left, right) => Date.parse(left.fueledAt) - Date.parse(right.fueledAt) || left.id.localeCompare(right.id))
     .filter((entry) => {
       const fingerprint = fullTankFingerprint(entry)
