@@ -3,17 +3,19 @@ import {
   type FuelPriceReference,
 } from '../../infrastructure/fuelPrice/fuelPrice'
 import {
+  getVehicleState,
   initializeLocalVehicle,
   saveFuelAndReadingIfCurrent,
   saveOdometerReadingIfCurrent,
+  saveVehicleState,
 } from '../../infrastructure/local/store'
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
 import {
+  DEFAULT_TANK_CAPACITY_LITERS,
   getMaxFuelAmountCents,
   MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
-  NOMINAL_TANK_CAPACITY_LITERS,
 } from './domain/config'
 import { validateOdometer } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
@@ -58,7 +60,7 @@ export async function initializeVehicle(
   }
 
   const state: VehicleState = {
-    nominalTankCapacityLiters: NOMINAL_TANK_CAPACITY_LITERS,
+    nominalTankCapacityLiters: DEFAULT_TANK_CAPACITY_LITERS,
     initialOdometerKm,
     initialFullTankAt: initialFullTank ? now : null,
     createdAt: now,
@@ -75,6 +77,36 @@ export async function initializeVehicle(
 
   await initializeLocalVehicle(state, reading)
   void syncCurrentSessionIfOnline().catch(() => undefined)
+}
+
+export async function updateTankCapacity(
+  nominalTankCapacityLiters: number,
+  now: string,
+): Promise<RecordResult> {
+  if (
+    !Number.isFinite(nominalTankCapacityLiters) ||
+    nominalTankCapacityLiters <= 0
+  ) {
+    return { kind: 'invalid', reason: 'Capacidade inválida' }
+  }
+
+  if (!hasValidTimestamp(now)) {
+    return { kind: 'invalid', reason: 'Data inválida' }
+  }
+
+  const state = await getVehicleState()
+  if (!state) {
+    return { kind: 'invalid', reason: 'Veículo não configurado' }
+  }
+
+  await saveVehicleState({
+    ...state,
+    nominalTankCapacityLiters,
+    updatedAt: now,
+  })
+  void syncCurrentSessionIfOnline().catch(() => undefined)
+
+  return { kind: 'saved' }
 }
 
 export async function recordOdometer(
@@ -160,11 +192,18 @@ export async function recordFuel(
     }
   }
 
-  if (
-    reference &&
-    input.amountCents > getMaxFuelAmountCents(reference.precoMaximo)
-  ) {
-    return { kind: 'invalid', reason: 'Valor inválido' }
+  if (reference) {
+    const state = await getVehicleState()
+    if (
+      !state ||
+      input.amountCents >
+        getMaxFuelAmountCents(
+          reference.precoMaximo,
+          state.nominalTankCapacityLiters,
+        )
+    ) {
+      return { kind: 'invalid', reason: 'Valor inválido' }
+    }
   }
 
   const estimatedLiters = reference

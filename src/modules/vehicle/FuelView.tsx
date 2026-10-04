@@ -23,6 +23,7 @@ type FuelViewProps = {
   currentOdometerKm: number
   onBack: () => void
   onSaved: () => void | Promise<void>
+  tankCapacityLiters: number
 }
 
 type PendingFuel = {
@@ -34,6 +35,7 @@ export default function FuelView({
   currentOdometerKm,
   onBack,
   onSaved,
+  tankCapacityLiters,
 }: FuelViewProps) {
   const [odometerDigits, setOdometerDigits] = useState(() =>
     odometerDigitsFromKm(currentOdometerKm),
@@ -72,7 +74,10 @@ export default function FuelView({
   const maxAmountCents =
     priceReference === null
       ? null
-      : getMaxFuelAmountCents(priceReference.precoMaximo)
+      : getMaxFuelAmountCents(
+          priceReference.precoMaximo,
+          tankCapacityLiters,
+        )
   const odometerValid =
     odometerDigits.length > 0 && odometerKm >= currentOdometerKm
   const amountValid =

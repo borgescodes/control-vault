@@ -264,11 +264,25 @@ export default function VehicleModule() {
     </nav>
   )
 
-  if (view === 'odometer' || view === 'fuel') {
-    const EntryView = view === 'fuel' ? FuelView : OdometerView
+  if (view === 'fuel') {
     return <>
-      <EntryView currentOdometerKm={dashboard.odometerKm} onBack={backToPreviousView}
-        onSaved={() => handleSaved(view === 'fuel' ? 'Abastecimento salvo' : 'Hodômetro atualizado')} />
+      <FuelView
+        currentOdometerKm={dashboard.odometerKm}
+        onBack={backToPreviousView}
+        onSaved={() => handleSaved('Abastecimento salvo')}
+        tankCapacityLiters={vehicleState.nominalTankCapacityLiters}
+      />
+      {navigation}
+    </>
+  }
+
+  if (view === 'odometer') {
+    return <>
+      <OdometerView
+        currentOdometerKm={dashboard.odometerKm}
+        onBack={backToPreviousView}
+        onSaved={() => handleSaved('Hodômetro atualizado')}
+      />
       {navigation}
     </>
   }
