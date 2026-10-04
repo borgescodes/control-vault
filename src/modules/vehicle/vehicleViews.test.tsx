@@ -461,6 +461,7 @@ describe('vehicle views', () => {
             currentOdometerKm={12_000}
             onBack={() => undefined}
             onSaved={() => undefined}
+            tankCapacityLiters={3}
           />,
         )
       })
