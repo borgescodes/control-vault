@@ -128,8 +128,12 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
               const fuelStore = transaction.objectStore('fuel_entries')
               let cursor = await fuelStore.openCursor()
               while (cursor) {
-                if (!('deletedAt' in cursor.value)) {
-                  await cursor.update({ ...cursor.value, deletedAt: null })
+                const legacy = cursor.value as unknown as Record<string, unknown>
+                if (!('deletedAt' in legacy)) {
+                  await cursor.update({
+                    ...legacy,
+                    deletedAt: null,
+                  } as unknown as LocalFuelEntry)
                 }
                 cursor = await cursor.continue()
               }
