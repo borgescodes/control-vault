@@ -1207,11 +1207,21 @@ describe('fuel correction and analytics UI', () => {
     )
     expect(reference).toBeDefined()
     expect(reference?.getAttribute('aria-expanded')).toBe('false')
+    expect(
+      container.querySelector('input[name="amount"]')?.getAttribute(
+        'aria-describedby',
+      ),
+    ).toBeNull()
     expect(container.textContent).not.toContain('ANP · Paragominas')
 
     await act(async () => reference?.click())
 
     expect(reference?.getAttribute('aria-expanded')).toBe('true')
+    expect(
+      container.querySelector('input[name="amount"]')?.getAttribute(
+        'aria-describedby',
+      ),
+    ).toBe('fuel-amount-hint')
     expect(container.textContent).toContain('Preço de referência')
     expect(container.textContent).toContain('ANP · Paragominas')
     expect(container.textContent).toContain('Máximo estimado')
