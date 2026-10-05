@@ -11,8 +11,9 @@ import {
 
 describe('native vehicle navigation', () => {
   beforeEach(() => {
-    window.history.replaceState(null, '', '/')
     vi.restoreAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    window.history.replaceState(null, '', '/')
   })
 
   it('starts every routed screen at the top', () => {

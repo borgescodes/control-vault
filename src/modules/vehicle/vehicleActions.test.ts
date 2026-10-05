@@ -716,11 +716,12 @@ describe('vehicle practical limits', () => {
     })
   })
 
-  it('accepts an equal odometer and the technical maximum', async () => {
+  it('rejects an equal odometer and accepts the technical maximum', async () => {
     await initializeVehicle(12_345.6, true, initialAt)
 
     await expect(recordOdometer(12_345.6, laterAt)).resolves.toEqual({
-      kind: 'saved',
+      kind: 'invalid',
+      reason: 'Hodômetro deve ser maior que o atual',
     })
     await expect(
       recordOdometer(999_999, '2026-10-01T10:00:00.000Z', true),

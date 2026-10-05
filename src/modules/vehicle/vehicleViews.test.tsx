@@ -336,6 +336,12 @@ describe('vehicle views', () => {
       false,
     )
 
+    await act(async () => {
+      Array.from(container.querySelectorAll('button'))
+        .find((button) => button.textContent?.includes('Referência'))
+        ?.click()
+    })
+
     expect(container.textContent?.replace(/\u00a0/g, ' ')).toContain('Preço de referência: R$ 7,05/L')
     expect(container.textContent).toContain('Máximo estimado')
     expect(container.textContent).toContain('≤ R$ 28,88')
@@ -489,6 +495,9 @@ describe('vehicle views', () => {
         setInputValue(amount, amountDigits)
         publishRefresh?.({ ...priceReference, precoMaximo: refreshedMaximum })
         await Promise.resolve()
+        Array.from(container.querySelectorAll('button'))
+          .find((button) => button.textContent?.includes('Referência'))
+          ?.click()
       })
 
       expect(container.textContent).toContain(expectedMaximum)
@@ -521,8 +530,9 @@ describe('vehicle views', () => {
     ) as HTMLButtonElement
 
     expect(input.value).toBe('12345.6')
-    expect(submit.disabled).toBe(false)
+    expect(submit.disabled).toBe(true)
     expect(input.getAttribute('aria-describedby')).toBe('odometer-hint')
+    expect(container.textContent).toContain('Deve ser maior que 12345.6 km')
 
     await act(async () => {
       setInputValue(input, '123455')
@@ -531,14 +541,14 @@ describe('vehicle views', () => {
 
     expect(input.value).toBe('12345.5')
     expect(submit.disabled).toBe(true)
-    expect(container.textContent).toContain('Não pode ser menor que 12345.6 km')
+    expect(container.textContent).toContain('Deve ser maior que 12345.6 km')
 
     await act(async () => {
       setInputValue(input, '123456')
       await Promise.resolve()
     })
     expect(input.value).toBe('12345.6')
-    expect(submit.disabled).toBe(false)
+    expect(submit.disabled).toBe(true)
 
     await act(async () => {
       setInputValue(input, '123457')
