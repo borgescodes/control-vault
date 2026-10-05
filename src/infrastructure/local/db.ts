@@ -130,10 +130,11 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
               while (cursor) {
                 const legacy = cursor.value as unknown as Record<string, unknown>
                 if (!('deletedAt' in legacy)) {
-                  await cursor.update({
-                    ...legacy,
-                    deletedAt: null,
-                  } as unknown as LocalFuelEntry)
+                  await cursor.update(
+                    Object.assign({}, legacy, {
+                      deletedAt: null,
+                    }) as unknown as LocalFuelEntry,
+                  )
                 }
                 cursor = await cursor.continue()
               }
