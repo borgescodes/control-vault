@@ -8,12 +8,16 @@ export type FullTankAnchor = {
 export type ConsumptionCycle = {
   startKm: number
   endKm: number
+  startAt: string
+  endAt: string
   distanceKm: number
   fuelUsedLiters: number
+  fuelCostCents: number
   kmPerLiter: number
 }
 
 export type CalibrationState = 'calibrating' | 'estimated' | 'calibrated'
+export type RangeConfidence = 'low' | 'medium' | 'high'
 
 export type ConsumptionEstimate = {
   kmPerLiter: number
@@ -33,6 +37,7 @@ export function buildConsumptionCycles(
   const cycles: ConsumptionCycle[] = []
   let anchor = initialAnchor
   let fuelUsedLiters = 0
+  let fuelCostCents = 0
   let hasKnownFuel = true
 
   for (const entry of entries) {
@@ -50,6 +55,7 @@ export function buildConsumptionCycles(
       continue
     }
 
+    fuelCostCents += entry.amountCents
     if (entry.estimatedLiters === null) {
       hasKnownFuel = false
     } else {
@@ -72,14 +78,18 @@ export function buildConsumptionCycles(
       cycles.push({
         startKm: anchor.odometerKm,
         endKm: entry.odometerKm,
+        startAt: anchor.at,
+        endAt: entry.fueledAt,
         distanceKm,
         fuelUsedLiters,
+        fuelCostCents,
         kmPerLiter,
       })
     }
 
     anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
     fuelUsedLiters = 0
+    fuelCostCents = 0
     hasKnownFuel = true
   }
 
@@ -132,4 +142,35 @@ export function learnConsumption(
     calibrationState,
     cycleCount: validCycles.length,
   }
+}
+
+
+const CONFIDENCE_RECENCY_MS = 90 * 86_400_000
+
+export function deriveRangeConfidence(
+  calibrationState: CalibrationState,
+  cycles: ConsumptionCycle[],
+  now: Date,
+): RangeConfidence {
+  const base: RangeConfidence =
+    calibrationState === 'calibrated'
+      ? 'high'
+      : calibrationState === 'estimated'
+        ? 'medium'
+        : 'low'
+
+  const latestCycleAt = cycles.reduce<number | null>((latest, cycle) => {
+    const at = new Date(cycle.endAt).getTime()
+    if (!Number.isFinite(at)) return latest
+    return latest === null ? at : Math.max(latest, at)
+  }, null)
+
+  if (
+    latestCycleAt === null ||
+    now.getTime() - latestCycleAt <= CONFIDENCE_RECENCY_MS
+  ) {
+    return base
+  }
+
+  return base === 'high' ? 'medium' : 'low'
 }

@@ -15,31 +15,57 @@ import {
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
-import { getMaxFuelAmountCents } from './domain/config'
+import {
+  getMaxFuelAmountCents,
+  MAX_FUEL_INPUT_CENTS,
+} from './domain/config'
+import type { FuelEntry } from './domain/types'
 import SuspiciousOdometerDialog from './SuspiciousOdometerDialog'
-import { recordFuel, type FuelInput } from './vehicleActions'
+import {
+  recordFuel,
+  updateFuelEntry,
+  type FuelEditInput,
+  type FuelInput,
+} from './vehicleActions'
 
 type FuelViewProps = {
   currentOdometerKm: number
   onBack: () => void
   onSaved: () => void | Promise<void>
+  tankCapacityLiters: number
+  entry?: FuelEntry
 }
 
 type PendingFuel = {
-  input: FuelInput
+  input: FuelInput | FuelEditInput
   deltaKm: number
+}
+
+function toDateTimeLocal(value: string): string {
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
 }
 
 export default function FuelView({
   currentOdometerKm,
   onBack,
   onSaved,
+  tankCapacityLiters,
+  entry,
 }: FuelViewProps) {
+  const editing = entry !== undefined
   const [odometerDigits, setOdometerDigits] = useState(() =>
-    odometerDigitsFromKm(currentOdometerKm),
+    odometerDigitsFromKm(entry?.odometerKm ?? currentOdometerKm),
   )
-  const [amountDigits, setAmountDigits] = useState('')
-  const [fullTank, setFullTank] = useState(false)
+  const [amountDigits, setAmountDigits] = useState(() =>
+    entry ? String(entry.amountCents) : '',
+  )
+  const [fullTank, setFullTank] = useState(entry?.fullTank ?? false)
+  const [fueledAtLocal, setFueledAtLocal] = useState(() =>
+    entry ? toDateTimeLocal(entry.fueledAt) : '',
+  )
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -48,8 +74,9 @@ export default function FuelView({
     useState<FuelPriceReference | null>(null)
 
   useEffect(() => {
-    let active = true
+    if (editing) return
 
+    let active = true
     const applyRefresh = (reference: FuelPriceReference) => {
       if (active) setPriceReference(reference)
     }
@@ -65,31 +92,47 @@ export default function FuelView({
     return () => {
       active = false
     }
-  }, [])
+  }, [editing])
 
   const odometerKm = parseOdometerKm(odometerDigits)
   const amountCents = parseMoneyCents(amountDigits)
   const maxAmountCents =
-    priceReference === null
+    editing || priceReference === null
       ? null
-      : getMaxFuelAmountCents(priceReference.precoMaximo)
+      : getMaxFuelAmountCents(
+          priceReference.precoMaximo,
+          tankCapacityLiters,
+        )
   const odometerValid =
-    odometerDigits.length > 0 && odometerKm >= currentOdometerKm
+    odometerDigits.length > 0 &&
+    odometerKm >= 0 &&
+    (editing || odometerKm >= currentOdometerKm)
   const amountValid =
     amountCents > 0 &&
+    amountCents <= MAX_FUEL_INPUT_CENTS &&
     (maxAmountCents === null || amountCents <= maxAmountCents)
   const odometerInvalid =
-    odometerDigits.length > 0 && odometerKm < currentOdometerKm
+    odometerDigits.length > 0 && !odometerValid
   const amountInvalid = amountDigits.length > 0 && !amountValid
 
-  async function save(input: FuelInput, confirmSuspicious = false) {
+  async function save(
+    input: FuelInput | FuelEditInput,
+    confirmSuspicious = false,
+  ) {
     if (saving.current) return
     saving.current = true
     setError(null)
     setSubmitting(true)
 
     try {
-      const result = await recordFuel(input, confirmSuspicious)
+      const result = entry
+        ? await updateFuelEntry(
+            entry,
+            input as FuelEditInput,
+            new Date().toISOString(),
+            confirmSuspicious,
+          )
+        : await recordFuel(input as FuelInput, confirmSuspicious)
 
       if (result.kind === 'requires_confirmation') {
         setPending({ input, deltaKm: result.deltaKm })
@@ -114,6 +157,21 @@ export default function FuelView({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!odometerValid || !amountValid) return
+
+    if (entry) {
+      const fueledAt = new Date(fueledAtLocal)
+      if (!fueledAtLocal || !Number.isFinite(fueledAt.getTime())) {
+        setError('Data inválida')
+        return
+      }
+      void save({
+        odometerKm,
+        amountCents,
+        fullTank,
+        fueledAt: fueledAt.toISOString(),
+      })
+      return
+    }
 
     void save({
       odometerKm,
@@ -141,7 +199,9 @@ export default function FuelView({
           <VehicleIcon name="back" />
         </button>
         <div>
-          <h2 id="fuel-title">Abastecer</h2>
+          <h2 id="fuel-title">
+            {editing ? 'Corrigir abastecimento' : 'Abastecer'}
+          </h2>
         </div>
       </header>
 
@@ -170,9 +230,14 @@ export default function FuelView({
             type="text"
             value={formatOdometerInput(odometerDigits)}
           />
-          {odometerInvalid && (
+          {odometerInvalid && !editing && (
             <small className="field-error" id="fuel-odometer-hint">
               Mínimo {formatOdometerValue(currentOdometerKm)} km
+            </small>
+          )}
+          {odometerInvalid && editing && (
+            <small className="field-error" id="fuel-odometer-hint">
+              Informe um hodômetro válido.
             </small>
           )}
         </label>
@@ -203,7 +268,7 @@ export default function FuelView({
             type="text"
             value={formatMoneyInput(amountDigits)}
           />
-          {priceReference !== null && maxAmountCents !== null && (
+          {!editing && priceReference !== null && maxAmountCents !== null && (
             <small
               aria-label="Limite estimado para este abastecimento"
               className="field-limit"
@@ -215,8 +280,34 @@ export default function FuelView({
               {amountCents > 0 && <span>Volume estimado: ≈ {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format((amountCents / 100) / priceReference.precoMedio)} L</span>}
             </small>
           )}
-          {priceReference === null && <small className="field-hint">Preço de referência indisponível · registro sem estimativa de volume</small>}
+          {!editing && priceReference === null && (
+            <small className="field-hint">
+              Preço de referência indisponível · registro sem estimativa de volume
+            </small>
+          )}
+          {editing && entry.referencePricePerLiter !== null && (
+            <small className="field-hint">
+              Volume estimado recalculado com o preço salvo de{' '}
+              {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              }).format(entry.referencePricePerLiter)}/L.
+            </small>
+          )}
         </label>
+
+        {editing && (
+          <label>
+            Data e hora
+            <input
+              name="fueledAt"
+              onChange={(event) => setFueledAtLocal(event.target.value)}
+              required
+              type="datetime-local"
+              value={fueledAtLocal}
+            />
+          </label>
+        )}
 
         <label className="vehicle-toggle">
           <input
@@ -236,7 +327,11 @@ export default function FuelView({
           type="submit"
         >
           <VehicleIcon name="fuel" />
-          {submitting ? 'Salvando…' : 'Salvar abastecimento'}
+          {submitting
+            ? 'Salvando…'
+            : editing
+              ? 'Salvar correção'
+              : 'Salvar abastecimento'}
         </button>
       </form>
 

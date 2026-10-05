@@ -29,14 +29,17 @@ import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
 import HomeView from './HomeView'
+import TankCapacityView from './TankCapacityView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
 import TripDetailView from './TripDetailView'
 import TripFormView from './TripFormView'
 import TripsView from './TripsView'
+import { deleteFuelEntry } from './vehicleActions'
 import {
   backToPreviousView,
+  currentFuelEntryId,
   currentTripId,
   currentView,
   initializeNavigation,
@@ -231,6 +234,12 @@ export default function VehicleModule() {
     savedTrips.some((record) => record.syncStatus === 'pending')
   const tripNavigationActive = isTripView(view)
   const tripId = currentTripId()
+  const fuelEntryId = currentFuelEntryId()
+  const selectedFuelEntry = fuelEntryId
+    ? fuelEntries.find(
+        (entry) => entry.id === fuelEntryId && entry.deletedAt === null,
+      ) ?? null
+    : null
   const selectedTrip = tripId
     ? visibleTrips.find((trip) => trip.id === tripId) ?? null
     : null
@@ -264,11 +273,65 @@ export default function VehicleModule() {
     </nav>
   )
 
-  if (view === 'odometer' || view === 'fuel') {
-    const EntryView = view === 'fuel' ? FuelView : OdometerView
+  if (view === 'fuel-edit' && !selectedFuelEntry) {
+    return (
+      <>
+        <section
+          aria-labelledby="fuel-unavailable-title"
+          className="vehicle-view"
+          data-view-root="true"
+          tabIndex={-1}
+        >
+          <header className="view-header">
+            <button
+              aria-label="Voltar"
+              className="view-back"
+              onClick={() => replaceTo('history')}
+              type="button"
+            >
+              <VehicleIcon name="back" />
+            </button>
+            <div>
+              <h2 id="fuel-unavailable-title">
+                Abastecimento indisponível
+              </h2>
+            </div>
+          </header>
+          <p className="history-empty">
+            Este registro não está mais disponível para correção.
+          </p>
+        </section>
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'fuel' || view === 'fuel-edit') {
     return <>
-      <EntryView currentOdometerKm={dashboard.odometerKm} onBack={backToPreviousView}
-        onSaved={() => handleSaved(view === 'fuel' ? 'Abastecimento salvo' : 'Hodômetro atualizado')} />
+      <FuelView
+        currentOdometerKm={dashboard.odometerKm}
+        entry={view === 'fuel-edit' ? selectedFuelEntry ?? undefined : undefined}
+        onBack={backToPreviousView}
+        onSaved={() =>
+          handleSaved(
+            view === 'fuel-edit'
+              ? 'Abastecimento corrigido'
+              : 'Abastecimento salvo',
+          )
+        }
+        tankCapacityLiters={vehicleState.nominalTankCapacityLiters}
+      />
+      {navigation}
+    </>
+  }
+
+  if (view === 'odometer') {
+    return <>
+      <OdometerView
+        currentOdometerKm={dashboard.odometerKm}
+        onBack={backToPreviousView}
+        onSaved={() => handleSaved('Hodômetro atualizado')}
+      />
       {navigation}
     </>
   }
@@ -277,8 +340,29 @@ export default function VehicleModule() {
     return (
       <>
         <HistoryView
+          consumptionCycles={dashboard.consumptionCycles}
           fuelEntries={fuelEntries}
           odometerReadings={readings}
+          onDeleteFuel={async (id) => {
+            const deleted = await deleteFuelEntry(id, new Date().toISOString())
+            if (!deleted) return
+            await refresh()
+            setNotice('Abastecimento excluído')
+          }}
+          onEditFuel={(id) => navigateTo('fuel-edit', id)}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'tank-capacity') {
+    return (
+      <>
+        <TankCapacityView
+          currentCapacityLiters={vehicleState.nominalTankCapacityLiters}
+          onBack={backToPreviousView}
+          onSaved={() => handleSaved('Capacidade atualizada')}
         />
         {navigation}
       </>
@@ -382,6 +466,7 @@ export default function VehicleModule() {
         }
         onFuel={() => openView('fuel')}
         onOdometer={() => openView('odometer')}
+        onTankCapacity={() => openView('tank-capacity')}
       />
       {navigation}
     </>

@@ -1,11 +1,18 @@
 import {
   buildConsumptionCycles,
+  deriveRangeConfidence,
   learnConsumption,
   type CalibrationState,
+  type ConsumptionCycle,
   type FullTankAnchor,
+  type RangeConfidence,
 } from './domain/consumption'
 import { RANGE_SAFETY_FACTOR } from './domain/config'
 import { estimateFuelRemaining } from './domain/fuelEstimate'
+import {
+  getLatestOdometerKm,
+  getOdometerTimeline,
+} from './domain/odometer'
 import { uniqueFuelEntries } from './fuelEntries'
 import type {
   FuelEntry,
@@ -17,6 +24,11 @@ const DAY_MS = 86_400_000
 
 export type MonthDistanceState = 'complete' | 'partial' | 'unavailable'
 
+export type ConsumptionCycleAnalytics = ConsumptionCycle & {
+  costPerKmCents: number
+  kmPerLiterChangePercent: number | null
+}
+
 export type VehicleDashboard = {
   odometerKm: number
   monthSpendCents: number
@@ -27,6 +39,13 @@ export type VehicleDashboard = {
   consumptionKmPerLiter: number | null
   calibrationState: CalibrationState
   calibrationCycleCount: number
+  rangeConfidence: RangeConfidence
+  consumptionCycles: ConsumptionCycleAnalytics[]
+  recent30SpendCents: number
+  recent30DistanceKm: number | null
+  recent30CostPerKmCents: number | null
+  previous30SpendChangePercent: number | null
+  previous30DistanceChangePercent: number | null
   remainingLiters: number | null
   fuelPercent: number | null
   rangeKm: number | null
@@ -38,6 +57,39 @@ export type VehicleDashboard = {
 function timestamp(value: string): number {
   const result = new Date(value).getTime()
   return Number.isFinite(result) ? result : Number.NaN
+}
+
+
+function observedDistanceInWindow(
+  timeline: ReturnType<typeof getOdometerTimeline>,
+  start: number,
+  end: number,
+): number | null {
+  const events = timeline
+    .map((event) => ({ event, at: timestamp(event.at) }))
+    .filter(
+      ({ at }) =>
+        Number.isFinite(at) &&
+        at > start &&
+        at <= end,
+    )
+    .sort((left, right) => left.at - right.at)
+
+  if (events.length < 2) return null
+
+  const first = events[0]
+  const last = events[events.length - 1]
+  const elapsedDays = (last.at - first.at) / DAY_MS
+  const distanceKm = last.event.odometerKm - first.event.odometerKm
+  return elapsedDays >= 7 && distanceKm > 0 ? distanceKm : null
+}
+
+function percentChange(
+  current: number | null,
+  previous: number | null,
+): number | null {
+  if (current === null || previous === null || previous <= 0) return null
+  return ((current - previous) / previous) * 100
 }
 
 export function getVehicleDashboard(
@@ -52,27 +104,22 @@ export function getVehicleDashboard(
   const operationalFuelEntries = canonicalFuelEntries.filter(
     (entry) => timestamp(entry.fueledAt) >= timestamp(state.createdAt),
   )
-  const latestReading = readings.reduce<OdometerReading | null>(
-    (latest, reading) => {
-      if (
-        !latest ||
-        reading.recordedAt > latest.recordedAt ||
-        (reading.recordedAt === latest.recordedAt &&
-          reading.readingKm > latest.readingKm)
-      ) {
-        return reading
-      }
-
-      return latest
-    },
-    null,
+  const createdAt = timestamp(state.createdAt)
+  const operationalReadings = readings.filter(
+    (reading) =>
+      reading.source === 'manual' &&
+      timestamp(reading.recordedAt) >= createdAt,
   )
-  // Fuel entries also record accepted mileage, even when their paired reading
-  // has an earlier timestamp or has not arrived in the local snapshot yet.
-  const odometerKm = operationalFuelEntries.reduce(
-    (latest, entry) => Math.max(latest, entry.odometerKm),
-    Math.max(latestReading?.readingKm ?? state.initialOdometerKm, state.initialOdometerKm),
+  const operationalTimeline = getOdometerTimeline(
+    operationalReadings,
+    operationalFuelEntries,
   )
+  const odometerKm =
+    getLatestOdometerKm(
+      operationalReadings,
+      operationalFuelEntries,
+      state.initialOdometerKm,
+    ) ?? state.initialOdometerKm
 
   const monthEntries = canonicalFuelEntries.filter((entry) => {
     const fueledAt = new Date(entry.fueledAt)
@@ -93,24 +140,22 @@ export function getVehicleDashboard(
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
   const nowTime = now.getTime()
-  const monthBaseline = readings.reduce<OdometerReading | null>(
-    (latest, reading) => {
-      const at = timestamp(reading.recordedAt)
-      if (!Number.isFinite(at) || at > monthStart) return latest
-      if (!latest || at > timestamp(latest.recordedAt)) return reading
-      return latest
-    },
-    null,
-  )
+  const monthBaseline = operationalTimeline.reduce<
+    (typeof operationalTimeline)[number] | null
+  >((latest, event) => {
+    const at = timestamp(event.at)
+    if (!Number.isFinite(at) || at > monthStart) return latest
+    if (!latest || at > timestamp(latest.at)) return event
+    return latest
+  }, null)
 
   let monthDistanceKm: number | null = null
   let monthDistanceState: MonthDistanceState = 'unavailable'
 
   if (monthBaseline) {
-    monthDistanceKm = Math.max(0, odometerKm - monthBaseline.readingKm)
+    monthDistanceKm = Math.max(0, odometerKm - monthBaseline.odometerKm)
     monthDistanceState = 'complete'
   } else {
-    const createdAt = timestamp(state.createdAt)
     if (
       Number.isFinite(createdAt) &&
       createdAt >= monthStart &&
@@ -122,19 +167,55 @@ export function getVehicleDashboard(
   }
 
   const cutoff = nowTime - 30 * DAY_MS
-  const recentReadings = readings
-    .map((reading) => ({ reading, at: timestamp(reading.recordedAt) }))
+  const previousCutoff = nowTime - 60 * DAY_MS
+  const recent30SpendCents = operationalFuelEntries
+    .filter((entry) => {
+      const at = timestamp(entry.fueledAt)
+      return Number.isFinite(at) && at > cutoff && at <= nowTime
+    })
+    .reduce((total, entry) => total + entry.amountCents, 0)
+  const previous30SpendCents = operationalFuelEntries
+    .filter((entry) => {
+      const at = timestamp(entry.fueledAt)
+      return Number.isFinite(at) && at > previousCutoff && at <= cutoff
+    })
+    .reduce((total, entry) => total + entry.amountCents, 0)
+  const recent30DistanceKm = observedDistanceInWindow(
+    operationalTimeline,
+    cutoff,
+    nowTime,
+  )
+  const previous30DistanceKm = observedDistanceInWindow(
+    operationalTimeline,
+    previousCutoff,
+    cutoff,
+  )
+  const recent30CostPerKmCents =
+    recent30DistanceKm !== null && recent30DistanceKm > 0
+      ? recent30SpendCents / recent30DistanceKm
+      : null
+  const previous30SpendChangePercent =
+    previous30SpendCents > 0
+      ? percentChange(recent30SpendCents, previous30SpendCents)
+      : null
+  const previous30DistanceChangePercent = percentChange(
+    recent30DistanceKm,
+    previous30DistanceKm,
+  )
+
+  const recentEvents = operationalTimeline
+    .map((event) => ({ event, at: timestamp(event.at) }))
     .filter(
       ({ at }) => Number.isFinite(at) && at >= cutoff && at <= nowTime,
     )
     .sort((left, right) => left.at - right.at)
 
   let recentDailyDistanceKm: number | null = null
-  if (recentReadings.length >= 2) {
-    const first = recentReadings[0]
-    const last = recentReadings[recentReadings.length - 1]
+  if (recentEvents.length >= 2) {
+    const first = recentEvents[0]
+    const last = recentEvents[recentEvents.length - 1]
     const elapsedDays = (last.at - first.at) / DAY_MS
-    const distanceKm = last.reading.readingKm - first.reading.readingKm
+    const distanceKm = last.event.odometerKm - first.event.odometerKm
 
     if (elapsedDays >= 7 && distanceKm > 0) {
       recentDailyDistanceKm = distanceKm / elapsedDays
@@ -165,6 +246,25 @@ export function getVehicleDashboard(
   const hasFullAnchor = latestFullAnchor !== null
   const cycles = buildConsumptionCycles(initialAnchor, operationalFuelEntries)
   const consumption = learnConsumption(cycles)
+  const calibrationState = consumption?.calibrationState ?? 'calibrating'
+  const rangeConfidence = deriveRangeConfidence(
+    calibrationState,
+    cycles,
+    now,
+  )
+  const consumptionCycles: ConsumptionCycleAnalytics[] = cycles.map(
+    (cycle, index) => ({
+      ...cycle,
+      costPerKmCents: cycle.fuelCostCents / cycle.distanceKm,
+      kmPerLiterChangePercent:
+        index === 0
+          ? null
+          : percentChange(
+              cycle.kmPerLiter,
+              cycles[index - 1].kmPerLiter,
+            ),
+    }),
+  )
 
   const shared = {
     odometerKm,
@@ -174,6 +274,13 @@ export function getVehicleDashboard(
     monthDistanceKm,
     monthDistanceState,
     recentDailyDistanceKm,
+    rangeConfidence,
+    consumptionCycles,
+    recent30SpendCents,
+    recent30DistanceKm,
+    recent30CostPerKmCents,
+    previous30SpendChangePercent,
+    previous30DistanceChangePercent,
   }
 
   if (!consumption) {
@@ -184,7 +291,7 @@ export function getVehicleDashboard(
     return {
       ...shared,
       consumptionKmPerLiter: null,
-      calibrationState: 'calibrating',
+      calibrationState,
       calibrationCycleCount: cycles.length,
       remainingLiters: knownFullNow
         ? state.nominalTankCapacityLiters

@@ -1,3 +1,4 @@
+import { getLatestOdometerKm } from '../../modules/vehicle/domain/odometer'
 import type {
   FuelEntry,
   OdometerReading,
@@ -102,19 +103,23 @@ export async function saveOdometerReadingIfCurrent(
   shouldSave: (latestOdometerKm: number | null) => boolean,
 ): Promise<boolean> {
   const database = await openLocalDatabase()
-  const transaction = database.transaction('odometer_readings', 'readwrite')
-  const store = transaction.objectStore('odometer_readings')
-  const readings = await store.getAll()
-  const latestOdometerKm = readings.length
-    ? Math.max(...readings.map(({ readingKm }) => readingKm))
-    : null
+  const transaction = database.transaction(
+    ['odometer_readings', 'fuel_entries'],
+    'readwrite',
+  )
+  const readingStore = transaction.objectStore('odometer_readings')
+  const [readings, fuelEntries] = await Promise.all([
+    readingStore.getAll(),
+    transaction.objectStore('fuel_entries').getAll(),
+  ])
+  const latestOdometerKm = getLatestOdometerKm(readings, fuelEntries)
 
   if (!shouldSave(latestOdometerKm)) {
     await transaction.done
     return false
   }
 
-  await store.put({ ...reading, ...pending })
+  await readingStore.put({ ...reading, ...pending })
   await transaction.done
   notifyLocalChanges('write')
   return true
@@ -136,6 +141,97 @@ export async function saveFuelEntry(entry: FuelEntry): Promise<void> {
 export async function listFuelEntries(): Promise<LocalFuelEntry[]> {
   const database = await openLocalDatabase()
   return database.getAll('fuel_entries')
+}
+
+export async function getFuelEntry(id: string): Promise<LocalFuelEntry | null> {
+  const database = await openLocalDatabase()
+  return (await database.get('fuel_entries', id)) ?? null
+}
+
+export async function saveFuelEntryCorrection(
+  entry: FuelEntry,
+  shouldSave: (
+    readings: OdometerReading[],
+    fuelEntries: FuelEntry[],
+  ) => boolean,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['fuel_entries', 'odometer_readings'],
+    'readwrite',
+  )
+  const fuelStore = transaction.objectStore('fuel_entries')
+  const [fuelEntries, readings] = await Promise.all([
+    fuelStore.getAll(),
+    transaction.objectStore('odometer_readings').getAll(),
+  ])
+
+  if (!shouldSave(readings, fuelEntries)) {
+    await transaction.done
+    return false
+  }
+
+  await fuelStore.put({ ...entry, ...pending })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
+}
+
+export async function softDeleteFuelEntry(
+  id: string,
+  deletedAt: string,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction('fuel_entries', 'readwrite')
+  const entry = await transaction.store.get(id)
+
+  if (!entry) {
+    await transaction.done
+    return false
+  }
+
+  await transaction.store.put({
+    ...entry,
+    deletedAt,
+    updatedAt: deletedAt,
+    ...pending,
+  })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
+}
+
+export async function saveFuelEntryIfCurrent(
+  entry: FuelEntry,
+  shouldSave: (
+    latestOdometerKm: number | null,
+    activeFuelEntries: FuelEntry[],
+  ) => boolean,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['fuel_entries', 'odometer_readings'],
+    'readwrite',
+  )
+  const fuelStore = transaction.objectStore('fuel_entries')
+  const [fuelEntries, readings] = await Promise.all([
+    fuelStore.getAll(),
+    transaction.objectStore('odometer_readings').getAll(),
+  ])
+  const latestOdometerKm = getLatestOdometerKm(readings, fuelEntries)
+  const activeFuelEntries = fuelEntries.filter(
+    (existing) => existing.deletedAt === null,
+  )
+
+  if (!shouldSave(latestOdometerKm, activeFuelEntries)) {
+    await transaction.done
+    return false
+  }
+
+  await fuelStore.put({ ...entry, ...pending })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
 }
 
 export async function saveSavedTrip(trip: SavedTrip): Promise<void> {

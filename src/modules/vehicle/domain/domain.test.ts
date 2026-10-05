@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { buildConsumptionCycles, learnConsumption } from './consumption'
 import {
-  NOMINAL_TANK_CAPACITY_LITERS,
+  DEFAULT_TANK_CAPACITY_LITERS,
   RANGE_SAFETY_FACTOR,
   SUSPICIOUS_ODOMETER_DELTA_KM,
 } from './config'
@@ -36,6 +36,7 @@ function fuelEntry(
     referenceWeekEnd: null,
     fullTank,
     fueledAt,
+    deletedAt: null,
     createdAt: fueledAt,
     updatedAt: fueledAt,
   }
@@ -45,15 +46,18 @@ function cycle(kmPerLiter: number): ConsumptionCycle {
   return {
     startKm: 0,
     endKm: kmPerLiter,
+    startAt: '2026-01-01T10:00:00.000Z',
+    endAt: '2026-01-02T10:00:00.000Z',
     distanceKm: kmPerLiter,
     fuelUsedLiters: 1,
+    fuelCostCents: 1_000,
     kmPerLiter,
   }
 }
 
 describe('vehicle domain configuration', () => {
   it('uses the approved tank capacity and suspicious delta', () => {
-    expect(NOMINAL_TANK_CAPACITY_LITERS).toBe(3)
+    expect(DEFAULT_TANK_CAPACITY_LITERS).toBe(3.5)
     expect(RANGE_SAFETY_FACTOR).toBe(0.9)
     expect(SUSPICIOUS_ODOMETER_DELTA_KM).toBe(500)
   })
@@ -90,8 +94,11 @@ describe('buildConsumptionCycles', () => {
       {
         startKm: 1_000,
         endKm: 1_120,
+        startAt: '2026-01-01T10:00:00.000Z',
+        endAt: '2026-01-04T10:00:00.000Z',
         distanceKm: 120,
         fuelUsedLiters: 3,
+        fuelCostCents: 3_000,
         kmPerLiter: 40,
       },
     ])
@@ -107,8 +114,11 @@ describe('buildConsumptionCycles', () => {
       {
         startKm: 1_000,
         endKm: 1_020,
+        startAt: '2026-01-01T10:00:00.000Z',
+        endAt: '2026-01-02T10:00:00.000Z',
         distanceKm: 20,
         fuelUsedLiters: 2.5,
+        fuelCostCents: 2_000,
         kmPerLiter: 8,
       },
     ])
@@ -141,15 +151,21 @@ describe('buildConsumptionCycles', () => {
       {
         startKm: 1_000,
         endKm: 1_120,
+        startAt: '2026-01-01T10:00:00.000Z',
+        endAt: '2026-01-03T10:00:00.000Z',
         distanceKm: 120,
         fuelUsedLiters: 3,
+        fuelCostCents: 2_000,
         kmPerLiter: 40,
       },
       {
         startKm: 1_120,
         endKm: 1_200,
+        startAt: '2026-01-03T10:00:00.000Z',
+        endAt: '2026-01-05T10:00:00.000Z',
         distanceKm: 80,
         fuelUsedLiters: 2,
+        fuelCostCents: 2_000,
         kmPerLiter: 40,
       },
     ])
@@ -461,8 +477,11 @@ describe('vehicle model v2 anchors and unknown fuel', () => {
       {
         startKm: 1_100,
         endKm: 1_180,
+        startAt: '2026-01-02T10:00:00.000Z',
+        endAt: '2026-01-03T10:00:00.000Z',
         distanceKm: 80,
         fuelUsedLiters: 2,
+        fuelCostCents: 1_000,
         kmPerLiter: 40,
       },
     ])

@@ -17,6 +17,7 @@ import {
   saveOdometerReading,
   saveSavedTrip,
   saveVehicleState,
+  softDeleteFuelEntry,
   softDeleteSavedTrip,
 } from '../local/store'
 import type {
@@ -92,6 +93,7 @@ function fuelEntry(
     referenceWeekEnd: null,
     fullTank: true,
     fueledAt: updatedAt,
+    deletedAt: null,
     createdAt,
     updatedAt,
     ...overrides,
@@ -144,6 +146,7 @@ function remoteOdometer(
 function remoteFuel(
   id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   owner = userId,
+  overrides: Row = {},
 ): Row {
   return {
     id,
@@ -156,8 +159,10 @@ function remoteFuel(
     reference_week_end: null,
     full_tank: true,
     fueled_at: updatedAt,
+    deleted_at: null,
     created_at: createdAt,
     updated_at: updatedAt,
+    ...overrides,
   }
 }
 
@@ -428,6 +433,43 @@ describe('authenticated vehicle sync', () => {
 
     expect(supabaseStub.from).not.toHaveBeenCalled()
     await expect(listPending()).resolves.toHaveLength(1)
+  })
+
+  it('pushes a fuel tombstone through deleted_at', async () => {
+    const remote = createRemote({ fuel_entries: [remoteFuel()] })
+    const entry = fuelEntry()
+    await saveFuelEntry(entry)
+    await softDeleteFuelEntry(entry.id, '2026-10-01T16:00:00.000Z')
+
+    await syncPending(userId)
+
+    expect(remote.rows.fuel_entries).toEqual([
+      expect.objectContaining({
+        id: entry.id,
+        deleted_at: '2026-10-01T16:00:00.000Z',
+      }),
+    ])
+  })
+
+  it('hydrates a remote fuel tombstone as synced', async () => {
+    createRemote({
+      fuel_entries: [
+        remoteFuel(undefined, userId, {
+          deleted_at: '2026-10-01T16:00:00.000Z',
+          updated_at: '2026-10-01T16:00:00.000Z',
+        }),
+      ],
+    })
+
+    await refreshFromRemote(userId)
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        deletedAt: '2026-10-01T16:00:00.000Z',
+        updatedAt: '2026-10-01T16:00:00.000Z',
+        syncStatus: 'synced',
+      }),
+    ])
   })
 
   it('hydrates all remote stores as synced when local data is empty', async () => {
