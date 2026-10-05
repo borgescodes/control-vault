@@ -29,14 +29,17 @@ import VehicleIcon from '../../shared/ui/VehicleIcon'
 import FuelView from './FuelView'
 import HistoryView from './HistoryView'
 import HomeView from './HomeView'
+import TankCapacityView from './TankCapacityView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
 import TripDetailView from './TripDetailView'
 import TripFormView from './TripFormView'
 import TripsView from './TripsView'
+import { deleteFuelEntry } from './vehicleActions'
 import {
   backToPreviousView,
+  currentFuelEntryId,
   currentTripId,
   currentView,
   initializeNavigation,
@@ -231,6 +234,12 @@ export default function VehicleModule() {
     savedTrips.some((record) => record.syncStatus === 'pending')
   const tripNavigationActive = isTripView(view)
   const tripId = currentTripId()
+  const fuelEntryId = currentFuelEntryId()
+  const selectedFuelEntry = fuelEntryId
+    ? fuelEntries.find(
+        (entry) => entry.id === fuelEntryId && entry.deletedAt === null,
+      ) ?? null
+    : null
   const selectedTrip = tripId
     ? visibleTrips.find((trip) => trip.id === tripId) ?? null
     : null
@@ -264,12 +273,19 @@ export default function VehicleModule() {
     </nav>
   )
 
-  if (view === 'fuel') {
+  if (view === 'fuel' || view === 'fuel-edit') {
     return <>
       <FuelView
         currentOdometerKm={dashboard.odometerKm}
+        entry={view === 'fuel-edit' ? selectedFuelEntry ?? undefined : undefined}
         onBack={backToPreviousView}
-        onSaved={() => handleSaved('Abastecimento salvo')}
+        onSaved={() =>
+          handleSaved(
+            view === 'fuel-edit'
+              ? 'Abastecimento corrigido'
+              : 'Abastecimento salvo',
+          )
+        }
         tankCapacityLiters={vehicleState.nominalTankCapacityLiters}
       />
       {navigation}
@@ -291,8 +307,29 @@ export default function VehicleModule() {
     return (
       <>
         <HistoryView
+          consumptionCycles={dashboard.consumptionCycles}
           fuelEntries={fuelEntries}
           odometerReadings={readings}
+          onDeleteFuel={async (id) => {
+            const deleted = await deleteFuelEntry(id, new Date().toISOString())
+            if (!deleted) return
+            await refresh()
+            setNotice('Abastecimento excluído')
+          }}
+          onEditFuel={(id) => navigateTo('fuel-edit', id)}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'tank-capacity') {
+    return (
+      <>
+        <TankCapacityView
+          currentCapacityLiters={vehicleState.nominalTankCapacityLiters}
+          onBack={backToPreviousView}
+          onSaved={() => handleSaved('Capacidade atualizada')}
         />
         {navigation}
       </>
@@ -396,6 +433,7 @@ export default function VehicleModule() {
         }
         onFuel={() => openView('fuel')}
         onOdometer={() => openView('odometer')}
+        onTankCapacity={() => openView('tank-capacity')}
       />
       {navigation}
     </>

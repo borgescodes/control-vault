@@ -1531,3 +1531,144 @@ body:has(.vehicle-form input:not([type='checkbox']):focus) .vehicle-form__submit
     gap: 8px;
   }
 }
+
+
+.history__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.history__mode {
+  display: flex;
+  gap: 14px;
+}
+
+.history__mode button {
+  min-height: 36px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid transparent;
+  color: var(--faint);
+  font-size: .78rem;
+}
+
+.history__mode button[aria-current='page'] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-end);
+}
+
+.history-row__actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 3px;
+}
+
+.history-row__actions button {
+  min-height: 32px;
+  padding: 0;
+  color: var(--faint);
+  font-size: .72rem;
+}
+
+.history-row__actions button:last-child {
+  color: var(--danger);
+}
+
+.history-cycles {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-cycles li {
+  display: grid;
+  gap: 5px;
+  padding: 18px 0;
+  background: linear-gradient(90deg, var(--line), transparent) bottom / 100% 1px no-repeat;
+}
+
+.history-cycles time,
+.history-cycles span {
+  color: var(--faint);
+  font-size: .77rem;
+}
+
+.history-cycles strong {
+  font-family: var(--font-metric);
+  font-size: 1.08rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.home__hero-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px 12px;
+}
+
+.home__confidence {
+  color: var(--accent-end);
+  font-size: .72rem;
+  font-weight: 680;
+}
+
+.home__recent {
+  margin-top: 34px;
+  padding-top: 26px;
+  background: linear-gradient(90deg, var(--line), transparent) top / 100% 1px no-repeat;
+}
+
+.home__recent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 16px 0 0;
+}
+
+.home__recent-grid dt {
+  margin-bottom: 6px;
+  color: var(--faint);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.home__recent-grid dd {
+  margin: 0;
+  color: var(--fg);
+  font-family: var(--font-metric);
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.home__recent-grid small {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: .68rem;
+  line-height: 1.35;
+}
+
+.home__tank-capacity {
+  min-height: 38px;
+  margin-top: 20px;
+  padding: 0;
+  color: var(--faint);
+  font-size: .76rem;
+}
+
+@media (max-width: 350px) {
+  .history__header {
+    align-items: start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .home__recent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -10,6 +10,7 @@ type HomeViewProps = {
   onEnableStatusNotification?: () => void
   onFuel: () => void
   onOdometer: () => void
+  onTankCapacity?: () => void
 }
 
 const integer = new Intl.NumberFormat('pt-BR', {
@@ -41,6 +42,7 @@ export default function HomeView({
   onEnableStatusNotification,
   onFuel,
   onOdometer,
+  onTankCapacity,
 }: HomeViewProps) {
   const ready = dashboard.rangeState === 'ready' && dashboard.rangeKm !== null
   const fuelPercent =
@@ -69,8 +71,19 @@ export default function HomeView({
             <h2 className="ui-label" id="home-primary-title">
               {ready ? 'Autonomia' : hasFuelLevel ? 'Tanque' : 'Calibração'}
             </h2>
-            {ready && rangeDays && (
-              <span className="home__days">{rangeDays}</span>
+            {ready && (
+              <span className="home__hero-meta">
+                <span className="home__confidence">
+                  Confiança {
+                    dashboard.rangeConfidence === 'high'
+                      ? 'alta'
+                      : dashboard.rangeConfidence === 'medium'
+                        ? 'média'
+                        : 'baixa'
+                  }
+                </span>
+                {rangeDays && <span className="home__days">{rangeDays}</span>}
+              </span>
             )}
           </div>
 
@@ -195,6 +208,44 @@ export default function HomeView({
         </dl>
       </section>
 
+      <section className="home__recent" aria-labelledby="recent-title">
+        <h2 className="ui-label" id="recent-title">Últimos 30 dias</h2>
+        <dl className="home__recent-grid">
+          <div>
+            <dt>Gasto</dt>
+            <dd>{currency.format(dashboard.recent30SpendCents / 100)}</dd>
+            {dashboard.previous30SpendChangePercent !== null && (
+              <small>
+                {dashboard.previous30SpendChangePercent >= 0 ? '+' : ''}
+                {decimal.format(dashboard.previous30SpendChangePercent)}% vs 30 dias anteriores
+              </small>
+            )}
+          </div>
+          <div>
+            <dt>Rodado</dt>
+            <dd>
+              {dashboard.recent30DistanceKm === null
+                ? 'indisponível'
+                : `${integer.format(dashboard.recent30DistanceKm)} km`}
+            </dd>
+            {dashboard.previous30DistanceChangePercent !== null && (
+              <small>
+                {dashboard.previous30DistanceChangePercent >= 0 ? '+' : ''}
+                {decimal.format(dashboard.previous30DistanceChangePercent)}% vs 30 dias anteriores
+              </small>
+            )}
+          </div>
+          <div>
+            <dt>Custo/km</dt>
+            <dd>
+              {dashboard.recent30CostPerKmCents === null
+                ? 'indisponível'
+                : `${currency.format(dashboard.recent30CostPerKmCents / 100)}/km`}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
       <dl className="home__secondary">
         {dashboard.consumptionKmPerLiter !== null && (
           <div>
@@ -210,6 +261,16 @@ export default function HomeView({
           <dd>{formatOdometerValue(dashboard.odometerKm)} km</dd>
         </div>
       </dl>
+
+      {onTankCapacity && (
+        <button
+          className="home__tank-capacity"
+          onClick={onTankCapacity}
+          type="button"
+        >
+          Capacidade do tanque
+        </button>
+      )}
     </section>
   )
 }
