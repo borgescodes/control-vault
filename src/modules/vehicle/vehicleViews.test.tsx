@@ -1091,7 +1091,7 @@ describe('fuel correction and analytics UI', () => {
     expect(normalizedMarkup).toContain('200 km')
     expect(normalizedMarkup).toContain('R$ 0,25/km')
     expect(normalizedMarkup).toContain('Capacidade do tanque')
-    expect(normalizedMarkup).not.toContain('0% vs')
+    expect(normalizedMarkup.match(/vs 30 dias anteriores/g)).toHaveLength(1)
   })
 
   it('saves a positive tank capacity', async () => {
