@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { FuelEntry, OdometerReading } from './types'
-import { getLatestOdometerKm, getOdometerTimeline } from './odometer'
+import {
+  getLatestOdometerKm,
+  getOdometerTimeline,
+  validateFuelEntryPosition,
+} from './odometer'
 
 function reading(
   id: string,
@@ -104,5 +108,73 @@ describe('canonical odometer timeline', () => {
 
     expect(getLatestOdometerKm([], [], 1_000)).toBe(1_000)
     expect(getLatestOdometerKm([], [])).toBeNull()
+  })
+})
+
+
+describe('fuel correction position validation', () => {
+  const readings = [
+    reading('before', 1_000, '2026-10-01T10:00:00.000Z'),
+    reading('after', 1_200, '2026-10-03T10:00:00.000Z'),
+    reading('current', 1_300, '2026-10-04T10:00:00.000Z'),
+  ]
+  const entries = [
+    fuel('target', 1_100, '2026-10-02T10:00:00.000Z'),
+  ]
+
+  it('accepts a historical correction between chronological neighbors', () => {
+    expect(validateFuelEntryPosition(
+      readings,
+      entries,
+      'target',
+      1_150,
+      '2026-10-02T10:00:00.000Z',
+    )).toEqual({ kind: 'valid', deltaKm: 150 })
+  })
+
+  it('rejects crossing the previous chronological neighbor', () => {
+    expect(validateFuelEntryPosition(
+      readings,
+      entries,
+      'target',
+      999,
+      '2026-10-02T10:00:00.000Z',
+    )).toMatchObject({ kind: 'invalid' })
+  })
+
+  it('rejects crossing the next chronological neighbor', () => {
+    expect(validateFuelEntryPosition(
+      readings,
+      entries,
+      'target',
+      1_201,
+      '2026-10-02T10:00:00.000Z',
+    )).toMatchObject({ kind: 'invalid' })
+  })
+
+  it('validates against the neighbors at the edited timestamp', () => {
+    expect(validateFuelEntryPosition(
+      [
+        ...readings,
+        reading('later', 1_400, '2026-10-06T10:00:00.000Z'),
+      ],
+      entries,
+      'target',
+      1_350,
+      '2026-10-05T10:00:00.000Z',
+    )).toEqual({ kind: 'valid', deltaKm: 50 })
+  })
+
+  it('returns suspicious for a large jump that still fits between neighbors', () => {
+    expect(validateFuelEntryPosition(
+      [
+        reading('before', 1_000, '2026-10-01T10:00:00.000Z'),
+        reading('after', 1_700, '2026-10-03T10:00:00.000Z'),
+      ],
+      entries,
+      'target',
+      1_500.1,
+      '2026-10-02T10:00:00.000Z',
+    )).toEqual({ kind: 'suspicious', deltaKm: 500.0999999999999 })
   })
 })

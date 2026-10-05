@@ -16,12 +16,15 @@ import {
   getVehicleState,
   listFuelEntries,
   listOdometerReadings,
+  saveFuelEntry,
 } from '../../infrastructure/local/store'
 import { resetLocalDatabase } from '../../infrastructure/local/db'
 import {
   initializeVehicle,
+  deleteFuelEntry,
   recordFuel,
   recordOdometer,
+  updateFuelEntry,
   updateTankCapacity,
 } from './vehicleActions'
 
@@ -494,6 +497,172 @@ describe('vehicle actions', () => {
     ).rejects.toBeDefined()
     await expect(listFuelEntries()).resolves.toEqual([])
     await expect(listOdometerReadings()).resolves.toHaveLength(1)
+  })
+
+  it('updates fuel without fetching a new historical price reference', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    await recordFuel({
+      odometerKm: 1_100,
+      amountCents: 2_000,
+      fullTank: false,
+      fueledAt: laterAt,
+    })
+    const [existing] = await listFuelEntries()
+    priceStub.getFuelPriceReference.mockClear()
+
+    await expect(updateFuelEntry(
+      existing,
+      {
+        odometerKm: 1_150,
+        amountCents: 2_115,
+        fullTank: true,
+        fueledAt: '2026-10-01T10:00:00.000Z',
+      },
+      '2026-10-05T10:00:00.000Z',
+    )).resolves.toEqual({ kind: 'saved' })
+
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        id: existing.id,
+        createdAt: existing.createdAt,
+        odometerKm: 1_150,
+        amountCents: 2_115,
+        estimatedLiters: 3,
+        referencePricePerLiter: 7.05,
+        referenceWeekStart: '2026-09-27',
+        referenceWeekEnd: '2026-10-03',
+        fullTank: true,
+        fueledAt: '2026-10-01T10:00:00.000Z',
+        updatedAt: '2026-10-05T10:00:00.000Z',
+        syncStatus: 'pending',
+      }),
+    ])
+  })
+
+  it('keeps unknown estimated liters unknown during correction', async () => {
+    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    await initializeVehicle(1_000, true, initialAt)
+    await recordFuel({
+      odometerKm: 1_100,
+      amountCents: 2_000,
+      fullTank: false,
+      fueledAt: laterAt,
+    })
+    const [existing] = await listFuelEntries()
+
+    await expect(updateFuelEntry(
+      existing,
+      {
+        odometerKm: 1_100,
+        amountCents: 2_500,
+        fullTank: false,
+        fueledAt: laterAt,
+      },
+      '2026-10-05T10:00:00.000Z',
+    )).resolves.toEqual({ kind: 'saved' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        estimatedLiters: null,
+        referencePricePerLiter: null,
+      }),
+    ])
+  })
+
+  it('rejects a historical correction that crosses the next event', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    const historical: FuelEntry = {
+      id: nextUuid(900),
+      odometerKm: 1_100,
+      amountCents: 2_000,
+      estimatedLiters: 2.837,
+      referencePricePerLiter: 7.05,
+      referenceWeekStart: '2026-09-27',
+      referenceWeekEnd: '2026-10-03',
+      fullTank: false,
+      fueledAt: '2026-09-30T10:00:00.000Z',
+      deletedAt: null,
+      createdAt: '2026-09-30T10:00:00.000Z',
+      updatedAt: '2026-09-30T10:00:00.000Z',
+    }
+    await saveFuelEntry(historical)
+    await recordOdometer(1_200, '2026-10-01T10:00:00.000Z')
+
+    await expect(updateFuelEntry(
+      historical,
+      {
+        odometerKm: 1_201,
+        amountCents: 2_000,
+        fullTank: false,
+        fueledAt: historical.fueledAt,
+      },
+      '2026-10-05T10:00:00.000Z',
+    )).resolves.toMatchObject({ kind: 'invalid' })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({ id: historical.id, odometerKm: 1_100 }),
+    ])
+  })
+
+  it('requires confirmation for a suspicious historical correction', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    const historical: FuelEntry = {
+      id: nextUuid(901),
+      odometerKm: 1_100,
+      amountCents: 2_000,
+      estimatedLiters: 2.837,
+      referencePricePerLiter: 7.05,
+      referenceWeekStart: '2026-09-27',
+      referenceWeekEnd: '2026-10-03',
+      fullTank: false,
+      fueledAt: '2026-09-30T10:00:00.000Z',
+      deletedAt: null,
+      createdAt: '2026-09-30T10:00:00.000Z',
+      updatedAt: '2026-09-30T10:00:00.000Z',
+    }
+    await saveFuelEntry(historical)
+    await recordOdometer(1_700, '2026-10-01T10:00:00.000Z', true)
+
+    const input = {
+      odometerKm: 1_500.1,
+      amountCents: 2_000,
+      fullTank: false,
+      fueledAt: historical.fueledAt,
+    }
+    const first = await updateFuelEntry(
+      historical,
+      input,
+      '2026-10-05T10:00:00.000Z',
+    )
+    expect(first.kind).toBe('requires_confirmation')
+
+    await expect(updateFuelEntry(
+      historical,
+      input,
+      '2026-10-05T10:00:00.000Z',
+      true,
+    )).resolves.toEqual({ kind: 'saved' })
+  })
+
+  it('queues sync only after a successful fuel tombstone', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+    await recordFuel({
+      odometerKm: 1_100,
+      amountCents: 2_000,
+      fullTank: false,
+      fueledAt: laterAt,
+    })
+    const [existing] = await listFuelEntries()
+    syncStub.syncCurrentSessionIfOnline.mockClear()
+
+    await expect(deleteFuelEntry('missing', '2026-10-05T10:00:00.000Z'))
+      .resolves.toBe(false)
+    expect(syncStub.syncCurrentSessionIfOnline).not.toHaveBeenCalled()
+
+    await expect(deleteFuelEntry(existing.id, '2026-10-05T10:00:00.000Z'))
+      .resolves.toBe(true)
+    expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledOnce()
   })
 
   it('rejects malformed fuel values before price lookup or persistence', async () => {
