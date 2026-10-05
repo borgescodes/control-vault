@@ -4,6 +4,7 @@ export type VehicleView =
   | 'fuel'
   | 'fuel-edit'
   | 'history'
+  | 'settings'
   | 'tank-capacity'
   | 'trips'
   | 'trip-new'
@@ -15,6 +16,7 @@ const staticPaths: Partial<Record<VehicleView, string>> = {
   odometer: '/hodometro',
   fuel: '/abastecer',
   history: '/historico',
+  settings: '/configuracoes',
   'tank-capacity': '/tanque',
   trips: '/percursos',
   'trip-new': '/percursos/novo',

@@ -33,6 +33,7 @@ import TankCapacityView from './TankCapacityView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
 import SetupView from './SetupView'
+import SettingsView from './SettingsView'
 import TripDetailView from './TripDetailView'
 import TripFormView from './TripFormView'
 import TripsView from './TripsView'
@@ -270,6 +271,14 @@ export default function VehicleModule() {
       >
         <VehicleIcon name="history" />
       </button>
+      <button
+        aria-label="Configurações"
+        aria-current={view === 'settings' ? 'page' : undefined}
+        onClick={() => openView('settings')}
+        type="button"
+      >
+        <VehicleIcon name="settings" />
+      </button>
     </nav>
   )
 
@@ -350,6 +359,26 @@ export default function VehicleModule() {
             setNotice('Abastecimento excluído')
           }}
           onEditFuel={(id) => navigateTo('fuel-edit', id)}
+        />
+        {navigation}
+      </>
+    )
+  }
+
+  if (view === 'settings') {
+    return (
+      <>
+        <SettingsView
+          onEnableStatusNotification={
+            statusNotificationAvailable &&
+            !statusNotificationEnabled &&
+            statusNotificationSnapshot
+              ? () => void handleEnableStatusNotification()
+              : undefined
+          }
+          onTankCapacity={() => navigateTo('tank-capacity')}
+          statusNotificationEnabled={statusNotificationEnabled}
+          tankCapacityLiters={vehicleState.nominalTankCapacityLiters}
         />
         {navigation}
       </>
@@ -457,16 +486,8 @@ export default function VehicleModule() {
       <HomeView
         dashboard={dashboard}
         notice={notice ? `${notice} localmente${hasPending ? ' · sincronização pendente' : ' · sincronizado'}` : null}
-        onEnableStatusNotification={
-          statusNotificationAvailable &&
-          !statusNotificationEnabled &&
-          statusNotificationSnapshot
-            ? () => void handleEnableStatusNotification()
-            : undefined
-        }
         onFuel={() => openView('fuel')}
         onOdometer={() => openView('odometer')}
-        onTankCapacity={() => openView('tank-capacity')}
       />
       {navigation}
     </>

@@ -34,10 +34,21 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [syncError, setSyncError] = useState(false)
   const [updatePending, setUpdatePending] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(
+    () => typeof window !== 'undefined' && location.pathname === '/configuracoes',
+  )
   const [localAccessError, setLocalAccessError] = useState<string | null>(null)
   const [vehicleReadyForUser, setVehicleReadyForUser] = useState<string | null>(
     null,
   )
+
+  useEffect(() => {
+    const syncSettingsRoute = () => {
+      setSettingsOpen(location.pathname === '/configuracoes')
+    }
+    window.addEventListener('popstate', syncSettingsRoute)
+    return () => window.removeEventListener('popstate', syncSettingsRoute)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -250,15 +261,9 @@ export default function App() {
           {(session || offlineLocalAccess) && (
             <div className="app__header-actions">
               <ConnectionIndicator state={connectionState} />
-              {session && (
-                <button className="app__signout" onClick={handleSignOut} type="button">
-                  Sair
-                </button>
-              )}
             </div>
           )}
         </header>
-        <PwaControls onUpdateState={setUpdatePending} />
         {(session || offlineLocalAccess) && (syncError || pendingCount > 0) && (
           <div className="app__sync-feedback" role="status">
             <span>{syncError ? 'Sincronização não concluída' : `${pendingCount} pendente${pendingCount === 1 ? '' : 's'} de sincronização`}</span>
@@ -279,6 +284,23 @@ export default function App() {
               <LoginView />
             )
           ) : null}
+          <PwaControls
+            active={
+              settingsOpen &&
+              !localAccessError &&
+              Boolean(session || offlineLocalAccess)
+            }
+            onUpdateState={setUpdatePending}
+          />
+          {session && settingsOpen && !localAccessError && (
+            <button
+              className="settings__signout"
+              onClick={handleSignOut}
+              type="button"
+            >
+              Sair
+            </button>
+          )}
         </div>
       </section>
     </main>

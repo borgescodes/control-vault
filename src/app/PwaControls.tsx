@@ -16,7 +16,13 @@ function isIOS() {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
-export default function PwaControls({ onUpdateState }: { onUpdateState?: (pending: boolean) => void }) {
+export default function PwaControls({
+  active = true,
+  onUpdateState,
+}: {
+  active?: boolean
+  onUpdateState?: (pending: boolean) => void
+}) {
   const [installed, setInstalled] = useState(() => typeof window !== 'undefined' && isStandalone())
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null)
   const [instructions, setInstructions] = useState(false)
@@ -63,6 +69,8 @@ export default function PwaControls({ onUpdateState }: { onUpdateState?: (pendin
     } catch { setError('Instalação não concluída') }
     finally { setBusy(false) }
   }
+
+  if (!active) return null
 
   return <div className="app__pwa">
     {!installed && (prompt || isIOS()) && <button type="button" disabled={busy} onClick={() => void install()}>Instalar app</button>}
