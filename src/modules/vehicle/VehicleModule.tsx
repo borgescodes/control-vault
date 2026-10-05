@@ -273,6 +273,39 @@ export default function VehicleModule() {
     </nav>
   )
 
+  if (view === 'fuel-edit' && !selectedFuelEntry) {
+    return (
+      <>
+        <section
+          aria-labelledby="fuel-unavailable-title"
+          className="vehicle-view"
+          data-view-root="true"
+          tabIndex={-1}
+        >
+          <header className="view-header">
+            <button
+              aria-label="Voltar"
+              className="view-back"
+              onClick={() => replaceTo('history')}
+              type="button"
+            >
+              <VehicleIcon name="back" />
+            </button>
+            <div>
+              <h2 id="fuel-unavailable-title">
+                Abastecimento indisponível
+              </h2>
+            </div>
+          </header>
+          <p className="history-empty">
+            Este registro não está mais disponível para correção.
+          </p>
+        </section>
+        {navigation}
+      </>
+    )
+  }
+
   if (view === 'fuel' || view === 'fuel-edit') {
     return <>
       <FuelView
