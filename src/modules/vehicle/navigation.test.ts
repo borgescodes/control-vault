@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   backToPreviousView,
+  currentFuelEntryId,
   currentTripId,
   currentView,
   initializeNavigation,
@@ -51,6 +52,25 @@ describe('native vehicle navigation', () => {
     expect(location.pathname).toBe('/percursos/novo')
     expect(currentView()).toBe('trip-new')
     expect(currentTripId()).toBeNull()
+  })
+
+  it('routes fuel correction with an encoded stable id', () => {
+    initializeNavigation()
+    navigateTo('fuel-edit', 'fuel / 123')
+
+    expect(location.pathname).toBe(
+      '/historico/abastecimentos/fuel%20%2F%20123/editar',
+    )
+    expect(currentView()).toBe('fuel-edit')
+    expect(currentFuelEntryId()).toBe('fuel / 123')
+  })
+
+  it('keeps tank capacity secondary but directly addressable', () => {
+    history.replaceState(null, '', '/tanque')
+    initializeNavigation()
+
+    expect(currentView()).toBe('tank-capacity')
+    expect(currentFuelEntryId()).toBeNull()
   })
 
   it('returns direct entry to home instead of leaving the app', () => {

@@ -12,6 +12,9 @@ const actionStub = vi.hoisted(() => ({
     deltaKm: 600,
   }),
   recordFuel: vi.fn().mockResolvedValue({ kind: 'saved' }),
+  updateFuelEntry: vi.fn().mockResolvedValue({ kind: 'saved' }),
+  deleteFuelEntry: vi.fn().mockResolvedValue(true),
+  updateTankCapacity: vi.fn().mockResolvedValue({ kind: 'saved' }),
 }))
 const savedTripActionStub = vi.hoisted(() => ({
   createSavedTrip: vi.fn(),
@@ -50,6 +53,7 @@ import HistoryView from './HistoryView'
 import HomeView from './HomeView'
 import OdometerView from './OdometerView'
 import SetupView from './SetupView'
+import TankCapacityView from './TankCapacityView'
 import VehicleModule from './VehicleModule'
 import TripFormView from './TripFormView'
 import type { VehicleDashboard } from './selectors'
@@ -847,6 +851,277 @@ describe('vehicle views', () => {
     expect(container.querySelector('[role="status"]')?.textContent).toContain(
       'Abastecimento salvo',
     )
+    await act(async () => root.unmount())
+  })
+})
+
+
+describe('fuel correction and analytics UI', () => {
+  const editableFuel = {
+    id: 'fuel-edit-1',
+    odometerKm: 1_120,
+    amountCents: 2_191,
+    estimatedLiters: 3.108,
+    referencePricePerLiter: 7.05,
+    referenceWeekStart: '2026-09-27',
+    referenceWeekEnd: '2026-10-03',
+    fullTank: false,
+    fueledAt: '2026-10-03T18:30:00.000Z',
+    deletedAt: null,
+    createdAt: '2026-10-03T18:30:00.000Z',
+    updatedAt: '2026-10-03T18:30:00.000Z',
+  }
+
+  it('reuses FuelView in correction mode without fetching a new price', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const onSaved = vi.fn()
+    priceStub.getFuelPriceReference.mockClear()
+    actionStub.updateFuelEntry.mockResolvedValueOnce({ kind: 'saved' })
+
+    await act(async () => {
+      root.render(
+        <FuelView
+          currentOdometerKm={1_300}
+          entry={editableFuel}
+          onBack={() => undefined}
+          onSaved={onSaved}
+          tankCapacityLiters={3.5}
+        />,
+      )
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('Corrigir abastecimento')
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+    expect((container.querySelector('input[name="odometer"]') as HTMLInputElement).value)
+      .toContain('1120')
+    expect((container.querySelector('input[name="amount"]') as HTMLInputElement).value)
+      .toContain('21,91')
+    expect((container.querySelector('input[type="checkbox"]') as HTMLInputElement).checked)
+      .toBe(false)
+    const dateInput = container.querySelector(
+      'input[name="fueledAt"]',
+    ) as HTMLInputElement
+    expect(dateInput.type).toBe('datetime-local')
+
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(actionStub.updateFuelEntry).toHaveBeenCalledOnce()
+    expect(actionStub.updateFuelEntry).toHaveBeenCalledWith(
+      editableFuel,
+      expect.objectContaining({
+        odometerKm: 1_120,
+        amountCents: 2_191,
+        fullTank: false,
+      }),
+      expect.any(String),
+      false,
+    )
+    expect(onSaved).toHaveBeenCalledOnce()
+    await act(async () => root.unmount())
+  })
+
+  it('keeps suspicious confirmation in correction mode', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    actionStub.updateFuelEntry
+      .mockResolvedValueOnce({ kind: 'requires_confirmation', deltaKm: 600 })
+      .mockResolvedValueOnce({ kind: 'saved' })
+
+    await act(async () => {
+      root.render(
+        <FuelView
+          currentOdometerKm={1_300}
+          entry={editableFuel}
+          onBack={() => undefined}
+          onSaved={() => undefined}
+          tankCapacityLiters={3.5}
+        />,
+      )
+    })
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('600')
+    const confirm = Array.from(container.querySelectorAll('button')).find(
+      (button) => /confirm/i.test(button.textContent ?? ''),
+    )
+    expect(confirm).toBeDefined()
+    await act(async () => {
+      confirm?.click()
+      await Promise.resolve()
+    })
+    expect(actionStub.updateFuelEntry).toHaveBeenLastCalledWith(
+      editableFuel,
+      expect.any(Object),
+      expect.any(String),
+      true,
+    )
+    await act(async () => root.unmount())
+  })
+
+  it('exposes edit/delete actions and confirms deletion natively', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const onEditFuel = vi.fn()
+    const onDeleteFuel = vi.fn()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await act(async () => {
+      root.render(
+        <HistoryView
+          consumptionCycles={[]}
+          fuelEntries={[editableFuel]}
+          odometerReadings={[
+            {
+              id: 'legacy-fuel-reading',
+              readingKm: 1_120,
+              recordedAt: editableFuel.fueledAt,
+              source: 'fuel_entry',
+              createdAt: editableFuel.fueledAt,
+              updatedAt: editableFuel.fueledAt,
+            },
+          ]}
+          onDeleteFuel={onDeleteFuel}
+          onEditFuel={onEditFuel}
+        />,
+      )
+    })
+
+    const edit = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Editar',
+    )
+    const remove = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Excluir',
+    )
+    expect(edit).toBeDefined()
+    expect(remove).toBeDefined()
+    await act(async () => edit?.click())
+    await act(async () => remove?.click())
+    expect(onEditFuel).toHaveBeenCalledWith(editableFuel.id)
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(onDeleteFuel).toHaveBeenCalledWith(editableFuel.id)
+    expect(container.textContent?.match(/1120.0 km/g)).toHaveLength(1)
+    await act(async () => root.unmount())
+  })
+
+  it('switches from events to analytical cycles without charts', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => {
+      root.render(
+        <HistoryView
+          consumptionCycles={[
+            {
+              startKm: 1_000,
+              endKm: 1_120,
+              startAt: '2026-09-01T10:00:00.000Z',
+              endAt: '2026-09-20T10:00:00.000Z',
+              distanceKm: 120,
+              fuelUsedLiters: 3,
+              fuelCostCents: 2_100,
+              kmPerLiter: 40,
+              costPerKmCents: 17.5,
+              kmPerLiterChangePercent: 5,
+            },
+          ]}
+          fuelEntries={[]}
+          odometerReadings={[]}
+          onDeleteFuel={() => undefined}
+          onEditFuel={() => undefined}
+        />,
+      )
+    })
+
+    const cycles = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Ciclos',
+    )
+    await act(async () => cycles?.click())
+    expect(container.textContent).toContain('120')
+    expect(container.textContent).toContain('3')
+    expect(container.textContent).toContain('40')
+    expect(container.textContent).toContain('R$ 21,00')
+    expect(container.textContent).toContain('R$ 0,18/km')
+    expect(container.textContent).toContain('+5')
+    expect(container.querySelector('canvas')).toBeNull()
+    expect(container.querySelector('svg[data-chart]')).toBeNull()
+    await act(async () => root.unmount())
+  })
+
+  it('shows ready confidence, 30-day metrics and a secondary tank action', () => {
+    const markup = renderToStaticMarkup(
+      <HomeView
+        dashboard={dashboard({
+          rangeState: 'ready',
+          rangeKm: 80,
+          remainingLiters: 2,
+          fuelPercent: 66,
+          rangeConfidence: 'high',
+          recent30SpendCents: 5_000,
+          recent30DistanceKm: 200,
+          recent30CostPerKmCents: 25,
+          previous30SpendChangePercent: 10,
+          previous30DistanceChangePercent: null,
+        })}
+        onFuel={() => undefined}
+        onOdometer={() => undefined}
+        onTankCapacity={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('Confiança alta')
+    expect(markup).toContain('Últimos 30 dias')
+    expect(markup).toContain('R$ 50,00')
+    expect(markup).toContain('200 km')
+    expect(markup).toContain('R$ 0,25/km')
+    expect(markup).toContain('Capacidade do tanque')
+    expect(markup).not.toContain('0% vs')
+  })
+
+  it('saves a positive tank capacity', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const onSaved = vi.fn()
+    actionStub.updateTankCapacity.mockResolvedValueOnce({ kind: 'saved' })
+
+    await act(async () => {
+      root.render(
+        <TankCapacityView
+          currentCapacityLiters={3.5}
+          onBack={() => undefined}
+          onSaved={onSaved}
+        />,
+      )
+    })
+    const input = container.querySelector('input[name="tankCapacity"]') as HTMLInputElement
+    await act(async () => {
+      input.value = '3.5'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(actionStub.updateTankCapacity).toHaveBeenCalledWith(3.5, expect.any(String))
+    expect(onSaved).toHaveBeenCalledOnce()
     await act(async () => root.unmount())
   })
 })
