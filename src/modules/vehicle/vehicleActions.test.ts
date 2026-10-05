@@ -19,6 +19,7 @@ import {
   saveFuelEntry,
 } from '../../infrastructure/local/store'
 import { resetLocalDatabase } from '../../infrastructure/local/db'
+import type { FuelEntry } from './domain/types'
 import {
   initializeVehicle,
   deleteFuelEntry,
