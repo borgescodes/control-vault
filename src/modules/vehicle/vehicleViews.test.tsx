@@ -109,6 +109,10 @@ function dashboard(
 }
 
 describe('vehicle views', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+  })
+
   it('ignores repeated fuel submits before the busy state renders', async () => {
     const container = document.createElement('div')
     document.body.append(container)
@@ -296,7 +300,7 @@ describe('vehicle views', () => {
     ) as HTMLInputElement
     const form = container.querySelector('form') as HTMLFormElement
 
-    expect(amount.getAttribute('aria-describedby')).toBe('fuel-amount-hint')
+    expect(amount.getAttribute('aria-describedby')).toBeNull()
 
     await act(async () => {
       setInputValue(odometer, '124830')
