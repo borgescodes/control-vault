@@ -954,8 +954,8 @@ describe('fuel correction and analytics UI', () => {
       await Promise.resolve()
     })
 
-    expect(container.textContent).toContain('600')
-    const confirm = Array.from(container.querySelectorAll('button')).find(
+    expect(document.body.textContent).toContain('600')
+    const confirm = Array.from(document.body.querySelectorAll('button')).find(
       (button) => /confirm/i.test(button.textContent ?? ''),
     )
     expect(confirm).toBeDefined()
@@ -1054,8 +1054,9 @@ describe('fuel correction and analytics UI', () => {
     expect(container.textContent).toContain('120')
     expect(container.textContent).toContain('3')
     expect(container.textContent).toContain('40')
-    expect(container.textContent).toContain('R$ 21,00')
-    expect(container.textContent).toContain('R$ 0,18/km')
+    const cycleText = container.textContent?.replace(/\u00a0/g, ' ') ?? ''
+    expect(cycleText).toContain('R$ 21,00')
+    expect(cycleText).toContain('R$ 0,18/km')
     expect(container.textContent).toContain('+5')
     expect(container.querySelector('canvas')).toBeNull()
     expect(container.querySelector('svg[data-chart]')).toBeNull()
@@ -1083,13 +1084,14 @@ describe('fuel correction and analytics UI', () => {
       />,
     )
 
-    expect(markup).toContain('Confiança alta')
-    expect(markup).toContain('Últimos 30 dias')
-    expect(markup).toContain('R$ 50,00')
-    expect(markup).toContain('200 km')
-    expect(markup).toContain('R$ 0,25/km')
-    expect(markup).toContain('Capacidade do tanque')
-    expect(markup).not.toContain('0% vs')
+    const normalizedMarkup = markup.replace(/\u00a0/g, ' ')
+    expect(normalizedMarkup).toContain('Confiança alta')
+    expect(normalizedMarkup).toContain('Últimos 30 dias')
+    expect(normalizedMarkup).toContain('R$ 50,00')
+    expect(normalizedMarkup).toContain('200 km')
+    expect(normalizedMarkup).toContain('R$ 0,25/km')
+    expect(normalizedMarkup).toContain('Capacidade do tanque')
+    expect(normalizedMarkup).not.toContain('0% vs')
   })
 
   it('saves a positive tank capacity', async () => {
