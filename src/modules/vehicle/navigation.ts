@@ -22,6 +22,10 @@ const staticPaths: Partial<Record<VehicleView, string>> = {
   'trip-new': '/percursos/novo',
 }
 
+function resetScroll() {
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+}
+
 function pathForView(view: VehicleView, entityId?: string | null): string {
   const staticPath = staticPaths[view]
   if (staticPath) return staticPath
@@ -113,6 +117,7 @@ export function navigateTo(view: VehicleView, entityId?: string | null) {
     '',
     nextPath,
   )
+  resetScroll()
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
@@ -122,6 +127,7 @@ export function replaceTo(view: VehicleView, entityId?: string | null) {
     '',
     pathForView(view, entityId),
   )
+  resetScroll()
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
@@ -130,6 +136,7 @@ export function backToPreviousView() {
     history.back()
   } else {
     history.replaceState({ controlVaultDepth: 0 }, '', '/')
+    resetScroll()
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
 }

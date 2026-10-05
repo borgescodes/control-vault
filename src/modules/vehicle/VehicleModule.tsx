@@ -74,7 +74,10 @@ export default function VehicleModule() {
 
   useEffect(() => {
     initializeNavigation()
-    const handlePopState = () => { setView(currentView()) }
+    const handlePopState = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      setView(currentView())
+    }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
@@ -154,7 +157,8 @@ export default function VehicleModule() {
     if (!vehicleReady) return
     document
       .querySelector<HTMLElement>('[data-view-root="true"]')
-      ?.focus()
+      ?.focus({ preventScroll: true })
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [vehicleReady, view])
 
   async function handleSaved(message: string) {
