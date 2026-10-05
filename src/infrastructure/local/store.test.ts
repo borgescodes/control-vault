@@ -107,6 +107,61 @@ describe('local vehicle store', () => {
     ]))
   })
 
+  it('does not replace a newer pending local fuel tombstone with an active remote row', async () => {
+    const local = {
+      ...fuelEntry('pending-tombstone'),
+      deletedAt: '2026-10-02T12:00:00.000Z',
+      updatedAt: '2026-10-02T12:00:00.000Z',
+    }
+    await saveFuelEntry(local)
+
+    await mergeRemoteVehicleData({
+      vehicleState: null,
+      odometerReadings: [],
+      fuelEntries: [
+        {
+          ...fuelEntry('pending-tombstone'),
+          deletedAt: null,
+          updatedAt: '2026-10-01T12:00:00.000Z',
+        },
+      ],
+    })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'pending-tombstone',
+        deletedAt: '2026-10-02T12:00:00.000Z',
+        syncStatus: 'pending',
+      }),
+    ])
+  })
+
+  it('accepts a later remote tombstone after the local fuel record is synced', async () => {
+    const local = fuelEntry('remote-tombstone')
+    await saveFuelEntry(local)
+    await markSynced('fuel_entries', local.id)
+
+    await mergeRemoteVehicleData({
+      vehicleState: null,
+      odometerReadings: [],
+      fuelEntries: [
+        {
+          ...local,
+          deletedAt: '2026-10-03T12:00:00.000Z',
+          updatedAt: '2026-10-03T12:00:00.000Z',
+        },
+      ],
+    })
+
+    await expect(listFuelEntries()).resolves.toEqual([
+      expect.objectContaining({
+        id: local.id,
+        deletedAt: '2026-10-03T12:00:00.000Z',
+        syncStatus: 'synced',
+      }),
+    ])
+  })
+
   it('binds the personal database to one sync owner without deleting data', async () => {
     await saveFuelEntry(fuelEntry('personal'))
     await claimSyncOwner('owner-a')
