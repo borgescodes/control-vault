@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetLocalDatabase } from '../infrastructure/local/db'
 import { claimSyncOwner, saveHydratedVehicleData } from '../infrastructure/local/store'
@@ -52,6 +52,10 @@ import App from './App'
 import LoginView from './LoginView'
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+  })
+
   afterEach(async () => {
     document.body.innerHTML = ''
     await resetLocalDatabase()
