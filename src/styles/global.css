@@ -304,6 +304,27 @@ input::placeholder {
   color: var(--fg);
 }
 
+.settings__meta {
+  display: grid;
+  gap: 8px;
+  margin: 26px 0 0;
+  padding-top: 18px;
+  background: linear-gradient(90deg, var(--line), transparent) top / 100% 1px no-repeat;
+  color: var(--faint);
+  font-size: .72rem;
+}
+
+.settings__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings__meta dd {
+  margin: 0;
+  font-family: var(--font-metric);
+}
+
 .app__content {
   width: 100%;
   padding:

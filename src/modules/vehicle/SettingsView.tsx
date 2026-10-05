@@ -1,3 +1,5 @@
+import packageJson from '../../../package.json'
+
 type SettingsViewProps = {
   tankCapacityLiters: number
   statusNotificationEnabled: boolean
@@ -48,6 +50,17 @@ export default function SettingsView({
           )
         )}
       </div>
+
+      <dl className="settings__meta">
+        <div>
+          <dt>Versão</dt>
+          <dd>{packageJson.version}</dd>
+        </div>
+        <div>
+          <dt>Autor</dt>
+          <dd>{packageJson.author}</dd>
+        </div>
+      </dl>
     </section>
   )
 }
