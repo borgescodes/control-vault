@@ -480,3 +480,182 @@ describe('initial full-tank calibration state', () => {
     expect(dashboard.calibrationCycleCount).toBe(2)
   })
 })
+
+
+describe('derived operating analytics', () => {
+  const analyticsNow = new Date('2026-09-29T12:00:00.000Z')
+
+  it('derives recent and previous 30-day spend and observed distance', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [
+        reading('previous-start', 1_000, '2026-08-01T12:00:00.000Z'),
+        reading('previous-end', 1_200, '2026-08-29T12:00:00.000Z'),
+        reading('recent-start', 1_200, '2026-09-01T12:00:00.000Z'),
+        reading('recent-end', 1_400, '2026-09-29T12:00:00.000Z'),
+      ],
+      [
+        fuel('previous-one', 1_050, 1, false, '2026-08-05T12:00:00.000Z', 2_000),
+        fuel('previous-two', 1_150, 1, false, '2026-08-20T12:00:00.000Z', 2_000),
+        fuel('recent-one', 1_250, 1, false, '2026-09-05T12:00:00.000Z', 3_000),
+        fuel('recent-two', 1_350, 1, false, '2026-09-20T12:00:00.000Z', 2_000),
+      ],
+      analyticsNow,
+    )
+
+    expect(dashboard.recent30SpendCents).toBe(5_000)
+    expect(dashboard.recent30DistanceKm).toBe(200)
+    expect(dashboard.recent30CostPerKmCents).toBe(25)
+    expect(dashboard.previous30SpendChangePercent).toBe(25)
+    expect(dashboard.previous30DistanceChangePercent).toBe(0)
+  })
+
+  it('does not extrapolate distance from insufficient coverage', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('only', 1_400, '2026-09-29T12:00:00.000Z')],
+      [fuel('recent', 1_350, 1, false, '2026-09-20T12:00:00.000Z', 5_000)],
+      analyticsNow,
+    )
+
+    expect(dashboard.recent30SpendCents).toBe(5_000)
+    expect(dashboard.recent30DistanceKm).toBeNull()
+    expect(dashboard.recent30CostPerKmCents).toBeNull()
+  })
+
+  it('omits percentage comparisons when the previous denominator is zero', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [
+        reading('recent-start', 1_200, '2026-09-01T12:00:00.000Z'),
+        reading('recent-end', 1_400, '2026-09-29T12:00:00.000Z'),
+      ],
+      [fuel('recent', 1_300, 1, false, '2026-09-20T12:00:00.000Z', 5_000)],
+      analyticsNow,
+    )
+
+    expect(dashboard.previous30SpendChangePercent).toBeNull()
+    expect(dashboard.previous30DistanceChangePercent).toBeNull()
+  })
+
+  it('excludes tombstones from recent spend', () => {
+    const deleted = {
+      ...fuel('deleted', 1_300, 1, false, '2026-09-20T12:00:00.000Z', 9_000),
+      deletedAt: '2026-09-21T12:00:00.000Z',
+    }
+    const dashboard = getVehicleDashboard(
+      state,
+      [],
+      [
+        fuel('active', 1_350, 1, false, '2026-09-22T12:00:00.000Z', 2_000),
+        deleted,
+      ],
+      analyticsNow,
+    )
+
+    expect(dashboard.recent30SpendCents).toBe(2_000)
+  })
+
+  it('exposes cycle cost, cost per km and km/L variation', () => {
+    const dashboard = getVehicleDashboard(
+      state,
+      [reading('current', 1_240, '2026-09-20T12:00:00.000Z')],
+      [
+        fuel('full-one', 1_120, 3, true, '2026-08-01T12:00:00.000Z', 2_100),
+        fuel('full-two', 1_240, 2.5, true, '2026-09-01T12:00:00.000Z', 1_750),
+      ],
+      analyticsNow,
+    )
+
+    expect(dashboard.consumptionCycles).toHaveLength(2)
+    expect(dashboard.consumptionCycles[0]).toMatchObject({
+      distanceKm: 120,
+      fuelUsedLiters: 3,
+      fuelCostCents: 2_100,
+      costPerKmCents: 17.5,
+      kmPerLiterChangePercent: null,
+    })
+    expect(dashboard.consumptionCycles[1].costPerKmCents).toBeCloseTo(14.5833, 4)
+    expect(dashboard.consumptionCycles[1].kmPerLiterChangePercent).toBeCloseTo(20)
+  })
+
+  it('recomputes cycle and spend metrics immediately after an edit or tombstone', () => {
+    const original = fuel(
+      'full',
+      1_120,
+      3,
+      true,
+      '2026-09-20T12:00:00.000Z',
+      2_100,
+    )
+    const edited = {
+      ...original,
+      amountCents: 3_000,
+      estimatedLiters: 2.5,
+      updatedAt: '2026-09-25T12:00:00.000Z',
+    }
+    const deleted = {
+      ...edited,
+      deletedAt: '2026-09-26T12:00:00.000Z',
+      updatedAt: '2026-09-26T12:00:00.000Z',
+    }
+
+    const before = getVehicleDashboard(
+      state,
+      [reading('current', 1_120, '2026-09-20T12:00:00.000Z')],
+      [original],
+      analyticsNow,
+    )
+    const afterEdit = getVehicleDashboard(
+      state,
+      [reading('current', 1_120, '2026-09-20T12:00:00.000Z')],
+      [edited],
+      analyticsNow,
+    )
+    const afterDelete = getVehicleDashboard(
+      state,
+      [reading('current', 1_120, '2026-09-20T12:00:00.000Z')],
+      [deleted],
+      analyticsNow,
+    )
+
+    expect(before.consumptionCycles[0].fuelCostCents).toBe(2_100)
+    expect(afterEdit.consumptionCycles[0]).toMatchObject({
+      fuelCostCents: 3_000,
+      fuelUsedLiters: 2.5,
+    })
+    expect(afterEdit.recent30SpendCents).toBe(3_000)
+    expect(afterDelete.consumptionCycles).toEqual([])
+    expect(afterDelete.recent30SpendCents).toBe(0)
+  })
+
+  it('derives qualitative confidence and downgrades stale cycle evidence once', () => {
+    const recent = getVehicleDashboard(
+      state,
+      [reading('current', 1_360, '2026-09-20T10:00:00.000Z')],
+      [
+        fuel('full-1', 1_120, 3, true, '2026-07-01T10:00:00.000Z'),
+        fuel('full-2', 1_240, 3, true, '2026-08-01T10:00:00.000Z'),
+        fuel('full-3', 1_360, 3, true, '2026-09-01T10:00:00.000Z'),
+      ],
+      analyticsNow,
+    )
+    const stale = getVehicleDashboard(
+      {
+        ...state,
+        createdAt: '2025-01-01T10:00:00.000Z',
+        initialFullTankAt: '2025-01-01T10:00:00.000Z',
+      },
+      [reading('current', 1_360, '2026-09-20T10:00:00.000Z')],
+      [
+        fuel('full-1', 1_120, 3, true, '2025-02-01T10:00:00.000Z'),
+        fuel('full-2', 1_240, 3, true, '2025-03-01T10:00:00.000Z'),
+        fuel('full-3', 1_360, 3, true, '2025-04-01T10:00:00.000Z'),
+      ],
+      analyticsNow,
+    )
+
+    expect(recent.rangeConfidence).toBe('high')
+    expect(stale.rangeConfidence).toBe('medium')
+  })
+})
