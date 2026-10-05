@@ -872,6 +872,38 @@ describe('fuel correction and analytics UI', () => {
     updatedAt: '2026-10-03T18:30:00.000Z',
   }
 
+  it('never turns a missing correction id into a new fuel form', async () => {
+    window.history.replaceState(
+      { controlVaultDepth: 0 },
+      '',
+      '/historico/abastecimentos/missing/editar',
+    )
+    storeStub.getVehicleState.mockResolvedValue({
+      nominalTankCapacityLiters: 3.5,
+      initialOdometerKm: 1_000,
+      initialFullTankAt: null,
+      createdAt: '2026-09-29T10:00:00.000Z',
+      updatedAt: '2026-09-29T10:00:00.000Z',
+      syncStatus: 'synced',
+    })
+    storeStub.listFuelEntries.mockResolvedValue([])
+    storeStub.listOdometerReadings.mockResolvedValue([])
+    storeStub.listAllSavedTrips.mockResolvedValue([])
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<VehicleModule />))
+    await waitForSelector(container, '[data-view-root="true"]')
+
+    expect(container.textContent).toContain('Abastecimento indisponível')
+    expect(container.textContent).not.toContain('Salvar abastecimento')
+    expect(container.querySelector('input[name="amount"]')).toBeNull()
+
+    await act(async () => root.unmount())
+  })
+
   it('reuses FuelView in correction mode without fetching a new price', async () => {
     const container = document.createElement('div')
     document.body.append(container)
