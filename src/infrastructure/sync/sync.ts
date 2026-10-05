@@ -61,6 +61,7 @@ type RemoteFuelEntry = {
   reference_week_end: string | null
   full_tank: boolean
   fueled_at: string
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -130,6 +131,7 @@ function toRemoteFuelEntry(
     reference_week_end: record.record.referenceWeekEnd,
     full_tank: record.record.fullTank,
     fueled_at: record.record.fueledAt,
+    deleted_at: record.record.deletedAt,
     created_at: record.record.createdAt,
     updated_at: record.record.updatedAt,
   }
@@ -243,7 +245,7 @@ function fromRemoteFuelEntry(row: RemoteFuelEntry): FuelEntry {
     referenceWeekEnd: row.reference_week_end,
     fullTank: row.full_tank,
     fueledAt: row.fueled_at,
-    deletedAt: null,
+    deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
