@@ -294,6 +294,55 @@ describe('App', () => {
     await act(async () => root.unmount())
   })
 
+
+  it('moves sign out and PWA installation into settings', async () => {
+    const session = { user: { id: '11111111-1111-4111-8111-111111111111' } }
+    authStub.getCachedSession.mockResolvedValue(session)
+    syncStub.runSync.mockResolvedValue({ synced: 0, pending: 0, failed: 0 })
+    await saveHydratedVehicleData({
+      vehicleState: {
+        nominalTankCapacityLiters: 3.5,
+        initialOdometerKm: 12_888.8,
+        initialFullTankAt: '2026-10-01T10:00:00Z',
+        createdAt: '2026-10-01T10:00:00Z',
+        updatedAt: '2026-10-01T10:00:00Z',
+      },
+      odometerReadings: [],
+      fuelEntries: [],
+    })
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<App />))
+    await waitForText(container, 'Atualizar KM')
+
+    expect(container.querySelector('.app__header')?.textContent).not.toContain('Sair')
+
+    const installEvent = Object.assign(
+      new Event('beforeinstallprompt', { cancelable: true }),
+      {
+        prompt: vi.fn().mockResolvedValue(undefined),
+        userChoice: Promise.resolve({ outcome: 'dismissed' }),
+      },
+    )
+    await act(async () => window.dispatchEvent(installEvent))
+    expect(container.textContent).not.toContain('Instalar app')
+
+    await act(async () => {
+      ;(container.querySelector(
+        '.vehicle-navigation button[aria-label="Configurações"]',
+      ) as HTMLButtonElement).click()
+    })
+    await waitForText(container, 'Configurações')
+
+    expect(container.textContent).toContain('Capacidade do tanque')
+    expect(container.textContent).toContain('Instalar app')
+    expect(container.textContent).toContain('Sair')
+
+    await act(async () => root.unmount())
+  })
+
   it('preserves a form when the same user session token refreshes', async () => {
     const session = { user: { id: '11111111-1111-4111-8111-111111111111' } }
     authStub.getCachedSession.mockResolvedValue(session)

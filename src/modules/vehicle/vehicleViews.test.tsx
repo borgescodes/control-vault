@@ -681,7 +681,7 @@ describe('vehicle views', () => {
     await act(async () => errorRoot.unmount())
   })
 
-  it('uses accessible icon-only navigation for all three destinations', async () => {
+  it('uses accessible icon-only navigation for all four destinations', async () => {
     storeStub.getVehicleState.mockResolvedValue({
       nominalTankCapacityLiters: 3,
       initialOdometerKm: 1_000,
@@ -704,10 +704,10 @@ describe('vehicle views', () => {
 
     const nav = container.querySelector('.vehicle-navigation')!
     expect(nav.textContent?.trim()).toBe('')
-    expect(Array.from(nav.querySelectorAll('button')).map(button => button.getAttribute('aria-label'))).toEqual(['Início', 'Percursos', 'Histórico'])
+    expect(Array.from(nav.querySelectorAll('button')).map(button => button.getAttribute('aria-label'))).toEqual(['Início', 'Percursos', 'Histórico', 'Configurações'])
     expect(nav.querySelector('[aria-current="page"]')?.getAttribute('aria-label')).toBe('Início')
-    for (const icon of ['home', 'route', 'history']) expect(nav.querySelector(`[data-icon="${icon}"]`)).not.toBeNull()
-    for (const [label, selector] of [['Percursos', '.trips'], ['Histórico', '.history'], ['Início', '.home']]) {
+    for (const icon of ['home', 'route', 'history', 'settings']) expect(nav.querySelector(`[data-icon="${icon}"]`)).not.toBeNull()
+    for (const [label, selector] of [['Percursos', '.trips'], ['Histórico', '.history'], ['Configurações', '.settings'], ['Início', '.home']]) {
       await act(async () => (container.querySelector(`.vehicle-navigation button[aria-label="${label}"]`) as HTMLButtonElement).click())
       await waitForSelector(container, selector)
       expect(container.querySelector('.vehicle-navigation [aria-current="page"]')?.getAttribute('aria-label')).toBe(label)
@@ -1095,7 +1095,7 @@ describe('fuel correction and analytics UI', () => {
     await act(async () => root.unmount())
   })
 
-  it('shows ready confidence, 30-day metrics and a secondary tank action', () => {
+  it('keeps calibrated Home compact and removes redundant secondary controls', () => {
     const markup = renderToStaticMarkup(
       <HomeView
         dashboard={dashboard({
@@ -1104,26 +1104,24 @@ describe('fuel correction and analytics UI', () => {
           remainingLiters: 2,
           fuelPercent: 66,
           rangeConfidence: 'high',
+          calibrationState: 'calibrated',
+          calibrationCycleCount: 3,
           recent30SpendCents: 5_000,
           recent30DistanceKm: 200,
           recent30CostPerKmCents: 25,
-          previous30SpendChangePercent: 10,
-          previous30DistanceChangePercent: null,
         })}
         onFuel={() => undefined}
         onOdometer={() => undefined}
-        onTankCapacity={() => undefined}
       />,
     )
 
     const normalizedMarkup = markup.replace(/\u00a0/g, ' ')
     expect(normalizedMarkup).toContain('Confiança alta')
-    expect(normalizedMarkup).toContain('Últimos 30 dias')
-    expect(normalizedMarkup).toContain('R$ 50,00')
-    expect(normalizedMarkup).toContain('200 km')
-    expect(normalizedMarkup).toContain('R$ 0,25/km')
-    expect(normalizedMarkup).toContain('Capacidade do tanque')
-    expect(normalizedMarkup.match(/vs 30 dias anteriores/g)).toHaveLength(1)
+    expect(normalizedMarkup).not.toContain('Últimos 30 dias')
+    expect(normalizedMarkup).not.toContain('Capacidade do tanque')
+    expect(normalizedMarkup).not.toContain('Ativar resumo')
+    expect(normalizedMarkup).not.toContain('Calibração')
+    expect(normalizedMarkup).not.toContain('3/3')
   })
 
   it('saves a positive tank capacity', async () => {

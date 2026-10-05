@@ -10,10 +10,10 @@ import PwaControls from './PwaControls'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); document.body.innerHTML = '' })
 
-async function mount() {
+async function mount(active = true) {
   const container = document.createElement('div'); document.body.append(container)
   const root = createRoot(container)
-  await act(async () => root.render(<PwaControls />))
+  await act(async () => root.render(<PwaControls active={active} />))
   return { container, root }
 }
 
@@ -47,6 +47,21 @@ describe('PWA controls', () => {
     expect(container.textContent).not.toContain('Adicionar à Tela de Início')
     await act(async () => container.querySelector('button')?.click())
     expect(container.textContent).toContain('Adicionar à Tela de Início')
+    await act(async () => root.unmount())
+  })
+
+  it('captures an install prompt while hidden and exposes it when settings opens', async () => {
+    const { container, root } = await mount(false)
+    const event = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+      prompt: vi.fn().mockResolvedValue(undefined),
+      userChoice: Promise.resolve({ outcome: 'dismissed' }),
+    })
+
+    await act(async () => window.dispatchEvent(event))
+    expect(container.textContent).not.toContain('Instalar app')
+
+    await act(async () => root.render(<PwaControls active />))
+    expect(container.textContent).toContain('Instalar app')
     await act(async () => root.unmount())
   })
 

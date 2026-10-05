@@ -65,6 +65,13 @@ describe('native vehicle navigation', () => {
     expect(currentFuelEntryId()).toBe('fuel / 123')
   })
 
+  it('routes settings as a primary destination', () => {
+    history.replaceState(null, '', '/configuracoes')
+    initializeNavigation()
+
+    expect(currentView()).toBe('settings')
+  })
+
   it('keeps tank capacity secondary but directly addressable', () => {
     history.replaceState(null, '', '/tanque')
     initializeNavigation()
