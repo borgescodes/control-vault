@@ -247,7 +247,9 @@ export default function FuelView({
           Valor
           <input
             aria-describedby={
-              maxAmountCents === null ? undefined : 'fuel-amount-hint'
+              referenceExpanded && maxAmountCents !== null
+                ? 'fuel-amount-hint'
+                : undefined
             }
             aria-invalid={amountInvalid}
             autoComplete="off"
