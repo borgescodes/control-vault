@@ -72,6 +72,7 @@ export default function FuelView({
   const saving = useRef(false)
   const [priceReference, setPriceReference] =
     useState<FuelPriceReference | null>(null)
+  const [referenceExpanded, setReferenceExpanded] = useState(false)
 
   useEffect(() => {
     if (editing) return
@@ -269,16 +270,45 @@ export default function FuelView({
             value={formatMoneyInput(amountDigits)}
           />
           {!editing && priceReference !== null && maxAmountCents !== null && (
-            <small
-              aria-label="Limite estimado para este abastecimento"
-              className="field-limit"
-              id="fuel-amount-hint"
-            >
-              <span>Preço de referência: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(priceReference.precoMedio)}/L</span>
-              <span>ANP · Paragominas · {priceReference.semanaInicio} a {priceReference.semanaFim}</span>
-              <span>Máximo estimado: ≤ {formatMoneyInput(String(maxAmountCents)).replace(/\u00a0/g, ' ')}</span>
-              {amountCents > 0 && <span>Volume estimado: ≈ {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format((amountCents / 100) / priceReference.precoMedio)} L</span>}
-            </small>
+            <div className="fuel-reference">
+              <button
+                aria-expanded={referenceExpanded}
+                className="fuel-reference__toggle"
+                onClick={() => setReferenceExpanded((expanded) => !expanded)}
+                type="button"
+              >
+                <span>Referência</span>
+                <VehicleIcon
+                  name={referenceExpanded ? 'chevron-down' : 'chevron-right'}
+                />
+              </button>
+              {referenceExpanded && (
+                <small
+                  aria-label="Limite estimado para este abastecimento"
+                  className="field-limit fuel-reference__details"
+                  id="fuel-amount-hint"
+                >
+                  <span>
+                    Preço de referência:{' '}
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }).format(priceReference.precoMedio)}/L
+                  </span>
+                  <span>
+                    ANP · Paragominas · {priceReference.semanaInicio} a{' '}
+                    {priceReference.semanaFim}
+                  </span>
+                  <span>
+                    Máximo estimado: ≤{' '}
+                    {formatMoneyInput(String(maxAmountCents)).replace(
+                      /\u00a0/g,
+                      ' ',
+                    )}
+                  </span>
+                </small>
+              )}
+            </div>
           )}
           {!editing && priceReference === null && (
             <small className="field-hint">

@@ -478,6 +478,34 @@ input::placeholder {
   color: var(--faint);
 }
 
+.fuel-reference {
+  display: grid;
+  justify-items: end;
+  margin-top: 2px;
+}
+
+.fuel-reference__toggle {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  color: var(--faint);
+  font-size: .74rem;
+  font-weight: 650;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.fuel-reference__toggle .vehicle-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.fuel-reference__details {
+  margin-top: 4px;
+}
+
 .field-limit {
   display: grid;
   gap: 5px;
