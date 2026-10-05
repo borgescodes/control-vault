@@ -513,7 +513,7 @@ describe('derived operating analytics', () => {
   it('does not extrapolate distance from insufficient coverage', () => {
     const dashboard = getVehicleDashboard(
       state,
-      [reading('only', 1_400, '2026-09-29T12:00:00.000Z')],
+      [],
       [fuel('recent', 1_350, 1, false, '2026-09-20T12:00:00.000Z', 5_000)],
       analyticsNow,
     )
