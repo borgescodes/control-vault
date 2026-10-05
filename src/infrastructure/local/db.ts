@@ -13,7 +13,7 @@ import type {
 } from '../../modules/vehicle/domain/types'
 
 export const LOCAL_DATABASE_NAME = 'control-vault'
-export const LOCAL_DATABASE_VERSION = 6
+export const LOCAL_DATABASE_VERSION = 7
 export const VEHICLE_STATE_KEY = 'primary'
 
 export type SyncStatus = 'pending' | 'synced'
@@ -106,7 +106,7 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
           )
         }
 
-        if (oldVersion > 0 && oldVersion < 6) {
+        if (oldVersion > 0 && oldVersion < 7) {
           void (async () => {
             if (oldVersion < 5) {
               // Authorized vehicle reset on 2026-10-01. Preserve trips and any
@@ -124,7 +124,7 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
               }
             }
 
-            if (oldVersion >= 2) {
+            if (oldVersion >= 2 && oldVersion < 6) {
               const fuelStore = transaction.objectStore('fuel_entries')
               let cursor = await fuelStore.openCursor()
               while (cursor) {
@@ -137,6 +137,23 @@ export function openLocalDatabase(): Promise<IDBPDatabase<ControlVaultDatabase>>
                   )
                 }
                 cursor = await cursor.continue()
+              }
+            }
+
+            if (oldVersion >= 1) {
+              const readingStore = transaction.objectStore('odometer_readings')
+              const readings = (await readingStore.getAll())
+                .filter((reading) => reading.source === 'manual')
+                .sort((left, right) =>
+                  left.recordedAt.localeCompare(right.recordedAt),
+                )
+              const seen = new Set<number>()
+              for (const reading of readings) {
+                if (seen.has(reading.readingKm)) {
+                  await readingStore.delete(reading.id)
+                } else {
+                  seen.add(reading.readingKm)
+                }
               }
             }
           })().catch(() => transaction.abort())

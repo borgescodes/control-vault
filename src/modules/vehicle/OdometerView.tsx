@@ -37,9 +37,9 @@ export default function OdometerView({
 
   const readingKm = parseOdometerKm(odometerDigits)
   const readingValid =
-    odometerDigits.length > 0 && readingKm >= currentOdometerKm
+    odometerDigits.length > 0 && readingKm > currentOdometerKm
   const readingInvalid =
-    odometerDigits.length > 0 && readingKm < currentOdometerKm
+    odometerDigits.length > 0 && readingKm <= currentOdometerKm
 
   async function save(
     nextReadingKm: number,
@@ -134,7 +134,7 @@ export default function OdometerView({
           >
             {readingValid
               ? `Atual: ${formatOdometerValue(currentOdometerKm)} km`
-              : `Não pode ser menor que ${formatOdometerValue(currentOdometerKm)} km`}
+              : `Deve ser maior que ${formatOdometerValue(currentOdometerKm)} km`}
           </small>
         </label>
 

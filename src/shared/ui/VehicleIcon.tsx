@@ -1,6 +1,15 @@
 import type { SVGProps } from 'react'
 
-export type VehicleIconName = 'back' | 'fuel' | 'gauge' | 'history' | 'home' | 'route' | 'settings'
+export type VehicleIconName =
+  | 'back'
+  | 'chevron-down'
+  | 'chevron-right'
+  | 'fuel'
+  | 'gauge'
+  | 'history'
+  | 'home'
+  | 'route'
+  | 'settings'
 
 type VehicleIconProps = Omit<SVGProps<SVGSVGElement>, 'children'> & {
   name: VehicleIconName
@@ -11,27 +20,22 @@ export default function VehicleIcon({
   className = '',
   ...props
 }: VehicleIconProps) {
-  const filled = name !== 'back'
-
   return (
     <svg
       aria-hidden="true"
       className={`vehicle-icon ${className}`.trim()}
       data-icon={name}
-      fill={filled ? 'currentColor' : 'none'}
+      fill="currentColor"
       focusable="false"
-      stroke={filled ? undefined : 'currentColor'}
-      strokeLinecap={filled ? undefined : 'round'}
-      strokeLinejoin={filled ? undefined : 'round'}
-      strokeWidth={filled ? undefined : '1.8'}
       viewBox="0 0 24 24"
       {...props}
     >
-      {name === 'back' && (
-        <>
-          <path d="M19 12H5" />
-          <path d="m11 6-6 6 6 6" />
-        </>
+      {name === 'back' && <path d="M15 5 6 12l9 7V5z" />}
+      {name === 'chevron-right' && (
+        <path d="M10.061 19.061L17.121 12l-7.06-7.061-2.122 2.122L12.879 12l-4.94 4.939z" />
+      )}
+      {name === 'chevron-down' && (
+        <path d="M16.939 7.939L12 12.879l-4.939-4.94-2.122 2.122L12 17.121l7.061-7.06z" />
       )}
       {name === 'gauge' && (
         <path d="m5.08,20h13.85c.71,0,1.37-.37,1.72-.97,1.09-1.87,1.54-4.02,1.29-6.2-.52-4.58-4.23-8.26-8.81-8.77-2.84-.31-5.68.6-7.8,2.49-2.11,1.9-3.33,4.61-3.33,7.45,0,1.77.47,3.51,1.36,5.03.35.6,1.01.97,1.72.97Zm5.86-7.06l6.04-3.96s.04,0,.04.01c0,.01,0,.02,0,.03l-3.96,6.04s0,0,0,0c-.46.71-1.41.9-2.12.44-.18-.12-.33-.27-.44-.44-.46-.71-.26-1.66.44-2.12Z" />

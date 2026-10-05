@@ -18,6 +18,7 @@ import {
   getMaxFuelAmountCents,
   MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
+  MAX_TANK_CAPACITY_LITERS,
 } from './domain/config'
 import {
   validateFuelEntryPosition,
@@ -97,7 +98,8 @@ export async function updateTankCapacity(
 ): Promise<RecordResult> {
   if (
     !Number.isFinite(nominalTankCapacityLiters) ||
-    nominalTankCapacityLiters <= 0
+    nominalTankCapacityLiters <= 0 ||
+    nominalTankCapacityLiters > MAX_TANK_CAPACITY_LITERS
   ) {
     return { kind: 'invalid', reason: 'Capacidade inválida' }
   }
@@ -147,7 +149,12 @@ export async function recordOdometer(
     updatedAt: recordedAt,
   }
   let validation: ReturnType<typeof validateOdometer> | undefined
+  let repeated = false
   const saved = await saveOdometerReadingIfCurrent(reading, (latest) => {
+    if (latest !== null && readingKm === latest) {
+      repeated = true
+      return false
+    }
     validation = validateOdometer(latest, readingKm)
     return (
       validation.kind === 'valid' ||
@@ -156,6 +163,12 @@ export async function recordOdometer(
   })
 
   if (!saved) {
+    if (repeated) {
+      return {
+        kind: 'invalid',
+        reason: 'Hodômetro deve ser maior que o atual',
+      }
+    }
     if (validation?.kind === 'suspicious') {
       return {
         kind: 'requires_confirmation',

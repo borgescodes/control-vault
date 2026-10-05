@@ -11,8 +11,24 @@ import {
 
 describe('native vehicle navigation', () => {
   beforeEach(() => {
-    window.history.replaceState(null, '', '/')
     vi.restoreAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('starts every routed screen at the top', () => {
+    const scrollTo = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined)
+
+    initializeNavigation()
+    navigateTo('history')
+
+    expect(scrollTo).toHaveBeenCalledWith({
+      top: 0,
+      left: 0,
+      behavior: 'auto',
+    })
   })
 
   it('creates real URLs and browser history for internal screens', () => {

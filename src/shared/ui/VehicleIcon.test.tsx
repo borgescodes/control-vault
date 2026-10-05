@@ -18,10 +18,10 @@ describe('VehicleIcon', () => {
     expect(markup).toContain(pathStart)
   })
 
-  it('keeps back as the only outline navigation icon', () => {
+  it('uses the requested filled caret for back navigation', () => {
     const markup = renderToStaticMarkup(<VehicleIcon name="back" />)
 
-    expect(markup).toContain('fill="none"')
-    expect(markup).toContain('stroke="currentColor"')
+    expect(markup).toContain('fill="currentColor"')
+    expect(markup).not.toContain('stroke="currentColor"')
   })
 })

@@ -15,6 +15,8 @@ export default defineConfig({
         scope: '/',
         name: 'Control Vault',
         short_name: 'Control Vault',
+        description: 'Controle pessoal de autonomia, abastecimentos e hodômetro.',
+        categories: ['utilities', 'productivity'],
         lang: 'pt-BR',
         start_url: '/',
         display: 'standalone',

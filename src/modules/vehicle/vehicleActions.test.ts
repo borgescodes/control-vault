@@ -134,7 +134,7 @@ describe('vehicle actions', () => {
     expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledTimes(2)
   })
 
-  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+  it.each([0, -1, 100, Number.NaN, Number.POSITIVE_INFINITY])(
     'rejects invalid tank capacity %s',
     async (capacity) => {
       await initializeVehicle(1_000, true, initialAt)
@@ -189,6 +189,16 @@ describe('vehicle actions', () => {
     })
     await expect(listOdometerReadings()).resolves.toHaveLength(2)
     expect(syncStub.syncCurrentSessionIfOnline).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects an odometer reading equal to the current value', async () => {
+    await initializeVehicle(1_000, true, initialAt)
+
+    await expect(recordOdometer(1_000, laterAt)).resolves.toEqual({
+      kind: 'invalid',
+      reason: 'Hodômetro deve ser maior que o atual',
+    })
+    await expect(listOdometerReadings()).resolves.toHaveLength(1)
   })
 
   it('rejects a concurrent odometer write that becomes regressive', async () => {
@@ -706,11 +716,12 @@ describe('vehicle practical limits', () => {
     })
   })
 
-  it('accepts an equal odometer and the technical maximum', async () => {
+  it('rejects an equal odometer and accepts the technical maximum', async () => {
     await initializeVehicle(12_345.6, true, initialAt)
 
     await expect(recordOdometer(12_345.6, laterAt)).resolves.toEqual({
-      kind: 'saved',
+      kind: 'invalid',
+      reason: 'Hodômetro deve ser maior que o atual',
     })
     await expect(
       recordOdometer(999_999, '2026-10-01T10:00:00.000Z', true),

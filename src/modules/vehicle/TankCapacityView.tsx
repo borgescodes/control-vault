@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
 import VehicleIcon from '../../shared/ui/VehicleIcon'
+import { MAX_TANK_CAPACITY_LITERS } from './domain/config'
 import { updateTankCapacity } from './vehicleActions'
 
 type TankCapacityViewProps = {
@@ -9,12 +10,28 @@ type TankCapacityViewProps = {
   onSaved: () => void | Promise<void>
 }
 
+function formatCapacity(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function limitCapacityInput(current: string, next: string): string {
+  const normalized = next.replace('.', ',')
+  if (!/^\d{0,2}(?:,\d{0,2})?$/.test(normalized)) return current
+  if (!normalized) return ''
+  const parsed = Number(normalized.replace(',', '.'))
+  return Number.isFinite(parsed) && parsed <= MAX_TANK_CAPACITY_LITERS
+    ? normalized
+    : current
+}
+
 export default function TankCapacityView({
   currentCapacityLiters,
   onBack,
   onSaved,
 }: TankCapacityViewProps) {
-  const [value, setValue] = useState(String(currentCapacityLiters))
+  const [value, setValue] = useState(() => formatCapacity(currentCapacityLiters))
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -22,7 +39,11 @@ export default function TankCapacityView({
     event.preventDefault()
     const capacity = Number(value.replace(',', '.'))
 
-    if (!Number.isFinite(capacity) || capacity <= 0) {
+    if (
+      !Number.isFinite(capacity) ||
+      capacity <= 0 ||
+      capacity > MAX_TANK_CAPACITY_LITERS
+    ) {
       setError('Informe uma capacidade válida')
       return
     }
@@ -60,27 +81,27 @@ export default function TankCapacityView({
           <VehicleIcon name="back" />
         </button>
         <div>
-          <h2 id="tank-capacity-title">Capacidade do tanque</h2>
+          <h2 id="tank-capacity-title">Capacidade nominal</h2>
         </div>
       </header>
 
       <form className="vehicle-form" onSubmit={handleSubmit}>
         <label>
-          Capacidade nominal
           <input
+            aria-label="Capacidade nominal"
             autoComplete="off"
             inputMode="decimal"
-            min="0.1"
+            maxLength={5}
             name="tankCapacity"
-            onChange={(event) => setValue(event.target.value)}
+            onChange={(event) =>
+              setValue((current) =>
+                limitCapacityInput(current, event.target.value),
+              )
+            }
             required
-            step="0.1"
-            type="number"
+            type="text"
             value={value}
           />
-          <small className="field-hint">
-            Valor usado nos limites e estimativas de combustível.
-          </small>
         </label>
 
         {error && <p className="vehicle-alert" role="alert">{error}</p>}

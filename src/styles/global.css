@@ -304,6 +304,27 @@ input::placeholder {
   color: var(--fg);
 }
 
+.settings__meta {
+  display: grid;
+  gap: 8px;
+  margin: 26px 0 0;
+  padding-top: 18px;
+  background: linear-gradient(90deg, var(--line), transparent) top / 100% 1px no-repeat;
+  color: var(--faint);
+  font-size: .72rem;
+}
+
+.settings__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings__meta dd {
+  margin: 0;
+  font-family: var(--font-metric);
+}
+
 .app__content {
   width: 100%;
   padding:
@@ -476,6 +497,34 @@ input::placeholder {
 
 .field-hint {
   color: var(--faint);
+}
+
+.fuel-reference {
+  display: grid;
+  justify-items: end;
+  margin-top: 2px;
+}
+
+.fuel-reference__toggle {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  color: var(--faint);
+  font-size: .74rem;
+  font-weight: 650;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.fuel-reference__toggle .vehicle-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.fuel-reference__details {
+  margin-top: 4px;
 }
 
 .field-limit {
