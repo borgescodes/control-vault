@@ -5,9 +5,11 @@ import {
 import {
   getVehicleState,
   initializeLocalVehicle,
+  saveFuelEntryCorrection,
   saveFuelEntryIfCurrent,
   saveOdometerReadingIfCurrent,
   saveVehicleState,
+  softDeleteFuelEntry,
 } from '../../infrastructure/local/store'
 import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
@@ -17,7 +19,10 @@ import {
   MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
 } from './domain/config'
-import { validateOdometer } from './domain/odometer'
+import {
+  validateFuelEntryPosition,
+  validateOdometer,
+} from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
 import { fullTankFingerprint } from './fuelEntries'
 
@@ -32,6 +37,13 @@ export type FuelInput = {
   fullTank: boolean
   fueledAt: string
   priceReference?: FuelPriceReference | null
+}
+
+export type FuelEditInput = {
+  odometerKm: number
+  amountCents: number
+  fullTank: boolean
+  fueledAt: string
 }
 
 function hasValidTimestamp(value: string): boolean {
@@ -256,4 +268,112 @@ export async function recordFuel(
   void syncCurrentSessionIfOnline().catch(() => undefined)
 
   return { kind: 'saved' }
+}
+
+
+export async function updateFuelEntry(
+  existing: FuelEntry,
+  input: FuelEditInput,
+  now: string,
+  confirmSuspicious = false,
+): Promise<RecordResult> {
+  if (
+    existing.deletedAt !== null ||
+    !Number.isFinite(input.odometerKm) ||
+    input.odometerKm < 0 ||
+    input.odometerKm > MAX_ODOMETER_KM
+  ) {
+    return { kind: 'invalid', reason: 'Hodômetro inválido' }
+  }
+
+  if (
+    !Number.isInteger(input.amountCents) ||
+    input.amountCents <= 0 ||
+    input.amountCents > MAX_FUEL_INPUT_CENTS
+  ) {
+    return { kind: 'invalid', reason: 'Valor inválido' }
+  }
+
+  if (!hasValidTimestamp(input.fueledAt) || !hasValidTimestamp(now)) {
+    return { kind: 'invalid', reason: 'Data inválida' }
+  }
+
+  const estimatedLiters =
+    existing.referencePricePerLiter === null
+      ? null
+      : roundLiters(
+          (input.amountCents / 100) / existing.referencePricePerLiter,
+        )
+
+  const corrected: FuelEntry = {
+    ...existing,
+    odometerKm: input.odometerKm,
+    amountCents: input.amountCents,
+    estimatedLiters,
+    fullTank: input.fullTank,
+    fueledAt: input.fueledAt,
+    updatedAt: now,
+  }
+
+  let validation: ReturnType<typeof validateFuelEntryPosition> | undefined
+  let duplicate = false
+  const saved = await saveFuelEntryCorrection(
+    corrected,
+    (readings, fuelEntries) => {
+      const fingerprint = fullTankFingerprint(corrected)
+      if (
+        fingerprint !== null &&
+        fuelEntries.some(
+          (entry) =>
+            entry.id !== existing.id &&
+            entry.deletedAt === null &&
+            fullTankFingerprint(entry) === fingerprint,
+        )
+      ) {
+        duplicate = true
+        return false
+      }
+
+      validation = validateFuelEntryPosition(
+        readings,
+        fuelEntries,
+        existing.id,
+        input.odometerKm,
+        input.fueledAt,
+      )
+      return (
+        validation.kind === 'valid' ||
+        (validation.kind === 'suspicious' && confirmSuspicious)
+      )
+    },
+  )
+
+  if (!saved) {
+    if (duplicate) {
+      return { kind: 'invalid', reason: 'Abastecimento já registrado' }
+    }
+    if (validation?.kind === 'suspicious') {
+      return {
+        kind: 'requires_confirmation',
+        deltaKm: validation.deltaKm,
+      }
+    }
+    return { kind: 'invalid', reason: 'Hodômetro fora da sequência' }
+  }
+
+  void syncCurrentSessionIfOnline().catch(() => undefined)
+  return { kind: 'saved' }
+}
+
+export async function deleteFuelEntry(
+  id: string,
+  now: string,
+): Promise<boolean> {
+  if (!hasValidTimestamp(now)) return false
+
+  const deleted = await softDeleteFuelEntry(id, now)
+  if (!deleted) return false
+
+  void syncCurrentSessionIfOnline().catch(() => undefined)
+  return true
 }

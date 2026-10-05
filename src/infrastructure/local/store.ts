@@ -143,6 +143,64 @@ export async function listFuelEntries(): Promise<LocalFuelEntry[]> {
   return database.getAll('fuel_entries')
 }
 
+export async function getFuelEntry(id: string): Promise<LocalFuelEntry | null> {
+  const database = await openLocalDatabase()
+  return (await database.get('fuel_entries', id)) ?? null
+}
+
+export async function saveFuelEntryCorrection(
+  entry: FuelEntry,
+  shouldSave: (
+    readings: OdometerReading[],
+    fuelEntries: FuelEntry[],
+  ) => boolean,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction(
+    ['fuel_entries', 'odometer_readings'],
+    'readwrite',
+  )
+  const fuelStore = transaction.objectStore('fuel_entries')
+  const [fuelEntries, readings] = await Promise.all([
+    fuelStore.getAll(),
+    transaction.objectStore('odometer_readings').getAll(),
+  ])
+
+  if (!shouldSave(readings, fuelEntries)) {
+    await transaction.done
+    return false
+  }
+
+  await fuelStore.put({ ...entry, ...pending })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
+}
+
+export async function softDeleteFuelEntry(
+  id: string,
+  deletedAt: string,
+): Promise<boolean> {
+  const database = await openLocalDatabase()
+  const transaction = database.transaction('fuel_entries', 'readwrite')
+  const entry = await transaction.store.get(id)
+
+  if (!entry) {
+    await transaction.done
+    return false
+  }
+
+  await transaction.store.put({
+    ...entry,
+    deletedAt,
+    updatedAt: deletedAt,
+    ...pending,
+  })
+  await transaction.done
+  notifyLocalChanges('write')
+  return true
+}
+
 export async function saveFuelEntryIfCurrent(
   entry: FuelEntry,
   shouldSave: (
