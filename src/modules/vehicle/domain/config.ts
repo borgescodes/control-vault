@@ -4,6 +4,7 @@ export const RANGE_SAFETY_FACTOR = 0.9
 export const SUSPICIOUS_ODOMETER_DELTA_KM = 500
 export const MAX_ODOMETER_KM = 999_999
 export const MAX_FUEL_INPUT_CENTS = 9_999
+export const MAX_TANK_CAPACITY_LITERS = 99.99
 
 export function getMaxFuelAmountCents(
   referencePricePerLiter: number,
