@@ -279,6 +279,33 @@ describe('authenticated vehicle sync', () => {
     ])
   })
 
+  it('overwrites an existing remote vehicle state when capacity changes', async () => {
+    const remote = createRemote({
+      vehicle_state: [
+        {
+          ...remoteVehicle(),
+          tank_capacity_liters: 3.5,
+          updated_at: createdAt,
+        },
+      ],
+    })
+    await saveVehicleState(
+      vehicleState({
+        nominalTankCapacityLiters: 3,
+        updatedAt: '2026-10-06T22:00:00.000Z',
+      }),
+    )
+
+    await syncPending(userId)
+
+    expect(remote.rows.vehicle_state).toEqual([
+      expect.objectContaining({
+        tank_capacity_liters: 3,
+        updated_at: '2026-10-06T22:00:00.000Z',
+      }),
+    ])
+  })
+
   it('maps a pending odometer reading to the remote schema', async () => {
     const remote = createRemote()
     await saveOdometerReading(odometerReading())
