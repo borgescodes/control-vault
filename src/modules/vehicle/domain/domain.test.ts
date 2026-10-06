@@ -57,7 +57,7 @@ function cycle(kmPerLiter: number): ConsumptionCycle {
 
 describe('vehicle domain configuration', () => {
   it('uses the approved tank capacity and suspicious delta', () => {
-    expect(DEFAULT_TANK_CAPACITY_LITERS).toBe(3.5)
+    expect(DEFAULT_TANK_CAPACITY_LITERS).toBe(3)
     expect(RANGE_SAFETY_FACTOR).toBe(0.9)
     expect(SUSPICIOUS_ODOMETER_DELTA_KM).toBe(500)
   })
