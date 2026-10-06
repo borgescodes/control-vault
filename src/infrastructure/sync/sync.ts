@@ -141,7 +141,7 @@ async function pushRecord(record: PendingRecord, userId: string) {
   if (record.kind === 'vehicle_state') {
     return supabase
       .from('vehicle_state')
-      .upsert(toRemoteVehicleState(record, userId), { onConflict: 'user_id', ignoreDuplicates: true })
+      .upsert(toRemoteVehicleState(record, userId), { onConflict: 'user_id' })
   }
 
   if (record.kind === 'odometer_readings') {
