@@ -675,7 +675,14 @@ describe('authenticated vehicle sync', () => {
 
   it('does not reset an existing server vehicle when another device initializes offline', async () => {
     const remote = createRemote({ vehicle_state: [remoteVehicle()] })
-    await saveVehicleState(vehicleState({ initialOdometerKm: 500 }))
+    const offlineCreatedAt = '2026-10-06T20:00:00.000Z'
+    await saveVehicleState(
+      vehicleState({
+        initialOdometerKm: 500,
+        createdAt: offlineCreatedAt,
+        updatedAt: offlineCreatedAt,
+      }),
+    )
     await runSync(userId)
     expect(remote.rows.vehicle_state[0].initial_odometer_km).toBe(1000)
     expect((await getVehicleState())?.initialOdometerKm).toBe(1000)
