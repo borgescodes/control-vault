@@ -139,9 +139,14 @@ function toRemoteFuelEntry(
 
 async function pushRecord(record: PendingRecord, userId: string) {
   if (record.kind === 'vehicle_state') {
+    const isInitialState =
+      record.record.createdAt === record.record.updatedAt
     return supabase
       .from('vehicle_state')
-      .upsert(toRemoteVehicleState(record, userId), { onConflict: 'user_id' })
+      .upsert(toRemoteVehicleState(record, userId), {
+        onConflict: 'user_id',
+        ignoreDuplicates: isInitialState,
+      })
   }
 
   if (record.kind === 'odometer_readings') {
