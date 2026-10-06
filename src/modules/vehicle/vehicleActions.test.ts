@@ -143,7 +143,7 @@ describe('vehicle actions', () => {
         kind: 'invalid',
       })
       await expect(getVehicleState()).resolves.toMatchObject({
-        nominalTankCapacityLiters: 3.5,
+        nominalTankCapacityLiters: 3,
         updatedAt: initialAt,
       })
     },
@@ -734,7 +734,7 @@ describe('vehicle practical limits', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 3_249,
+        amountCents: 2_888,
         fullTank: false,
         fueledAt: laterAt,
       }),
@@ -747,7 +747,7 @@ describe('vehicle practical limits', () => {
     await expect(
       recordFuel({
         odometerKm: 1_100,
-        amountCents: 3_250,
+        amountCents: 2_889,
         fullTank: false,
         fueledAt: laterAt,
       }),
