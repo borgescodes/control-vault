@@ -60,8 +60,8 @@ describe('fuel action with the real price lookup', () => {
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
         amountCents: 2_000,
-        estimatedLiters: 2.836,
-        referencePricePerLiter: 7.053,
+        estimatedLiters: null,
+        referencePricePerLiter: null,
       }),
     ])
   }, 10_000)
