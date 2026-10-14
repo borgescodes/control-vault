@@ -13,6 +13,7 @@ import {
 import {
   claimSyncOwner,
   getSyncOwner,
+  isLocalDatabaseEmpty,
   listPending,
   subscribeToLocalChanges,
 } from '../infrastructure/local/store'
@@ -203,6 +204,10 @@ export default function App() {
         if (!active) return
         localAllowed = true
         refreshPending()
+        // Cached IndexedDB data must not wait for remote synchronization.
+        if (!(await isLocalDatabaseEmpty()) && active) {
+          setVehicleReadyForUser(session.user.id)
+        }
         if (navigator.onLine) {
           setSyncActivity('syncing')
           const result = await runSync(session.user.id)
