@@ -170,6 +170,37 @@ describe('App', () => {
     await act(async () => root.unmount())
   })
 
+
+  it('shows cached vehicle immediately while an online sync is still pending', async () => {
+    const owner = '11111111-1111-4111-8111-111111111111'
+    authStub.getCachedSession.mockResolvedValue({ user: { id: owner } })
+    syncStub.runSync.mockImplementation(() => new Promise(() => undefined))
+    await claimSyncOwner(owner)
+    await saveHydratedVehicleData({
+      vehicleState: {
+        nominalTankCapacityLiters: 3.5,
+        initialOdometerKm: 12_710,
+        initialFullTankAt: null,
+        createdAt: '2026-10-01T10:00:00Z',
+        updatedAt: '2026-10-01T10:00:00Z',
+      },
+      odometerReadings: [],
+      fuelEntries: [],
+    })
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<App />))
+    await waitForSyncStart()
+    await waitForText(container, 'Atualizar KM')
+
+    expect(container.textContent).toContain('Atualizar KM')
+    expect(container.textContent).not.toContain('Configurar veículo')
+    await act(async () => root.unmount())
+  })
+
   it('opens cached local vehicle data on an offline cold start even when auth never resolves', async () => {
     const owner = '11111111-1111-4111-8111-111111111111'
     vi.stubGlobal('navigator', {
