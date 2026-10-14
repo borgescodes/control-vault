@@ -114,7 +114,7 @@ describe('weekly fuel price reference', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
-  it('keeps stale reference when refresh fails and throttles for 12 hours', async () => {
+  it('keeps stale reference when refresh fails and throttles for 3 hours', async () => {
     cacheReference(currentReference)
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
@@ -126,11 +126,11 @@ describe('weekly fuel price reference', () => {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}')
     expect(cached.reference).toEqual(currentReference)
     expect(cached.nextCheckAt).toBe(
-      new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+      new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
     )
   })
 
-  it('keeps same expired week and throttles for 12 hours', async () => {
+  it('keeps same expired week and throttles for 3 hours', async () => {
     cacheReference(currentReference)
     vi.stubGlobal(
       'fetch',
@@ -145,7 +145,7 @@ describe('weekly fuel price reference', () => {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}')
     expect(cached.reference).toEqual(currentReference)
     expect(cached.nextCheckAt).toBe(
-      new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+      new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
     )
   })
 
@@ -163,18 +163,12 @@ describe('weekly fuel price reference', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('uses the shipped official reference when a fresh browser has no cache', async () => {
+  it('does not fabricate an old ANP reference when no cache exists', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
     await expect(
-      getFuelPriceReference(new Date(2026, 8, 30, 8, 0, 0)),
-    ).resolves.toMatchObject({
-      uf: 'PA',
-      municipio: 'PARAGOMINAS',
-      produto: 'GASOLINA COMUM',
-      precoMedio: 7.053,
-      precoMaximo: 7.22,
-    })
+      getFuelPriceReference(new Date(2026, 9, 14, 8, 0, 0)),
+    ).resolves.toBeNull()
   })
 
   it('aborts a hanging first request after two seconds', async () => {
@@ -203,19 +197,19 @@ describe('weekly fuel price reference', () => {
     expect(settled).toBe(false)
 
     await vi.advanceTimersByTimeAsync(1)
-    await expect(lookup).resolves.toMatchObject({ precoMaximo: 7.22 })
+    await expect(lookup).resolves.toBeNull()
     expect(firstRequestSignal?.aborted).toBe(true)
     vi.useRealTimers()
   })
 
-  it('keeps the shipped official reference when API URL is missing', async () => {
+  it('returns no reference when API URL and cache are missing', async () => {
     vi.stubEnv('VITE_FUEL_PRICE_API_URL', '')
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
-      getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toMatchObject({ precoMedio: 7.053, precoMaximo: 7.22 })
+      getFuelPriceReference(new Date(2026, 9, 14, 8, 0, 0)),
+    ).resolves.toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -229,7 +223,43 @@ describe('weekly fuel price reference', () => {
 
     await expect(
       getFuelPriceReference(new Date(2026, 8, 27, 8, 0, 0)),
-    ).resolves.toMatchObject({ precoMedio: 7.053, precoMaximo: 7.22 })
+    ).resolves.toBeNull()
+  })
+
+  it('does not surface a three-week-old cached reference while refreshing', async () => {
+    const publishedReference: FuelPriceReference = {
+      ...currentReference,
+      semanaInicio: '2026-10-04',
+      semanaFim: '2026-10-10',
+    }
+    cacheReference(currentReference)
+    const onRefresh = vi.fn()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse(publishedReference)))
+
+    await expect(
+      getFuelPriceReference(new Date(2026, 9, 14, 8, 0, 0), onRefresh),
+    ).resolves.toBeNull()
+
+    await vi.waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledWith(publishedReference)
+    })
+  })
+
+  it('rejects an expired API response on a fresh install', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse(currentReference)))
+    await expect(
+      getFuelPriceReference(new Date(2026, 9, 14, 8, 0, 0)),
+    ).resolves.toBeNull()
+  })
+
+  it('opens offline without waiting for a fuel-price network request', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      getFuelPriceReference(new Date(2026, 9, 14, 8, 0, 0)),
+    ).resolves.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('ignores malformed cache JSON', async () => {
