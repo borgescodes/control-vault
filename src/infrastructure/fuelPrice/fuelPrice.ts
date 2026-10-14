@@ -18,26 +18,20 @@ type FuelPriceCache = {
 
 const CACHE_KEY =
   'control-vault:fuel-price:PA:PARAGOMINAS:GASOLINA-COMUM'
-const RECHECK_AFTER_MS = 12 * 60 * 60 * 1000
+const RECHECK_AFTER_MS = 3 * 60 * 60 * 1000
+const MAX_REFERENCE_AGE_MS = 14 * 24 * 60 * 60 * 1000
+const BACKGROUND_TIMEOUT_MS = 60_000
 const REQUEST_TIMEOUT_MS = 2_000
-
-const BOOTSTRAP_REFERENCE: FuelPriceReference = {
-  uf: 'PA',
-  municipio: 'PARAGOMINAS',
-  produto: 'GASOLINA COMUM',
-  semanaInicio: '2026-09-21',
-  semanaFim: '2026-09-27',
-  precoMedio: 7.053,
-  precoMinimo: 6.79,
-  precoMaximo: 7.22,
-  postosPesquisados: 7,
-}
 
 function localDate(value: Date): string {
   const year = value.getFullYear()
   const month = String(value.getMonth() + 1).padStart(2, '0')
   const day = String(value.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function isRecentReference(reference: FuelPriceReference, now: Date): boolean {
+  return reference.semanaFim >= localDate(new Date(now.getTime() - MAX_REFERENCE_AGE_MS))
 }
 
 function isDateOnly(value: unknown): value is string {
@@ -143,8 +137,8 @@ async function refreshCachedReference(
   now: Date,
   today: string,
 ): Promise<FuelPriceReference | null> {
-  const fresh = await fetchReference(null)
-  if (!fresh) return null
+  const fresh = await fetchReference(BACKGROUND_TIMEOUT_MS)
+  if (!fresh || !isRecentReference(fresh, now)) return null
 
   if (
     fresh.semanaFim <= cached.reference.semanaFim &&
@@ -167,6 +161,7 @@ export async function getFuelPriceReference(
 ): Promise<FuelPriceReference | null> {
   const today = localDate(now)
   const cached = readCache()
+  const usableCached = cached !== null && isRecentReference(cached.reference, now)
 
   if (
     cached &&
@@ -177,7 +172,7 @@ export async function getFuelPriceReference(
   }
 
   if (
-    cached?.nextCheckAt &&
+    usableCached && cached?.nextCheckAt &&
     Date.parse(cached.nextCheckAt) > now.getTime()
   ) {
     return cached.reference
@@ -194,22 +189,17 @@ export async function getFuelPriceReference(
         if (fresh) onRefresh?.(fresh)
       })
       .catch(() => undefined)
-    return cached.reference
+    return usableCached ? cached.reference : null
   }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return null
 
   const fresh = await fetchReference()
 
-  if (!fresh) {
-    const bootstrapCache: FuelPriceCache = {
-      reference: BOOTSTRAP_REFERENCE,
-      fetchedAt: now.toISOString(),
-      nextCheckAt: nextCheckAt(now),
-    }
-    writeCache(bootstrapCache)
-
-    void fetchReference(null)
+  if (!fresh || !isRecentReference(fresh, now)) {
+    void fetchReference(BACKGROUND_TIMEOUT_MS)
       .then((backgroundFresh) => {
-        if (!backgroundFresh) return
+        if (!backgroundFresh || !isRecentReference(backgroundFresh, new Date())) return
         writeCache({
           reference: backgroundFresh,
           fetchedAt: new Date().toISOString(),
@@ -219,7 +209,7 @@ export async function getFuelPriceReference(
       })
       .catch(() => undefined)
 
-    return BOOTSTRAP_REFERENCE
+    return null
   }
 
   writeCache({
