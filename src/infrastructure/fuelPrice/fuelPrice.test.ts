@@ -178,6 +178,28 @@ describe('ANP reference retrieval and recovery', () => {
     expect(updates).toHaveBeenLastCalledWith(reference)
     expect(fetcher).not.toHaveBeenCalled()
   })
+  it('refreshes immediately when a recently checked reference expires online', async () => {
+    vi.setSystemTime(new Date(2026, 9, 24, 23, 59, 59))
+    cache(reference, new Date().toISOString())
+    const newest = { ...reference, semanaInicio: '2026-10-18', semanaFim: '2026-10-24' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(newest)))
+    const updates = watch()
+    expect(updates).toHaveBeenLastCalledWith(reference)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(updates).toHaveBeenLastCalledWith(newest)
+  })
+  it('hides expired cache even while a background request is still pending', async () => {
+    vi.setSystemTime(new Date(2026, 9, 24, 23, 59, 59))
+    cache()
+    const fetcher = vi.fn((_url, init: RequestInit) => new Promise((_resolve, reject) =>
+      init.signal?.addEventListener('abort', () => reject(new Error('aborted')))))
+    vi.stubGlobal('fetch', fetcher)
+    const updates = watch()
+    expect(updates).toHaveBeenLastCalledWith(reference)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(updates).toHaveBeenLastCalledWith(null)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
   it.each(['', '{broken'])('handles absent configuration and malformed cache: %s', async (raw) => {
     localStorage.setItem(KEY, raw)
     vi.stubEnv('VITE_FUEL_PRICE_API_URL', '')

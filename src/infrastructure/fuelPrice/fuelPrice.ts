@@ -136,7 +136,10 @@ export function subscribeFuelPriceReference(
     clearTimeout(expiryTimer)
     const reference = cache && isRecentReference(cache.reference, new Date()) ? cache.reference : null
     onChange(reference)
-    if (reference) expiryTimer = setTimeout(publish, expiresAt(reference) - Date.now())
+    if (reference) expiryTimer = setTimeout(() => {
+      publish()
+      void refresh()
+    }, expiresAt(reference) - Date.now())
   }
 
   function schedule(delay: number) {

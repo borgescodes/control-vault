@@ -62,10 +62,30 @@ Review the entire branch with a fresh reviewer, fix important findings with
 TDD, then push a feature branch/open a PR and check CI. No merge, deployment,
 provider mutation, database deletion or clearing production site storage.
 
-Ruling: Cloudflare plugin search returned no plugin; effective production
-build variable is verified from the served bundle instead of changing provider
-configuration. Risk: preview/dashboard variable values remain unverified.
+Cloudflare became available during execution. The connected plugin confirmed
+the same API URL in production, preview and the active deployment (80ab6c1).
+No provider configuration change is needed. Preview builds are enabled for all
+branches, so the final pushed commit must start with `[CF-Pages-Skip]` to obey
+the user's no-deploy instruction while still allowing GitHub CI.
 
 Task 1: RED 20/26 regressions failed on main; GREEN 27 focused tests, full suite 363/363, build and diff check passed. Public provider configuration unchanged.
 
 Task 2: RED 3/4 real FuelView/lookup/IndexedDB integration tests failed before wiring; GREEN 61 focused tests, full suite 367/367, build and diff check passed. Saves before price recovery remain unchanged; new priced saves store 20 / 7.053 = 2.836 L.
+
+Final review: fresh Astra/medium reviewer found one P2 expiry/recheck gap.
+Fixed with `refreshes immediately when a recently checked reference expires
+online` RED→GREEN; pending-request expiry also covered. Full suite 369/369,
+normal build and build with real API URL plus dummy public Supabase settings
+passed. The configured build retains the full app; the default unconfigured
+build folds away code after the existing missing-Supabase guard.
+
+Ruling: current-period survey end dates may be later than today, as permitted
+by the existing weekly-cache specification. Reject future start dates instead
+of rejecting an otherwise valid current week. Cost if wrong: accepting a
+survey before its week has ended; the survey interval remains visible.
+
+Task 3: localhost FuelView displayed the live ANP reference and enabled Save
+for R$20 without writing records; production PWA also displayed the same week
+after applying its already-published update. HTTP history and distinct aditivada
+responses confirmed latest common-gasoline selection. Provider configuration
+verified read-only; final delivery uses a deployment-skipping commit.
