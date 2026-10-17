@@ -114,14 +114,12 @@ async function fetchReference(timeoutMs: number, controller = new AbortControlle
 // Action fallback only. Mounted views use the cancellable background subscription.
 export async function getFuelPriceReference(
   now: Date,
-  onRefresh?: (reference: FuelPriceReference) => void,
 ): Promise<FuelPriceReference | null> {
   const cached = readCache()
   if (cached && isRecentReference(cached.reference, now)) return cached.reference
   const fresh = await fetchReference(REQUEST_TIMEOUT_MS)
   if (!fresh || !isRecentReference(fresh, now)) return null
   saveReference(fresh, now)
-  onRefresh?.(fresh)
   return fresh
 }
 

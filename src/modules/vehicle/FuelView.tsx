@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
-  getFuelPriceReference,
+  subscribeFuelPriceReference,
   type FuelPriceReference,
 } from '../../infrastructure/fuelPrice/fuelPrice'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
@@ -77,22 +77,7 @@ export default function FuelView({
   useEffect(() => {
     if (editing) return
 
-    let active = true
-    const applyRefresh = (reference: FuelPriceReference) => {
-      if (active) setPriceReference(reference)
-    }
-
-    void getFuelPriceReference(new Date(), applyRefresh)
-      .then((reference) => {
-        if (active && reference) {
-          setPriceReference((current) => current ?? reference)
-        }
-      })
-      .catch(() => undefined)
-
-    return () => {
-      active = false
-    }
+    return subscribeFuelPriceReference(setPriceReference)
   }, [editing])
 
   const odometerKm = parseOdometerKm(odometerDigits)

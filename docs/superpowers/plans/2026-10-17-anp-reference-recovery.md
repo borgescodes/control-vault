@@ -67,3 +67,5 @@ build variable is verified from the served bundle instead of changing provider
 configuration. Risk: preview/dashboard variable values remain unverified.
 
 Task 1: RED 20/26 regressions failed on main; GREEN 27 focused tests, full suite 363/363, build and diff check passed. Public provider configuration unchanged.
+
+Task 2: RED 3/4 real FuelView/lookup/IndexedDB integration tests failed before wiring; GREEN 61 focused tests, full suite 367/367, build and diff check passed. Saves before price recovery remain unchanged; new priced saves store 20 / 7.053 = 2.836 L.

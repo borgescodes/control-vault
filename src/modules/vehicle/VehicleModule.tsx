@@ -14,7 +14,7 @@ import type {
   LocalVehicleState,
 } from '../../infrastructure/local/db'
 import {
-  getFuelPriceReference,
+  subscribeFuelPriceReference,
   type FuelPriceReference,
 } from '../../infrastructure/fuelPrice/fuelPrice'
 import {
@@ -109,20 +109,7 @@ export default function VehicleModule() {
   useEffect(() => {
     if (!vehicleReady || !isTripView(view)) return
 
-    let active = true
-    const applyRefresh = (reference: FuelPriceReference) => {
-      if (active) setTripPriceReference(reference)
-    }
-
-    void getFuelPriceReference(new Date(), applyRefresh)
-      .then((reference) => {
-        if (active) setTripPriceReference(reference)
-      })
-      .catch(() => undefined)
-
-    return () => {
-      active = false
-    }
+    return subscribeFuelPriceReference(setTripPriceReference)
   }, [vehicleReady, view])
 
   useEffect(() => {
