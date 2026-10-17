@@ -29,7 +29,7 @@ const storeStub = vi.hoisted(() => ({
   subscribeToLocalChanges: vi.fn((_listener: () => void) => () => undefined),
 }))
 const priceStub = vi.hoisted(() => ({
-  getFuelPriceReference: vi.fn(),
+  subscribeFuelPriceReference: vi.fn(),
 }))
 const priceReference = {
   uf: 'PA',
@@ -196,8 +196,11 @@ describe('vehicle views', () => {
     storeStub.listOdometerReadings.mockReset()
     storeStub.listAllSavedTrips.mockReset()
     storeStub.listAllSavedTrips.mockResolvedValue([])
-    priceStub.getFuelPriceReference.mockReset()
-    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
+    priceStub.subscribeFuelPriceReference.mockReset()
+    priceStub.subscribeFuelPriceReference.mockImplementation((onChange) => {
+      onChange(priceReference)
+      return () => undefined
+    })
   })
 
   afterEach(() => {
@@ -392,7 +395,10 @@ describe('vehicle views', () => {
   })
 
   it('keeps the R$ 99,99 mask and allows saving without a price reference', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
+    priceStub.subscribeFuelPriceReference.mockImplementationOnce((onChange) => {
+      onChange(null)
+      return () => undefined
+    })
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -464,13 +470,11 @@ describe('vehicle views', () => {
       let publishRefresh:
         | ((reference: typeof priceReference) => void)
         | undefined
-      priceStub.getFuelPriceReference.mockImplementationOnce(
-        async (
-          _now: Date,
-          onRefresh?: (reference: typeof priceReference) => void,
-        ) => {
-          publishRefresh = onRefresh
-          return priceReference
+      priceStub.subscribeFuelPriceReference.mockImplementationOnce(
+        (onChange: (reference: typeof priceReference | null) => void) => {
+          publishRefresh = onChange
+          onChange(priceReference)
+          return () => undefined
         },
       )
       const container = document.createElement('div')
@@ -924,7 +928,7 @@ describe('fuel correction and analytics UI', () => {
     document.body.append(container)
     const root = createRoot(container)
     const onSaved = vi.fn()
-    priceStub.getFuelPriceReference.mockClear()
+    priceStub.subscribeFuelPriceReference.mockClear()
     actionStub.updateFuelEntry.mockResolvedValueOnce({ kind: 'saved' })
 
     await act(async () => {
@@ -941,7 +945,7 @@ describe('fuel correction and analytics UI', () => {
     })
 
     expect(container.textContent).toContain('Corrigir abastecimento')
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
+    expect(priceStub.subscribeFuelPriceReference).not.toHaveBeenCalled()
     expect((container.querySelector('input[name="odometer"]') as HTMLInputElement).value)
       .toContain('1120')
     expect((container.querySelector('input[name="amount"]') as HTMLInputElement).value)
@@ -1189,7 +1193,10 @@ describe('fuel correction and analytics UI', () => {
   })
 
   it('keeps fuel reference collapsed until requested', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(priceReference)
+    priceStub.subscribeFuelPriceReference.mockImplementationOnce((onChange) => {
+      onChange(priceReference)
+      return () => undefined
+    })
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
