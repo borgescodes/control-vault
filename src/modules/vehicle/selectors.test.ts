@@ -102,7 +102,7 @@ describe('getVehicleDashboard', () => {
     expect(dashboard.odometerKm).toBe(12_612.8)
     expect(dashboard.consumptionKmPerLiter).toBeCloseTo(36.7218, 4)
     expect(dashboard.rangeKm).toBeCloseTo(76.2888, 3)
-    expect(dashboard.calibrationCycleCount).toBe(1)
+    expect(dashboard.calibrationCycleCount).toBe(0)
     expect(dashboard.fuelPercent).toBeCloseTo(76.9437, 3)
     expect(entries).toEqual(original)
     const september = getVehicleDashboard(currentState, readings, entries, new Date('2026-09-30T20:00:00Z'))
@@ -233,7 +233,7 @@ describe('getVehicleDashboard', () => {
     })
   })
 
-  it('reports estimated consumption after one complete cycle', () => {
+  it('labels historical consumption provisional until pump cycles exist', () => {
     const dashboard = getVehicleDashboard(
       state,
       [reading('current', 1_120, '2026-09-20T10:00:00.000Z')],
@@ -242,10 +242,10 @@ describe('getVehicleDashboard', () => {
     )
 
     expect(dashboard.consumptionKmPerLiter).toBe(40)
-    expect(dashboard.calibrationState).toBe('estimated')
+    expect(dashboard.calibrationState).toBe('calibrating')
   })
 
-  it('reports calibrated after three stable cycles', () => {
+  it('does not certify three ANP-estimated cycles as new calibration', () => {
     const dashboard = getVehicleDashboard(
       state,
       [reading('current', 1_360, '2026-09-20T10:00:00.000Z')],
@@ -257,7 +257,7 @@ describe('getVehicleDashboard', () => {
       now,
     )
 
-    expect(dashboard.calibrationState).toBe('calibrated')
+    expect(dashboard.calibrationState).toBe('calibrating')
     expect(dashboard.consumptionKmPerLiter).toBe(40)
   })
 
@@ -477,7 +477,7 @@ describe('initial full-tank calibration state', () => {
       now,
     )
 
-    expect(dashboard.calibrationCycleCount).toBe(2)
+    expect(dashboard.calibrationCycleCount).toBe(0)
   })
 })
 
@@ -655,7 +655,7 @@ describe('derived operating analytics', () => {
       analyticsNow,
     )
 
-    expect(recent.rangeConfidence).toBe('high')
-    expect(stale.rangeConfidence).toBe('medium')
+    expect(recent.rangeConfidence).toBe('low')
+    expect(stale.rangeConfidence).toBe('low')
   })
 })
