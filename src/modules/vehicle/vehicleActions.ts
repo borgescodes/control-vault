@@ -332,7 +332,7 @@ export async function updateFuelEntry(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
-  const liters = input.liters ?? existing.liters ?? null
+  const liters = input.liters === undefined ? existing.liters ?? null : input.liters
   if (liters !== null) {
     const state = await getVehicleState()
     if (!state || !Number.isFinite(liters) || liters <= 0 ||
