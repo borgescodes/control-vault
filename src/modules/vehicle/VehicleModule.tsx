@@ -322,8 +322,20 @@ export default function VehicleModule() {
   }
 
   if (view === 'odometer-edit' && !selectedOdometerReading) {
-    replaceTo('history')
-    return null
+    return (
+      <>
+        <section className="vehicle-view" data-view-root="true" tabIndex={-1}>
+          <header className="view-header">
+            <button aria-label="Voltar" className="view-back" onClick={() => replaceTo('history')} type="button">
+              <VehicleIcon name="back" />
+            </button>
+            <div><h2>Hodômetro indisponível</h2></div>
+          </header>
+          <p className="history-empty">Este registro não está disponível para correção.</p>
+        </section>
+        {navigation}
+      </>
+    )
   }
 
   if (view === 'odometer' || view === 'odometer-edit') {
