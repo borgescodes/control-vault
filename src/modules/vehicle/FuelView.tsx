@@ -1,9 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 
-import {
-  subscribeFuelPriceReference,
-  type FuelPriceReference,
-} from '../../infrastructure/fuelPrice/fuelPrice'
 import VehicleIcon from '../../shared/ui/VehicleIcon'
 import {
   formatMoneyInput,
@@ -15,18 +11,10 @@ import {
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
-import {
-  getMaxFuelAmountCents,
-  MAX_FUEL_INPUT_CENTS,
-} from './domain/config'
+import { MAX_FUEL_INPUT_CENTS } from './domain/config'
 import type { FuelEntry } from './domain/types'
 import SuspiciousOdometerDialog from './SuspiciousOdometerDialog'
-import {
-  recordFuel,
-  updateFuelEntry,
-  type FuelEditInput,
-  type FuelInput,
-} from './vehicleActions'
+import { recordFuel, updateFuelEntry, type FuelEditInput, type FuelInput } from './vehicleActions'
 
 type FuelViewProps = {
   currentOdometerKm: number
@@ -35,101 +23,68 @@ type FuelViewProps = {
   tankCapacityLiters: number
   entry?: FuelEntry
 }
-
 type PendingFuel = {
   input: FuelInput | FuelEditInput
   deltaKm: number
 }
+const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 function toDateTimeLocal(value: string): string {
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return ''
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 16)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString().slice(0, 16)
+}
+function parseLiters(value: string): number {
+  if (!/^\d{1,2}(?:[,.]\d{1,3})?$/.test(value)) return 0
+  return Number(value.replace(',', '.'))
 }
 
 export default function FuelView({
-  currentOdometerKm,
-  onBack,
-  onSaved,
-  tankCapacityLiters,
-  entry,
+  currentOdometerKm, onBack, onSaved, tankCapacityLiters, entry,
 }: FuelViewProps) {
   const editing = entry !== undefined
   const [odometerDigits, setOdometerDigits] = useState(() =>
-    odometerDigitsFromKm(entry?.odometerKm ?? currentOdometerKm),
-  )
+    odometerDigitsFromKm(entry?.odometerKm ?? currentOdometerKm))
   const [amountDigits, setAmountDigits] = useState(() =>
-    entry ? String(entry.amountCents) : '',
-  )
+    entry ? String(entry.amountCents) : '')
+  const [litersText, setLitersText] = useState(() =>
+    entry?.liters ? String(entry.liters).replace('.', ',') : '')
   const [fullTank, setFullTank] = useState(entry?.fullTank ?? false)
   const [fueledAtLocal, setFueledAtLocal] = useState(() =>
-    entry ? toDateTimeLocal(entry.fueledAt) : '',
-  )
+    entry ? toDateTimeLocal(entry.fueledAt) : '')
   const [pending, setPending] = useState<PendingFuel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const saving = useRef(false)
-  const [priceReference, setPriceReference] =
-    useState<FuelPriceReference | null>(null)
-  const [referenceExpanded, setReferenceExpanded] = useState(false)
-
-  useEffect(() => {
-    if (editing) return
-
-    return subscribeFuelPriceReference(setPriceReference)
-  }, [editing])
-
   const odometerKm = parseOdometerKm(odometerDigits)
   const amountCents = parseMoneyCents(amountDigits)
-  const maxAmountCents =
-    editing || priceReference === null
-      ? null
-      : getMaxFuelAmountCents(
-          priceReference.precoMaximo,
-          tankCapacityLiters,
-        )
-  const odometerValid =
-    odometerDigits.length > 0 &&
-    odometerKm >= 0 &&
+  const liters = parseLiters(litersText)
+  const odometerValid = odometerDigits.length > 0 && odometerKm >= 0 &&
     (editing || odometerKm >= currentOdometerKm)
-  const amountValid =
-    amountCents > 0 &&
-    amountCents <= MAX_FUEL_INPUT_CENTS &&
-    (maxAmountCents === null || amountCents <= maxAmountCents)
-  const odometerInvalid =
-    odometerDigits.length > 0 && !odometerValid
-  const amountInvalid = amountDigits.length > 0 && !amountValid
+  const amountValid = amountCents > 0 && amountCents <= MAX_FUEL_INPUT_CENTS
+  const litersValid = (editing && litersText.trim() === '') ||
+    (liters > 0 && liters <= tankCapacityLiters)
+  const canSave = odometerValid && amountValid && litersValid &&
+    (editing || liters > 0)
 
-  async function save(
-    input: FuelInput | FuelEditInput,
-    confirmSuspicious = false,
-  ) {
+  async function save(input: FuelInput | FuelEditInput, confirmSuspicious = false) {
     if (saving.current) return
     saving.current = true
     setError(null)
     setSubmitting(true)
-
     try {
       const result = entry
-        ? await updateFuelEntry(
-            entry,
-            input as FuelEditInput,
-            new Date().toISOString(),
-            confirmSuspicious,
-          )
+        ? await updateFuelEntry(entry, input as FuelEditInput, new Date().toISOString(), confirmSuspicious)
         : await recordFuel(input as FuelInput, confirmSuspicious)
-
       if (result.kind === 'requires_confirmation') {
         setPending({ input, deltaKm: result.deltaKm })
         return
       }
-
       if (result.kind === 'invalid') {
         setError(result.reason)
         return
       }
-
       setPending(null)
       await onSaved()
     } catch (cause) {
@@ -139,72 +94,37 @@ export default function FuelView({
       setSubmitting(false)
     }
   }
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!odometerValid || !amountValid) return
-
+    if (!canSave) return
     if (entry) {
-      const fueledAt = new Date(fueledAtLocal)
-      if (!fueledAtLocal || !Number.isFinite(fueledAt.getTime())) {
+      const at = new Date(fueledAtLocal)
+      if (!fueledAtLocal || !Number.isFinite(at.getTime())) {
         setError('Data inválida')
         return
       }
-      void save({
-        odometerKm,
-        amountCents,
-        fullTank,
-        fueledAt: fueledAt.toISOString(),
-      })
-      return
+      void save({ odometerKm, amountCents, liters: litersText ? liters : null,
+        fullTank, fueledAt: at.toISOString() })
+    } else {
+      void save({ odometerKm, amountCents, liters, fullTank,
+        fueledAt: new Date().toISOString() })
     }
-
-    void save({
-      odometerKm,
-      amountCents,
-      fullTank,
-      fueledAt: new Date().toISOString(),
-      priceReference,
-    })
   }
 
   return (
-    <section
-      aria-labelledby="fuel-title"
-      className="vehicle-view"
-      data-view-root="true"
-      tabIndex={-1}
-    >
+    <section aria-labelledby="fuel-title" className="vehicle-view" data-view-root="true" tabIndex={-1}>
       <header className="view-header">
-        <button
-          aria-label="Voltar"
-          className="view-back"
-          onClick={onBack}
-          type="button"
-        >
+        <button aria-label="Voltar" className="view-back" onClick={onBack} type="button">
           <VehicleIcon name="back" />
         </button>
-        <div>
-          <h2 id="fuel-title">
-            {editing ? 'Corrigir abastecimento' : 'Abastecer'}
-          </h2>
-        </div>
+        <div><h2 id="fuel-title">{editing ? 'Corrigir abastecimento' : 'Abastecer'}</h2></div>
       </header>
-
       <form className="vehicle-form" onSubmit={handleSubmit}>
         <label>
           Hodômetro
-          <input
-            aria-describedby={odometerInvalid ? 'fuel-odometer-hint' : undefined}
-            aria-invalid={odometerInvalid}
-            autoComplete="off"
-            inputMode="numeric"
-            name="odometer"
-            onChange={(event) =>
-              setOdometerDigits((current) =>
-                limitOdometerDigits(current, event.target.value),
-              )
-            }
+          <input autoComplete="off" inputMode="numeric" name="odometer"
+            aria-invalid={!odometerValid && odometerDigits.length > 0}
+            onChange={(event) => setOdometerDigits((value) => limitOdometerDigits(value, event.target.value))}
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
@@ -212,154 +132,68 @@ export default function FuelView({
                 setOdometerDigits((value) => value.slice(0, -1))
               }
             }}
-            required
-            type="text"
-            value={formatOdometerInput(odometerDigits)}
-          />
-          {odometerInvalid && !editing && (
-            <small className="field-error" id="fuel-odometer-hint">
-              Mínimo {formatOdometerValue(currentOdometerKm)} km
-            </small>
-          )}
-          {odometerInvalid && editing && (
-            <small className="field-error" id="fuel-odometer-hint">
-              Informe um hodômetro válido.
-            </small>
+            required type="text" value={formatOdometerInput(odometerDigits)} />
+          {!odometerValid && !editing && (
+            <small className="field-error">Mínimo {formatOdometerValue(currentOdometerKm)} km</small>
           )}
         </label>
-
         <label>
           Valor
-          <input
-            aria-describedby={
-              referenceExpanded && maxAmountCents !== null
-                ? 'fuel-amount-hint'
-                : undefined
-            }
-            aria-invalid={amountInvalid}
-            autoComplete="off"
-            inputMode="numeric"
-            name="amount"
-            onChange={(event) =>
-              setAmountDigits((current) =>
-                limitMoneyDigits(current, event.target.value),
-              )
-            }
+          <input autoComplete="off" inputMode="numeric" name="amount"
+            aria-invalid={amountDigits.length > 0 && !amountValid}
+            onChange={(event) => setAmountDigits((value) => limitMoneyDigits(value, event.target.value))}
             onKeyDown={(event) => {
               if (event.key === 'Backspace') {
                 event.preventDefault()
                 setAmountDigits((value) => value.slice(0, -1))
               }
             }}
-            placeholder="R$ 0,00"
-            required
-            type="text"
-            value={formatMoneyInput(amountDigits)}
-          />
-          {!editing && priceReference !== null && maxAmountCents !== null && (
-            <div className="fuel-reference">
-              <button
-                aria-expanded={referenceExpanded}
-                className="fuel-reference__toggle"
-                onClick={() => setReferenceExpanded((expanded) => !expanded)}
-                type="button"
-              >
-                <span>Referência</span>
-                <VehicleIcon
-                  name={referenceExpanded ? 'chevron-down' : 'chevron-right'}
-                />
-              </button>
-              {referenceExpanded && (
-                <small
-                  aria-label="Limite estimado para este abastecimento"
-                  className="field-limit fuel-reference__details"
-                  id="fuel-amount-hint"
-                >
-                  <span>
-                    Preço de referência:{' '}
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(priceReference.precoMedio)}/L
-                  </span>
-                  <span>
-                    ANP · Paragominas · {priceReference.semanaInicio} a{' '}
-                    {priceReference.semanaFim}
-                  </span>
-                  <span>
-                    Máximo estimado: ≤{' '}
-                    {formatMoneyInput(String(maxAmountCents)).replace(
-                      /\u00a0/g,
-                      ' ',
-                    )}
-                  </span>
-                </small>
-              )}
-            </div>
-          )}
-          {!editing && priceReference === null && (
+            placeholder="R$ 0,00" required type="text" value={formatMoneyInput(amountDigits)} />
+        </label>
+        <label>
+          Litros
+          <input autoComplete="off" inputMode="decimal" name="liters"
+            aria-invalid={litersText.length > 0 && !litersValid}
+            onChange={(event) => {
+              const next = event.target.value.replace('.', ',')
+              if (/^\d{0,2}(?:,\d{0,3})?$/.test(next)) setLitersText(next)
+            }}
+            placeholder="0,000 L" required={!editing} type="text" value={litersText} />
+          {editing && entry?.liters == null && entry?.estimatedLiters != null && (
             <small className="field-hint">
-              Preço de referência indisponível · registro sem estimativa de volume
+              Estimativa antiga: ≈ {entry.estimatedLiters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L.
+              Informe os litros somente se tiver o valor da bomba.
             </small>
           )}
-          {editing && entry.referencePricePerLiter !== null && (
-            <small className="field-hint">
-              Volume estimado recalculado com o preço salvo de{' '}
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              }).format(entry.referencePricePerLiter)}/L.
-            </small>
+          {litersText && !litersValid && (
+            <small className="field-error">Máximo {tankCapacityLiters.toLocaleString('pt-BR')} L</small>
+          )}
+          {amountValid && liters > 0 && litersValid && (
+            <small className="field-hint">Preço por litro: {currency.format(amountCents / 100 / liters)}/L</small>
           )}
         </label>
-
         {editing && (
           <label>
             Data e hora
-            <input
-              name="fueledAt"
-              onChange={(event) => setFueledAtLocal(event.target.value)}
-              required
-              type="datetime-local"
-              value={fueledAtLocal}
-            />
+            <input name="fueledAt" onChange={(event) => setFueledAtLocal(event.target.value)}
+              required type="datetime-local" value={fueledAtLocal} />
           </label>
         )}
-
         <label className="vehicle-toggle">
-          <input
-            checked={fullTank}
-            onChange={(event) => setFullTank(event.target.checked)}
-            type="checkbox"
-          />
+          <input checked={fullTank} onChange={(event) => setFullTank(event.target.checked)}
+            type="checkbox" />
           <span>Completei o tanque</span>
         </label>
-
         {error && <p className="vehicle-alert" role="alert">{error}</p>}
-
-        <button
-          aria-busy={submitting}
-          className="button-primary button-with-icon vehicle-form__submit"
-          disabled={submitting || !odometerValid || !amountValid}
-          type="submit"
-        >
+        <button aria-busy={submitting} className="button-primary button-with-icon vehicle-form__submit"
+          disabled={submitting || !canSave} type="submit">
           <VehicleIcon name="fuel" />
-          {submitting
-            ? 'Salvando…'
-            : editing
-              ? 'Salvar correção'
-              : 'Salvar abastecimento'}
+          {submitting ? 'Salvando…' : editing ? 'Salvar correção' : 'Salvar abastecimento'}
         </button>
       </form>
-
-      {pending && (
-        <SuspiciousOdometerDialog
-          deltaKm={pending.deltaKm}
-          onCancel={() => setPending(null)}
-          onConfirm={() => void save(pending.input, true)}
-          submitting={submitting}
-        />
-      )}
+      {pending && <SuspiciousOdometerDialog deltaKm={pending.deltaKm}
+        onCancel={() => setPending(null)} onConfirm={() => void save(pending.input, true)}
+        submitting={submitting} />}
     </section>
   )
 }
