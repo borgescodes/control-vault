@@ -16,7 +16,7 @@ Control Vault is a personal, local-first app. The vehicle module records odomete
 
 ## Measured pump liters and historical calibration
 
-The tank capacity is **3.0 L**. A fuel entry records amount in integer cents and confirmed liters (up to three decimal places). New registrations work without network access. Price per liter and trip costs are derived from recorded fills.
+The nominal tank capacity is **3.0 L** and remains the basis of fuel-level and range estimates. To accommodate minor pump measurement differences, the fuel input accepts up to **3.5 L** per refueling; the extra 0.5 L is an input tolerance only, not an increase in modeled tank capacity. A fuel entry records amount in integer cents and confirmed liters (up to three decimal places). New registrations work without network access. Price per liter and trip costs are derived from recorded fills.
 
 The historical ANP-derived `estimated_liters` and reference-week fields remain intact for historical viewing and provisional range during the transition. The existing `fuel_entries.liters` column represents only verified readings from the pump; legacy unknown volumes remain null, never silently converted to measurements.
 
