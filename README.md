@@ -2,31 +2,27 @@
 
 <img src="public/logo.png" alt="Control Vault" width="96" height="96" />
 
-Control Vault is a personal, local-first app. The vehicle module records odometer readings and fuel spending, estimates fuel quantity from a weekly municipal gasoline reference, learns approximate consumption, and estimates remaining range.
+Control Vault is a personal, local-first app. The vehicle module records odometer readings and fuel spending, records measured pump liters, learns consumption from complete measured cycles, and estimates remaining range.
 
 ## Vehicle MVP
 
 - One vehicle and one personal authenticated account.
 - Setup requires the current odometer; a full tank is optional.
-- Fuel recording requires odometer, amount paid, and whether the tank ended full.
-- Liters are estimated from the weekly average price for `PA / PARAGOMINAS / GASOLINA COMUM`; there is no manual liters field.
+- Fuel recording requires odometer, amount paid, liters reported by the pump, and whether the tank ended full.
+- Liters are entered from the pump. The paid price per liter is derived locally from amount / measured liters; no public pricing service is needed.
 - Fuel spending, approximate consumption, estimated fuel and conservative operational range, and history.
 - IndexedDB is the operational store; Supabase provides authenticated remote continuity.
 - No public sign-up, vehicle registration, maintenance, taxes, insurance, financing, OCR, GPS, or predictive AI.
 
-## Fuel price reference
+## Measured pump liters and historical calibration
 
-The browser reads a public weekly fuel-price API configured with:
+The tank capacity is **3.0 L**. A fuel entry records amount in integer cents and confirmed liters (up to three decimal places). New registrations work without network access. Price per liter and trip costs are derived from recorded fills.
 
-```env
-VITE_FUEL_PRICE_API_URL=
-```
+The historical ANP-derived `estimated_liters` and reference-week fields remain intact for historical viewing and provisional range during the transition. The existing `fuel_entries.liters` column represents only verified readings from the pump; legacy unknown volumes remain null, never silently converted to measurements.
 
-The response is cached locally using the source week interval (`semanaInicio` through `semanaFim`). The cache is disposable browser state and is not synchronized to Supabase.
+New consumption calibration starts at the first measured full-tank entry and uses only complete full-to-full intervals with every intervening fill measured. Once there is at least one complete measured cycle, historical ANP estimates no longer influence learned consumption. Until then, previous consumption/range is provisional and labeled low confidence.
 
-Each fuel entry stores the exact reference snapshot used for its estimate. If no usable reference is available, the expense and odometer are still saved with unknown estimated liters. A later full-tank entry can re-establish a reliable range anchor.
-
-Range and consumption are approximate. The operational range shown in the UI applies a conservative display margin without modifying learned consumption or the internal nominal fuel ledger.
+Manual odometer readings can be corrected in History and optionally flagged when the tank was observed empty. An empty observation is an anchor for subsequent fuel balance, not a claim of sensor precision. Range remains an estimate based on consumption between recorded events.
 
 ## Offline-first
 
@@ -52,7 +48,7 @@ Navigation uses native browser history at `/`, `/abastecer`, `/hodometro` and `/
 
 For the reproducible browser check, build and serve the production bundle on `127.0.0.1:5176`, then run `node tests/browser-reliability.cjs` with Playwright available (`PLAYWRIGHT_MODULE` may point to the bundled installation). It uses real browser storage and service workers with isolated Auth/Data API fixtures; it never writes test records to the personal Supabase project. See `docs/reports/2026-10-01-technical-review.md` for evidence and live-device limitations.
 
-With a cached weekly fuel reference, offline fuel entries can still receive an estimated quantity. Without a cached reference, the local record still succeeds and synchronizes later with null estimation fields.
+Offline refueling records include the liters explicitly entered from the pump. Historical reference estimates remain readable after synchronization.
 
 ## Stack
 
@@ -70,12 +66,11 @@ Copy `.env.example` to `.env.local` and set:
 ```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_FUEL_PRICE_API_URL=
 ```
 
 Only the Supabase publishable key belongs in the browser. Never commit `.env.local` or privileged credentials.
 
-If the fuel-price API URL is absent or unavailable, fuel recording continues without a price-derived quantity.
+Fuel recording never depends on an external price API.
 
 ## Tests
 
@@ -99,13 +94,13 @@ Production: https://control-vault.pages.dev
 - Production branch: `main`
 - Build command: `npm run build`
 - Output directory: `dist`
-- Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_FUEL_PRICE_API_URL`
+- Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
 
 ## Scope
 
 The MVP supports one personal account and one vehicle. It excludes public
 signup, profiles, roles, collaboration, multiple vehicles, maintenance, taxes,
-financing, insurance, general finance, manual liters entry, configurable fuel market, OCR/camera, GPS and predictive AI.
+financing, insurance, general finance, configurable fuel market, OCR/camera, GPS and predictive AI.
 
 ## Project decisions
 
