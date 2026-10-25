@@ -120,6 +120,7 @@ describe('vehicle views', () => {
     const onSaved = vi.fn()
     await act(async () => root.render(<FuelView currentOdometerKm={1_000} onBack={() => undefined} onSaved={onSaved} tankCapacityLiters={3} />))
     await act(async () => setInputValue(container.querySelector('input[name="amount"]') as HTMLInputElement, '1000'))
+    await act(async () => setInputValue(container.querySelector('input[name="liters"]') as HTMLInputElement, '1,000'))
     await act(async () => {
       const form = container.querySelector('form')!
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -156,6 +157,7 @@ describe('vehicle views', () => {
       await Promise.resolve()
     })
 
+    await act(async () => setInputValue(container.querySelector('input[name="liters"]') as HTMLInputElement, '2,500'))
     await act(async () => {
       container.querySelector('form')?.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
@@ -286,234 +288,52 @@ describe('vehicle views', () => {
     await act(async () => root.unmount())
   })
 
-  it('uses shifted cents for fuel amount and keeps liters out of the form', async () => {
+  it('requires pump liters and derives the paid price per liter', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
-
-    await act(async () => {
-      root.render(<FuelView currentOdometerKm={12_000} onBack={() => undefined} onSaved={() => undefined} tankCapacityLiters={3} />)
-    })
-
-    const odometer = container.querySelector(
-      'input[name="odometer"]',
-    ) as HTMLInputElement
-    const amount = container.querySelector(
-      'input[name="amount"]',
-    ) as HTMLInputElement
-    const form = container.querySelector('form') as HTMLFormElement
-
-    expect(amount.getAttribute('aria-describedby')).toBeNull()
-
-    await act(async () => {
-      setInputValue(odometer, '124830')
-      setInputValue(amount, '2570')
-      await Promise.resolve()
-    })
-
-    expect(odometer.value).toBe('12483.0')
-    expect(amount.value).toBe('R$ 25,70')
-
-    await act(async () => {
-      amount.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }),
-      )
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 2,57')
-
-    await act(async () => {
-      setInputValue(amount, `${amount.value}2`)
-      await Promise.resolve()
-    })
-
-    expect(amount.value).toBe('R$ 25,72')
-    expect(container.textContent).not.toContain('Litros')
-
-    await act(async () => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-      await Promise.resolve()
-    })
-
-    expect(actionStub.recordFuel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        odometerKm: 12_483,
-        amountCents: 2_572,
-      }),
-      false,
-    )
-
-    await act(async () => {
-      Array.from(container.querySelectorAll('button'))
-        .find((button) => button.textContent?.includes('Referência'))
-        ?.click()
-    })
-
-    expect(container.textContent?.replace(/\u00a0/g, ' ')).toContain('Preço de referência: R$ 7,05/L')
-    expect(container.textContent).toContain('Máximo estimado')
-    expect(container.textContent).toContain('≤ R$ 28,88')
-
-    const submit = container.querySelector(
-      'button[type="submit"]',
-    ) as HTMLButtonElement
-
-    await act(async () => {
-      setInputValue(amount, '2888')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 28,88')
+    await act(async () => root.render(
+      <FuelView currentOdometerKm={12_000} onBack={() => undefined}
+        onSaved={() => undefined} tankCapacityLiters={3} />,
+    ))
+    const amount = container.querySelector('input[name="amount"]') as HTMLInputElement
+    const liters = container.querySelector('input[name="liters"]') as HTMLInputElement
+    const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement
+    await act(async () => setInputValue(amount, '700'))
+    expect(submit.disabled).toBe(true)
+    await act(async () => setInputValue(liters, '0,910'))
     expect(submit.disabled).toBe(false)
-
+    expect(container.textContent?.replace(/\u00a0/g, ' ')).toContain('R$ 7,69/L')
     await act(async () => {
-      setInputValue(amount, '2889')
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }))
       await Promise.resolve()
     })
-    expect(amount.value).toBe('R$ 28,89')
-    expect(submit.disabled).toBe(true)
-
-    await act(async () => {
-      setInputValue(amount, '4545')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 45,45')
-    expect(submit.disabled).toBe(true)
-
-    await act(async () => {
-      setInputValue(amount, '9999')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 99,99')
-    expect(submit.disabled).toBe(true)
-
-    await act(async () => {
-      setInputValue(amount, '99990')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 99,99')
-
+    expect(actionStub.recordFuel).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 700, liters: 0.91 }), false)
     await act(async () => root.unmount())
   })
 
-  it('keeps the R$ 99,99 mask and allows saving without a price reference', async () => {
-    priceStub.subscribeFuelPriceReference.mockImplementationOnce((onChange) => {
-      onChange(null)
-      return () => undefined
-    })
+  it('uses the R$ 99,99 mask with a mandatory volume even offline', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
-
-    await act(async () => {
-      root.render(
-        <FuelView
-          currentOdometerKm={12_000}
-          onBack={() => undefined}
-          onSaved={() => undefined}
-          tankCapacityLiters={3}
-        />,
-      )
-    })
-
-    const amount = container.querySelector(
-      'input[name="amount"]',
-    ) as HTMLInputElement
-    const submit = container.querySelector(
-      'button[type="submit"]',
-    ) as HTMLButtonElement
-    const form = container.querySelector('form') as HTMLFormElement
-
-    await act(async () => {
-      setInputValue(amount, '9999')
-      await Promise.resolve()
-    })
-    expect(amount.value).toBe('R$ 99,99')
+    await act(async () => root.render(
+      <FuelView currentOdometerKm={12_000} onBack={() => undefined}
+        onSaved={() => undefined} tankCapacityLiters={3} />,
+    ))
+    const amount = container.querySelector('input[name="amount"]') as HTMLInputElement
+    const liters = container.querySelector('input[name="liters"]') as HTMLInputElement
+    const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement
+    await act(async () => setInputValue(amount, '9999'))
+    expect(amount.value).toContain('99,99')
+    expect(submit.disabled).toBe(true)
+    await act(async () => setInputValue(liters, '3,001'))
+    expect(submit.disabled).toBe(true)
+    await act(async () => setInputValue(liters, '3,000'))
     expect(submit.disabled).toBe(false)
-
-    await act(async () => {
-      setInputValue(amount, '99990')
-      form.dispatchEvent(
-        new Event('submit', { bubbles: true, cancelable: true }),
-      )
-      await Promise.resolve()
-    })
-
-    expect(amount.value).toBe('R$ 99,99')
-    expect(actionStub.recordFuel).toHaveBeenCalledWith(
-      expect.objectContaining({ amountCents: 9_999 }),
-      false,
-    )
-
     await act(async () => root.unmount())
   })
-
-  it.each([
-    {
-      refreshedMaximum: 7,
-      amountDigits: '2801',
-      expectedMaximum: '≤ R$ 28,00',
-      saveDisabled: true,
-    },
-    {
-      refreshedMaximum: 7.1,
-      amountDigits: '2821',
-      expectedMaximum: '≤ R$ 28,40',
-      saveDisabled: false,
-    },
-  ])(
-    'updates the open form after a background retail maximum refresh',
-    async ({
-      refreshedMaximum,
-      amountDigits,
-      expectedMaximum,
-      saveDisabled,
-    }) => {
-      let publishRefresh:
-        | ((reference: typeof priceReference) => void)
-        | undefined
-      priceStub.subscribeFuelPriceReference.mockImplementationOnce(
-        (onChange: (reference: typeof priceReference | null) => void) => {
-          publishRefresh = onChange
-          onChange(priceReference)
-          return () => undefined
-        },
-      )
-      const container = document.createElement('div')
-      document.body.append(container)
-      const root = createRoot(container)
-
-      await act(async () => {
-        root.render(
-          <FuelView
-            currentOdometerKm={12_000}
-            onBack={() => undefined}
-            onSaved={() => undefined}
-            tankCapacityLiters={3}
-          />,
-        )
-      })
-
-      const amount = container.querySelector(
-        'input[name="amount"]',
-      ) as HTMLInputElement
-      const submit = container.querySelector(
-        'button[type="submit"]',
-      ) as HTMLButtonElement
-
-      await act(async () => {
-        setInputValue(amount, amountDigits)
-        publishRefresh?.({ ...priceReference, precoMaximo: refreshedMaximum })
-        await Promise.resolve()
-        Array.from(container.querySelectorAll('button'))
-          .find((button) => button.textContent?.includes('Referência'))
-          ?.click()
-      })
-
-      expect(container.textContent).toContain(expectedMaximum)
-      expect(submit.disabled).toBe(saveDisabled)
-
-      await act(async () => root.unmount())
-    },
-  )
 
   it('enforces the current and technical odometer bounds in the form', async () => {
     const container = document.createElement('div')
@@ -860,6 +680,7 @@ describe('vehicle views', () => {
     ) as HTMLInputElement
     await act(async () => {
       setInputValue(amount, '2500')
+      setInputValue(container.querySelector('input[name="liters"]') as HTMLInputElement, '2,500')
       container.querySelector('form')?.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
       )
@@ -1192,51 +1013,13 @@ describe('fuel correction and analytics UI', () => {
     await act(async () => root.unmount())
   })
 
-  it('keeps fuel reference collapsed until requested', async () => {
-    priceStub.subscribeFuelPriceReference.mockImplementationOnce((onChange) => {
-      onChange(priceReference)
-      return () => undefined
-    })
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
-
-    await act(async () => {
-      root.render(
-        <FuelView
-          currentOdometerKm={12_888.8}
-          onBack={() => undefined}
-          onSaved={() => undefined}
-          tankCapacityLiters={3.5}
-        />,
-      )
-      await Promise.resolve()
-    })
-
-    const reference = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Referência'),
-    )
-    expect(reference).toBeDefined()
-    expect(reference?.getAttribute('aria-expanded')).toBe('false')
-    expect(
-      container.querySelector('input[name="amount"]')?.getAttribute(
-        'aria-describedby',
-      ),
-    ).toBeNull()
-    expect(container.textContent).not.toContain('ANP · Paragominas')
-
-    await act(async () => reference?.click())
-
-    expect(reference?.getAttribute('aria-expanded')).toBe('true')
-    expect(
-      container.querySelector('input[name="amount"]')?.getAttribute(
-        'aria-describedby',
-      ),
-    ).toBe('fuel-amount-hint')
-    expect(container.textContent).toContain('Preço de referência')
-    expect(container.textContent).toContain('ANP · Paragominas')
-    expect(container.textContent).toContain('Máximo estimado')
-    await act(async () => root.unmount())
+  it('renders measured volume input without ANP reference controls', async () => {
+    const markup = renderToStaticMarkup(<FuelView currentOdometerKm={12_888.8}
+      onBack={() => undefined} onSaved={() => undefined}
+      tankCapacityLiters={3} />)
+    expect(markup).toContain('name="liters"')
+    expect(markup).not.toContain('ANP')
+    expect(markup).not.toContain('Preço de referência')
   })
 
   it('does not allow saving the same odometer value', async () => {
