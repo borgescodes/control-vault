@@ -271,7 +271,7 @@ describe('vehicle actions', () => {
         syncStatus: 'pending',
       }),
     ])
-    expect(priceStub.getFuelPriceReference).toHaveBeenCalledOnce()
+    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('ignores the old reference snapshot even when supplied in legacy data', async () => {
