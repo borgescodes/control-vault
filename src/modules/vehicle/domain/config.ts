@@ -1,5 +1,11 @@
 export const DEFAULT_TANK_CAPACITY_LITERS = 3
 export const FUEL_AMOUNT_MARGIN_LITERS = 1
+/** Additional tolerance for pump-reported volume; not physical tank capacity. */
+export const FUEL_VOLUME_INPUT_MARGIN_LITERS = 0.5
+
+export function getMaxFuelInputLiters(nominalTankCapacityLiters: number): number {
+  return Math.round((nominalTankCapacityLiters + FUEL_VOLUME_INPUT_MARGIN_LITERS) * 1000) / 1000
+}
 export const RANGE_SAFETY_FACTOR = 0.9
 export const SUSPICIOUS_ODOMETER_DELTA_KM = 500
 export const MAX_ODOMETER_KM = 999_999
