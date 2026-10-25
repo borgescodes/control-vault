@@ -1,7 +1,7 @@
 import type { FuelEntry } from './types'
 
 export function effectiveFuelLiters(entry: FuelEntry): number | null {
-  return entry.liters ?? entry.estimatedLiters
+  return entry.liters ?? entry.estimatedLiters ?? null
 }
 
 export function latestMeasuredPricePerLiter(entries: FuelEntry[]): number | null {
@@ -114,7 +114,7 @@ export function buildConsumptionCycles(
  */
 export function buildMeasuredConsumptionCycles(fuelEntries: FuelEntry[]): ConsumptionCycle[] {
   const entries = [...fuelEntries]
-    .filter((entry) => entry.deletedAt === null)
+    .filter((entry) => entry.deletedAt == null)
     .sort((a, b) => a.fueledAt.localeCompare(b.fueledAt) || a.odometerKm - b.odometerKm)
   const cycles: ConsumptionCycle[] = []
   let start: FuelEntry | null = null
