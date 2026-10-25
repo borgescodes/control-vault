@@ -34,6 +34,7 @@ type RemoteOdometerReading = {
   reading_km: number
   recorded_at: string
   source: OdometerReading['source']
+  tank_empty?: boolean
   created_at: string
   updated_at: string
 }
@@ -55,6 +56,7 @@ type RemoteFuelEntry = {
   user_id: string
   odometer_km: number
   amount_cents: number
+  liters?: number | null
   estimated_liters: number | null
   reference_price_per_liter: number | null
   reference_week_start: string | null
@@ -94,6 +96,7 @@ function toRemoteOdometerReading(
     reading_km: record.record.readingKm,
     recorded_at: record.record.recordedAt,
     source: record.record.source,
+    tank_empty: record.record.tankEmpty ?? false,
     created_at: record.record.createdAt,
     updated_at: record.record.updatedAt,
   }
@@ -125,6 +128,7 @@ function toRemoteFuelEntry(
     user_id: userId,
     odometer_km: record.record.odometerKm,
     amount_cents: record.record.amountCents,
+    liters: record.record.liters ?? null,
     estimated_liters: record.record.estimatedLiters,
     reference_price_per_liter: record.record.referencePricePerLiter,
     reference_week_start: record.record.referenceWeekStart,
@@ -217,6 +221,7 @@ function fromRemoteOdometerReading(row: RemoteOdometerReading): OdometerReading 
     readingKm: Number(row.reading_km),
     recordedAt: row.recorded_at,
     source: row.source,
+    tankEmpty: row.tank_empty ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -244,6 +249,7 @@ function fromRemoteFuelEntry(row: RemoteFuelEntry): FuelEntry {
     id: row.id,
     odometerKm: Number(row.odometer_km),
     amountCents: Number(row.amount_cents),
+    liters: nullableNumber(row.liters ?? null),
     estimatedLiters: nullableNumber(row.estimated_liters),
     referencePricePerLiter: nullableNumber(row.reference_price_per_liter),
     referenceWeekStart: row.reference_week_start,
