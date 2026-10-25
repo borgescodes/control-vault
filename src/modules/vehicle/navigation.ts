@@ -3,6 +3,7 @@ export type VehicleView =
   | 'odometer'
   | 'fuel'
   | 'fuel-edit'
+  | 'odometer-edit'
   | 'history'
   | 'settings'
   | 'tank-capacity'
@@ -36,6 +37,10 @@ function pathForView(view: VehicleView, entityId?: string | null): string {
 
   const encoded = encodeURIComponent(entityId)
 
+  if (view === 'odometer-edit') {
+    return `/historico/hodometro/${encoded}/editar`
+  }
+
   if (view === 'fuel-edit') {
     return `/historico/abastecimentos/${encoded}/editar`
   }
@@ -59,6 +64,13 @@ export function currentFuelEntryId(): string | null {
   }
 }
 
+export function currentOdometerReadingId(): string | null {
+  if (typeof window === 'undefined') return null
+  const match = location.pathname.match(/^\/historico\/hodometro\/([^/]+)\/editar\/?$/)
+  if (!match) return null
+  try { return decodeURIComponent(match[1]) } catch { return null }
+}
+
 export function currentTripId(): string | null {
   if (typeof window === 'undefined') return null
   const match = location.pathname.match(/^\/percursos\/([^/]+)(?:\/editar)?\/?$/)
@@ -78,6 +90,9 @@ export function currentView(): VehicleView {
     if (path === location.pathname) return view as VehicleView
   }
 
+  if (/^\/historico\/hodometro\/[^/]+\/editar\/?$/.test(location.pathname)) {
+    return 'odometer-edit'
+  }
   if (/^\/historico\/abastecimentos\/[^/]+\/editar\/?$/.test(location.pathname)) {
     return 'fuel-edit'
   }
@@ -93,6 +108,7 @@ export function currentView(): VehicleView {
 
 function currentEntityId(view: VehicleView): string | null {
   if (view === 'fuel-edit') return currentFuelEntryId()
+  if (view === 'odometer-edit') return currentOdometerReadingId()
   if (view === 'trip-detail' || view === 'trip-edit') return currentTripId()
   return null
 }
