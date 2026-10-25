@@ -36,7 +36,7 @@ export function estimateFuelRemaining({
     ...(initialAnchor ? [{
       km: initialAnchor.odometerKm, at: initialAnchor.at, quantity: capacity,
     }] : []),
-    ...fuelEntries.filter((entry) => entry.deletedAt === null && entry.fullTank)
+    ...fuelEntries.filter((entry) => entry.deletedAt == null && entry.fullTank)
       .map((entry) => ({
         km: entry.odometerKm, at: entry.fueledAt, quantity: capacity,
       })),
@@ -44,8 +44,7 @@ export function estimateFuelRemaining({
       .map((reading) => ({
         km: reading.readingKm, at: reading.recordedAt, quantity: 0,
       })),
-  ].filter((anchor) => anchor.km <= currentOdometerKm)
-    .sort((a, b) => a.km - b.km || a.at.localeCompare(b.at))
+  ].sort((a, b) => a.km - b.km || a.at.localeCompare(b.at))
   const anchor = anchors.at(-1)
   if (!anchor) return null
   if (!Number.isFinite(currentOdometerKm) || currentOdometerKm < anchor.km) {
