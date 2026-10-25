@@ -54,7 +54,7 @@ export function estimateFuelRemaining({
   let remaining = anchor.quantity
   let previousKm = anchor.km
   const subsequent = fuelEntries
-    .filter((entry) => entry.deletedAt === null && !entry.fullTank &&
+    .filter((entry) => entry.deletedAt == null && !entry.fullTank &&
       entry.odometerKm <= currentOdometerKm &&
       (entry.odometerKm > anchor.km ||
         (entry.odometerKm === anchor.km && entry.fueledAt > anchor.at)))
