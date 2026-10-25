@@ -37,7 +37,7 @@ describe('pump measurements and editable odometer, local-first', () => {
     expect(fetcher).not.toHaveBeenCalled()
   })
 
-  it.each([0, -1, 3.001, Number.NaN, Number.POSITIVE_INFINITY])(
+  it.each([0, -1, 3.501, Number.NaN, Number.POSITIVE_INFINITY])(
     'rejects volume %s', async (liters) => {
       await initializeVehicle(1_000, true, at)
       expect(await recordFuel({
@@ -47,6 +47,38 @@ describe('pump measurements and editable odometer, local-first', () => {
       expect(await listFuelEntries()).toEqual([])
     },
   )
+
+  it.each([3.11, 3.5])(
+    'accepts %.2f L measured at the pump with a nominal 3 L tank',
+    async (liters) => {
+      await initializeVehicle(1_000, true, at)
+      const result = await recordFuel({
+        odometerKm: 1_020, amountCents: 2_191, liters,
+        fullTank: true, fueledAt: later,
+      })
+      expect(result).toEqual({ kind: 'saved' })
+      expect((await listFuelEntries())[0]).toMatchObject({
+        liters, estimatedLiters: null, fullTank: true, syncStatus: 'pending',
+      })
+      const { getVehicleState } = await import('../../infrastructure/local/store')
+      expect((await getVehicleState())?.nominalTankCapacityLiters).toBe(3)
+    },
+  )
+
+  it('allows correcting an existing measured fill from 3 to 3.11 L', async () => {
+    await initializeVehicle(1_000, true, at)
+    await recordFuel({ odometerKm: 1_020, amountCents: 2_191, liters: 3,
+      fullTank: true, fueledAt: later })
+    const existing = (await listFuelEntries())[0]
+    const result = await updateFuelEntry(existing, {
+      odometerKm: 1_020, amountCents: 2_191, liters: 3.11,
+      fullTank: true, fueledAt: later,
+    }, '2026-10-22T10:00:00Z')
+    expect(result).toEqual({ kind: 'saved' })
+    expect((await listFuelEntries())[0]).toMatchObject({
+      id: existing.id, liters: 3.11, estimatedLiters: null,
+    })
+  })
 
   it('corrects a legacy record without inventing a measured value', async () => {
     await initializeVehicle(1_000, true, at)
