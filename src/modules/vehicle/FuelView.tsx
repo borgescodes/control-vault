@@ -11,7 +11,7 @@ import {
   parseMoneyCents,
   parseOdometerKm,
 } from './inputFormatters'
-import { MAX_FUEL_INPUT_CENTS } from './domain/config'
+import { getMaxFuelInputLiters, MAX_FUEL_INPUT_CENTS } from './domain/config'
 import type { FuelEntry } from './domain/types'
 import SuspiciousOdometerDialog from './SuspiciousOdometerDialog'
 import { recordFuel, updateFuelEntry, type FuelEditInput, type FuelInput } from './vehicleActions'
@@ -60,11 +60,12 @@ export default function FuelView({
   const odometerKm = parseOdometerKm(odometerDigits)
   const amountCents = parseMoneyCents(amountDigits)
   const liters = parseLiters(litersText)
+  const maxFuelInputLiters = getMaxFuelInputLiters(tankCapacityLiters)
   const odometerValid = odometerDigits.length > 0 && odometerKm >= 0 &&
     (editing || odometerKm >= currentOdometerKm)
   const amountValid = amountCents > 0 && amountCents <= MAX_FUEL_INPUT_CENTS
   const litersValid = (editing && litersText.trim() === '') ||
-    (liters > 0 && liters <= tankCapacityLiters)
+    (liters > 0 && liters <= maxFuelInputLiters)
   const canSave = odometerValid && amountValid && litersValid &&
     (editing || liters > 0)
 
@@ -166,7 +167,7 @@ export default function FuelView({
             </small>
           )}
           {litersText && !litersValid && (
-            <small className="field-error">Máximo {tankCapacityLiters.toLocaleString('pt-BR')} L</small>
+            <small className="field-error">Máximo {maxFuelInputLiters.toLocaleString('pt-BR')} L</small>
           )}
           {amountValid && liters > 0 && litersValid && (
             <small className="field-hint">Preço por litro: {currency.format(amountCents / 100 / liters)}/L</small>

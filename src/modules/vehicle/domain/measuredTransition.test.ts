@@ -60,6 +60,23 @@ describe('measured pump transition without data loss', () => {
     expect(cycles[0].kmPerLiter).toBe(40)
   })
 
+  it('retains a 3.11 L pump measurement while limiting estimated tank balance to 3 L', () => {
+    const observedEmpty: OdometerReading = {
+      id: 'empty-at-pump', readingKm: 1_050, recordedAt: '2026-10-23T12:00:00Z',
+      source: 'manual', tankEmpty: true,
+      createdAt: '2026-10-23T12:00:00Z', updatedAt: '2026-10-23T12:00:00Z',
+    }
+    const measured = fuel('pump-3-11', 1_050, 3.11, false, '2026-10-23T12:01:00Z')
+    const estimate = estimateFuelRemaining({
+      nominalTankCapacityLiters: 3, consumptionKmPerLiter: 40,
+      initialAnchor: null, fuelEntries: [measured],
+      odometerReadings: [observedEmpty], currentOdometerKm: 1_050,
+    })
+    expect(measured.liters).toBe(3.11)
+    expect(estimate?.remainingLiters).toBe(3)
+    expect(estimate?.fuelPercent).toBe(100)
+  })
+
   it('anchors zero before refueling at identical mileage, then adds the measured liters', () => {
     const empty: OdometerReading = {
       id: 'empty', readingKm: 13_590.5, recordedAt: '2026-10-23T21:45:54Z',

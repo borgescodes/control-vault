@@ -12,6 +12,7 @@ import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
 import {
   DEFAULT_TANK_CAPACITY_LITERS,
+  getMaxFuelInputLiters,
   MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
   MAX_TANK_CAPACITY_LITERS,
@@ -251,7 +252,7 @@ export async function recordFuel(
     !state ||
     !Number.isFinite(input.liters) ||
     input.liters <= 0 ||
-    input.liters > state.nominalTankCapacityLiters ||
+    input.liters > getMaxFuelInputLiters(state.nominalTankCapacityLiters) ||
     Math.abs(input.liters * 1000 - Math.round(input.liters * 1000)) > 1e-7
   ) return { kind: 'invalid', reason: 'Litragem inválida' }
 
@@ -336,7 +337,7 @@ export async function updateFuelEntry(
   if (liters !== null) {
     const state = await getVehicleState()
     if (!state || !Number.isFinite(liters) || liters <= 0 ||
-      liters > state.nominalTankCapacityLiters ||
+      liters > getMaxFuelInputLiters(state.nominalTankCapacityLiters) ||
       Math.abs(liters * 1000 - Math.round(liters * 1000)) > 1e-7) {
       return { kind: 'invalid', reason: 'Litragem inválida' }
     }

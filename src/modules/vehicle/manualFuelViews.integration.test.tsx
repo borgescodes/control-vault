@@ -61,15 +61,20 @@ describe('manual pump liters, fully offline', () => {
     })
     expect(fetcher).not.toHaveBeenCalled()
   })
-  it('blocks an empty or over-capacity volume', async () => {
+  it('allows the 0.5 L pump margin while blocking more than 3.5 L', async () => {
     await open()
     const amount = container.querySelector('input[name="amount"]') as HTMLInputElement
     const liters = container.querySelector('input[name="liters"]') as HTMLInputElement
     const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
     await act(async () => setInputValue(amount, '700'))
     expect(submit.disabled).toBe(true)
-    await act(async () => setInputValue(liters, '3,001'))
+    await act(async () => setInputValue(liters, '3,110'))
+    expect(submit.disabled).toBe(false)
+    await act(async () => setInputValue(liters, '3,500'))
+    expect(submit.disabled).toBe(false)
+    await act(async () => setInputValue(liters, '3,501'))
     expect(submit.disabled).toBe(true)
+    expect(container.textContent).toContain('3,5 L')
     await act(async () => setInputValue(liters, '0,910'))
     expect(submit.disabled).toBe(false)
   })
