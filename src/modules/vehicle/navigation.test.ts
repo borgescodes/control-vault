@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   backToPreviousView,
   currentFuelEntryId,
+  currentOdometerReadingId,
   currentTripId,
   currentView,
   initializeNavigation,
@@ -79,6 +80,15 @@ describe('native vehicle navigation', () => {
     )
     expect(currentView()).toBe('fuel-edit')
     expect(currentFuelEntryId()).toBe('fuel / 123')
+  })
+
+  it('edits historical manual odometer using its stable ID', () => {
+    initializeNavigation()
+    navigateTo('odometer-edit', 'manual / 123')
+    expect(location.pathname).toBe('/historico/hodometro/manual%20%2F%20123/editar')
+    expect(currentView()).toBe('odometer-edit')
+    expect(currentOdometerReadingId()).toBe('manual / 123')
+    expect(currentFuelEntryId()).toBeNull()
   })
 
   it('routes settings as a primary destination', () => {
