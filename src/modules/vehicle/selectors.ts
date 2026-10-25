@@ -1,5 +1,6 @@
 import {
   buildConsumptionCycles,
+  buildMeasuredConsumptionCycles,
   deriveRangeConfidence,
   learnConsumption,
   type CalibrationState,
@@ -243,15 +244,16 @@ export function getVehicleDashboard(
         : latest,
     null,
   )
-  const hasFullAnchor = latestFullAnchor !== null
+  const hasFullAnchor = latestFullAnchor !== null || operationalReadings.some((reading) => reading.tankEmpty)
   const cycles = buildConsumptionCycles(initialAnchor, operationalFuelEntries)
-  const consumption = learnConsumption(cycles)
-  const calibrationState = consumption?.calibrationState ?? 'calibrating'
-  const rangeConfidence = deriveRangeConfidence(
-    calibrationState,
-    cycles,
-    now,
-  )
+  const measuredCycles = buildMeasuredConsumptionCycles(operationalFuelEntries)
+  const measuredConsumption = learnConsumption(measuredCycles)
+  const legacyConsumption = learnConsumption(cycles)
+  const consumption = measuredConsumption ?? legacyConsumption
+  const calibrationState = measuredConsumption?.calibrationState ?? 'calibrating'
+  const rangeConfidence = measuredConsumption
+    ? deriveRangeConfidence(calibrationState, measuredCycles, now)
+    : 'low'
   const consumptionCycles: ConsumptionCycleAnalytics[] = cycles.map(
     (cycle, index) => ({
       ...cycle,
@@ -284,19 +286,27 @@ export function getVehicleDashboard(
   }
 
   if (!consumption) {
+    const latestEmpty = operationalReadings.filter((reading) => reading.tankEmpty)
+      .sort((a, b) => a.readingKm - b.readingKm || a.recordedAt.localeCompare(b.recordedAt))
+      .at(-1)
     const knownFullNow =
       latestFullAnchor !== null &&
-      latestFullAnchor.odometerKm === odometerKm
+      latestFullAnchor.odometerKm === odometerKm &&
+      (!latestEmpty || latestEmpty.readingKm < odometerKm ||
+        latestEmpty.recordedAt < latestFullAnchor.at)
+    const knownEmptyNow =
+      latestEmpty?.readingKm === odometerKm &&
+      (!latestFullAnchor || latestEmpty.recordedAt > latestFullAnchor.at) &&
+      !operationalFuelEntries.some((entry) =>
+        entry.odometerKm === odometerKm && entry.fueledAt > latestEmpty.recordedAt)
 
     return {
       ...shared,
       consumptionKmPerLiter: null,
       calibrationState,
-      calibrationCycleCount: cycles.length,
-      remainingLiters: knownFullNow
-        ? state.nominalTankCapacityLiters
-        : null,
-      fuelPercent: knownFullNow ? 100 : null,
+      calibrationCycleCount: measuredCycles.length,
+      remainingLiters: knownFullNow ? state.nominalTankCapacityLiters : knownEmptyNow ? 0 : null,
+      fuelPercent: knownFullNow ? 100 : knownEmptyNow ? 0 : null,
       rangeKm: null,
       rangeDays: null,
       rangeState: hasFullAnchor ? 'calibrating' : 'awaiting_full_tank',
@@ -308,6 +318,7 @@ export function getVehicleDashboard(
     consumptionKmPerLiter: consumption.kmPerLiter,
     initialAnchor,
     fuelEntries: operationalFuelEntries,
+    odometerReadings: operationalReadings,
     currentOdometerKm: odometerKm,
   })
   const rangeKm =
@@ -318,8 +329,8 @@ export function getVehicleDashboard(
   return {
     ...shared,
     consumptionKmPerLiter: consumption.kmPerLiter,
-    calibrationState: consumption.calibrationState,
-    calibrationCycleCount: consumption.cycleCount,
+    calibrationState,
+    calibrationCycleCount: measuredCycles.length,
     remainingLiters: fuelEstimate?.remainingLiters ?? null,
     fuelPercent: fuelEstimate?.fuelPercent ?? null,
     rangeKm,
