@@ -884,7 +884,7 @@ describe('vehicle model v2 sync mappings', () => {
       created_at: createdAt,
       updated_at: updatedAt,
     })
-    expect(remote.upserts[0].payload).not.toHaveProperty('liters')
+    expect(remote.upserts[0].payload).toHaveProperty('liters', null)
   })
 
   it('hydrates nullable estimated fuel fields without coercing null to zero', async () => {
