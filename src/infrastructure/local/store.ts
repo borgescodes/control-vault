@@ -125,6 +125,28 @@ export async function saveOdometerReadingIfCurrent(
   return true
 }
 
+export async function saveOdometerReadingCorrection(
+  reading: OdometerReading,
+  shouldSave: (readings: OdometerReading[], entries: FuelEntry[]) => boolean,
+): Promise<boolean> {
+  const db = await openLocalDatabase()
+  const tx = db.transaction(['odometer_readings', 'fuel_entries'], 'readwrite')
+  const store = tx.objectStore('odometer_readings')
+  const [readings, entries] = await Promise.all([
+    store.getAll(),
+    tx.objectStore('fuel_entries').getAll(),
+  ])
+  const current = readings.find((item) => item.id === reading.id)
+  if (!current || current.source !== 'manual' || !shouldSave(readings, entries)) {
+    await tx.done
+    return false
+  }
+  await store.put({ ...reading, createdAt: current.createdAt, ...pending })
+  await tx.done
+  notifyLocalChanges('write')
+  return true
+}
+
 export async function listOdometerReadings(): Promise<
   LocalOdometerReading[]
 > {

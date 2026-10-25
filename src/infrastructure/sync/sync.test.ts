@@ -73,6 +73,7 @@ function odometerReading(
     readingKm: 1_050.5,
     recordedAt: updatedAt,
     source: 'manual',
+    tankEmpty: false,
     createdAt,
     updatedAt,
     ...overrides,
@@ -87,6 +88,7 @@ function fuelEntry(
     id,
     odometerKm: 1_050.5,
     amountCents: 2_640,
+    liters: null,
     estimatedLiters: 1.5,
     referencePricePerLiter: null,
     referenceWeekStart: null,
@@ -138,6 +140,7 @@ function remoteOdometer(
     reading_km: 1_050.5,
     recorded_at: updatedAt,
     source: 'manual',
+    tank_empty: false,
     created_at: createdAt,
     updated_at: updatedAt,
   }
@@ -153,6 +156,7 @@ function remoteFuel(
     user_id: owner,
     odometer_km: 1_050.5,
     amount_cents: 2_640,
+    liters: null,
     estimated_liters: 1.5,
     reference_price_per_liter: null,
     reference_week_start: null,
@@ -845,7 +849,7 @@ describe('vehicle model v2 sync mappings', () => {
     await resetLocalDatabase()
   })
 
-  it('pushes estimated fuel fields without the legacy liters column', async () => {
+  it('pushes legacy estimated fuel with measured liters null', async () => {
     const remote = createRemote()
     const entry = {
       id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
@@ -870,6 +874,8 @@ describe('vehicle model v2 sync mappings', () => {
       odometer_km: 1_050.5,
       amount_cents: 2_000,
       estimated_liters: 2.837,
+      liters: null,
+      deleted_at: null,
       reference_price_per_liter: 7.05,
       reference_week_start: '2026-09-20',
       reference_week_end: '2026-09-26',
@@ -878,7 +884,7 @@ describe('vehicle model v2 sync mappings', () => {
       created_at: createdAt,
       updated_at: updatedAt,
     })
-    expect(remote.upserts[0].payload).not.toHaveProperty('liters')
+    expect(remote.upserts[0].payload).toHaveProperty('liters', null)
   })
 
   it('hydrates nullable estimated fuel fields without coercing null to zero', async () => {

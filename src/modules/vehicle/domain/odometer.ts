@@ -84,6 +84,30 @@ export function validateOdometer(
 }
 
 
+export function validateManualReadingPosition(
+  readings: OdometerReading[],
+  entries: FuelEntry[],
+  readingId: string,
+  nextKm: number,
+  nextAt: string,
+): OdometerValidation {
+  const timeline = getOdometerTimeline(
+    readings.filter((reading) => reading.id !== readingId),
+    entries,
+  )
+  const previous = timeline.filter((event) => event.at <= nextAt).at(-1)
+  const next = timeline.find((event) => event.at > nextAt)
+  const deltaKm = previous ? nextKm - previous.odometerKm : 0
+  if (
+    (previous && nextKm < previous.odometerKm) ||
+    (next && nextKm > next.odometerKm)
+  ) return { kind: 'invalid', deltaKm }
+  if (deltaKm > SUSPICIOUS_ODOMETER_DELTA_KM) {
+    return { kind: 'suspicious', deltaKm }
+  }
+  return { kind: 'valid', deltaKm }
+}
+
 export function validateFuelEntryPosition(
   readings: OdometerReading[],
   fuelEntries: FuelEntry[],

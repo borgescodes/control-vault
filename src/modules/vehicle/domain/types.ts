@@ -10,6 +10,7 @@ export type OdometerReading = {
   id: string
   readingKm: number
   recordedAt: string
+  tankEmpty?: boolean
   source: 'manual' | 'fuel_entry'
   createdAt: string
   updatedAt: string
@@ -19,6 +20,8 @@ export type FuelEntry = {
   id: string
   odometerKm: number
   amountCents: number
+  /** Confirmed liters reported by the pump, never inferred from ANP. */
+  liters?: number | null
   estimatedLiters: number | null
   referencePricePerLiter: number | null
   referenceWeekStart: string | null

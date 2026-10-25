@@ -1,5 +1,16 @@
 import type { FuelEntry } from './types'
 
+export function effectiveFuelLiters(entry: FuelEntry): number | null {
+  return entry.liters ?? entry.estimatedLiters ?? null
+}
+
+export function latestMeasuredPricePerLiter(entries: FuelEntry[]): number | null {
+  const latest = entries
+    .filter((entry) => entry.deletedAt === null && entry.liters !== null && entry.liters !== undefined && entry.liters > 0)
+    .sort((a, b) => b.fueledAt.localeCompare(a.fueledAt))[0]
+  return latest?.liters ? (latest.amountCents / 100) / latest.liters : null
+}
+
 export type FullTankAnchor = {
   odometerKm: number
   at: string
@@ -56,10 +67,11 @@ export function buildConsumptionCycles(
     }
 
     fuelCostCents += entry.amountCents
-    if (entry.estimatedLiters === null) {
+    const liters = effectiveFuelLiters(entry)
+    if (liters === null) {
       hasKnownFuel = false
     } else {
-      fuelUsedLiters += entry.estimatedLiters
+      fuelUsedLiters += liters
     }
 
     if (!entry.fullTank) {
@@ -93,6 +105,50 @@ export function buildConsumptionCycles(
     hasKnownFuel = true
   }
 
+  return cycles
+}
+
+/**
+ * New calibration is isolated from ANP estimates. Every fill in a completed
+ * full-to-full interval must have a real pump measurement.
+ */
+export function buildMeasuredConsumptionCycles(fuelEntries: FuelEntry[]): ConsumptionCycle[] {
+  const entries = [...fuelEntries]
+    .filter((entry) => entry.deletedAt == null)
+    .sort((a, b) => a.fueledAt.localeCompare(b.fueledAt) || a.odometerKm - b.odometerKm)
+  const cycles: ConsumptionCycle[] = []
+  let start: FuelEntry | null = null
+  let liters = 0
+  let cents = 0
+  let allMeasured = true
+  for (const entry of entries) {
+    const measured = entry.liters
+    if (!start) {
+      if (entry.fullTank && measured != null && measured > 0) start = entry
+      continue
+    }
+    if (entry.odometerKm < start.odometerKm) {
+      allMeasured = false
+    }
+    if (measured == null || measured <= 0) allMeasured = false
+    else liters += measured
+    cents += entry.amountCents
+    if (!entry.fullTank) continue
+
+    const distanceKm = entry.odometerKm - start.odometerKm
+    if (allMeasured && distanceKm > 0 && liters > 0) {
+      cycles.push({
+        startKm: start.odometerKm, endKm: entry.odometerKm,
+        startAt: start.fueledAt, endAt: entry.fueledAt,
+        distanceKm, fuelUsedLiters: liters, fuelCostCents: cents,
+        kmPerLiter: distanceKm / liters,
+      })
+    }
+    start = measured != null && measured > 0 ? entry : null
+    liters = 0
+    cents = 0
+    allMeasured = true
+  }
   return cycles
 }
 

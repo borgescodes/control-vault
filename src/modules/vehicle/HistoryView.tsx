@@ -10,6 +10,7 @@ type HistoryViewProps = {
   odometerReadings: OdometerReading[]
   consumptionCycles?: ConsumptionCycleAnalytics[]
   onEditFuel?: (id: string) => void
+  onEditOdometer?: (id: string) => void
   onDeleteFuel?: (id: string) => void | Promise<void>
 }
 
@@ -20,6 +21,7 @@ type HistoryItem = {
   value: string
   detail: string | null
   fuelId?: string
+  odometerId?: string
 }
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -69,6 +71,7 @@ export default function HistoryView({
   odometerReadings,
   consumptionCycles = [],
   onEditFuel,
+  onEditOdometer,
   onDeleteFuel,
 }: HistoryViewProps) {
   const [mode, setMode] = useState<'events' | 'cycles'>('events')
@@ -80,8 +83,9 @@ export default function HistoryView({
         id: `odometer-${reading.id}`,
         at: reading.recordedAt,
         kind: 'odometer' as const,
+        odometerId: reading.id,
         value: `${formatOdometerValue(reading.readingKm)} km`,
-        detail: null,
+        detail: reading.tankEmpty ? 'tanque vazio' : null,
       })),
     ...uniqueFuelEntries(fuelEntries).map((entry) => ({
       id: `fuel-${entry.id}`,
@@ -91,9 +95,9 @@ export default function HistoryView({
       value: currency.format(entry.amountCents / 100),
       detail: [
         `${formatOdometerValue(entry.odometerKm)} km`,
-        entry.estimatedLiters === null
-          ? null
-          : `≈ ${liters.format(entry.estimatedLiters)} L`,
+        entry.liters != null
+          ? `${liters.format(entry.liters)} L`
+          : entry.estimatedLiters === null ? null : `≈ ${liters.format(entry.estimatedLiters)} L`,
         entry.fullTank ? 'tanque cheio' : null,
       ]
         .filter(Boolean)
@@ -193,6 +197,13 @@ export default function HistoryView({
                       <strong className="history-row__value">{item.value}</strong>
                       {item.detail && (
                         <span className="history-row__detail">{item.detail}</span>
+                      )}
+                      {item.odometerId && onEditOdometer && (
+                        <span className="history-row__actions">
+                          <button onClick={() => onEditOdometer(item.odometerId as string)} type="button">
+                            Editar
+                          </button>
+                        </span>
                       )}
                       {item.fuelId && (onEditFuel || onDeleteFuel) && (
                         <span className="history-row__actions">

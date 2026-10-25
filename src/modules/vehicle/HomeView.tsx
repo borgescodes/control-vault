@@ -49,6 +49,8 @@ export default function HomeView({
     fuelPercent !== null && dashboard.remainingLiters !== null
   const displayFuelPercent = fuelPercent ?? 0
   const rangeDays = formatRangeDays(dashboard.rangeDays)
+  const provisional = dashboard.calibrationCycleCount === 0 &&
+    dashboard.consumptionKmPerLiter !== null
   const completedCalibrationCycles = Math.min(
     3,
     dashboard.calibrationCycleCount,
@@ -70,13 +72,13 @@ export default function HomeView({
             {ready && (
               <span className="home__hero-meta">
                 <span className="home__confidence">
-                  Confiança {
+                  {provisional ? 'Autonomia provisória' : 'Confiança'} {!provisional && (
                     dashboard.rangeConfidence === 'high'
                       ? 'alta'
                       : dashboard.rangeConfidence === 'medium'
                         ? 'média'
                         : 'baixa'
-                  }
+                  )}
                 </span>
                 {rangeDays && <span className="home__days">{rangeDays}</span>}
               </span>
@@ -121,7 +123,7 @@ export default function HomeView({
             className="home__calibration"
           >
             <div className="home__calibration-heading">
-              <span className="ui-label">Calibração</span>
+              <span className="ui-label">{provisional ? 'Nova calibração' : 'Calibração'}</span>
               <span className="home__calibration-count">
                 {completedCalibrationCycles}/3
               </span>

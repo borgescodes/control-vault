@@ -1,13 +1,10 @@
 import {
-  getFuelPriceReference,
-  type FuelPriceReference,
-} from '../../infrastructure/fuelPrice/fuelPrice'
-import {
   getVehicleState,
   initializeLocalVehicle,
   saveFuelEntryCorrection,
   saveFuelEntryIfCurrent,
   saveOdometerReadingIfCurrent,
+  saveOdometerReadingCorrection,
   saveVehicleState,
   softDeleteFuelEntry,
 } from '../../infrastructure/local/store'
@@ -15,13 +12,13 @@ import { syncCurrentSessionIfOnline } from '../../infrastructure/sync/sync'
 import { createUuid } from '../../shared/uuid'
 import {
   DEFAULT_TANK_CAPACITY_LITERS,
-  getMaxFuelAmountCents,
   MAX_FUEL_INPUT_CENTS,
   MAX_ODOMETER_KM,
   MAX_TANK_CAPACITY_LITERS,
 } from './domain/config'
 import {
   validateFuelEntryPosition,
+  validateManualReadingPosition,
   validateOdometer,
 } from './domain/odometer'
 import type { FuelEntry, OdometerReading, VehicleState } from './domain/types'
@@ -37,12 +34,13 @@ export type FuelInput = {
   amountCents: number
   fullTank: boolean
   fueledAt: string
-  priceReference?: FuelPriceReference | null
+  liters: number
 }
 
 export type FuelEditInput = {
   odometerKm: number
   amountCents: number
+  liters?: number | null
   fullTank: boolean
   fueledAt: string
 }
@@ -127,6 +125,7 @@ export async function recordOdometer(
   readingKm: number,
   recordedAt: string,
   confirmSuspicious = false,
+  tankEmpty = false,
 ): Promise<RecordResult> {
   if (
     !Number.isFinite(readingKm) ||
@@ -145,6 +144,7 @@ export async function recordOdometer(
     readingKm,
     recordedAt,
     source: 'manual',
+    tankEmpty,
     createdAt: recordedAt,
     updatedAt: recordedAt,
   }
@@ -182,6 +182,46 @@ export async function recordOdometer(
   return { kind: 'saved' }
 }
 
+export async function updateOdometerReading(
+  existing: OdometerReading,
+  input: { readingKm: number; recordedAt: string; tankEmpty: boolean },
+  now: string,
+  confirmSuspicious = false,
+): Promise<RecordResult> {
+  if (
+    existing.source !== 'manual' ||
+    !Number.isFinite(input.readingKm) ||
+    input.readingKm < 0 ||
+    input.readingKm > MAX_ODOMETER_KM
+  ) return { kind: 'invalid', reason: 'Hodômetro inválido' }
+  if (!hasValidTimestamp(input.recordedAt) || !hasValidTimestamp(now)) {
+    return { kind: 'invalid', reason: 'Data inválida' }
+  }
+  let validation: ReturnType<typeof validateManualReadingPosition> | undefined
+  const corrected: OdometerReading = {
+    ...existing,
+    readingKm: input.readingKm,
+    recordedAt: input.recordedAt,
+    tankEmpty: input.tankEmpty,
+    updatedAt: now,
+  }
+  const saved = await saveOdometerReadingCorrection(corrected, (readings, entries) => {
+    validation = validateManualReadingPosition(
+      readings, entries, existing.id, input.readingKm, input.recordedAt,
+    )
+    return validation.kind === 'valid' ||
+      (validation.kind === 'suspicious' && confirmSuspicious)
+  })
+  if (!saved) {
+    if (validation?.kind === 'suspicious') {
+      return { kind: 'requires_confirmation', deltaKm: validation.deltaKm }
+    }
+    return { kind: 'invalid', reason: 'Hodômetro fora da sequência' }
+  }
+  void syncCurrentSessionIfOnline().catch(() => undefined)
+  return { kind: 'saved' }
+}
+
 export async function recordFuel(
   input: FuelInput,
   confirmSuspicious = false,
@@ -206,43 +246,24 @@ export async function recordFuel(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
-  let reference: FuelPriceReference | null = null
-  if (Object.hasOwn(input, 'priceReference')) {
-    reference = input.priceReference ?? null
-  } else {
-    try {
-      reference = await getFuelPriceReference(new Date(input.fueledAt))
-    } catch {
-      reference = null
-    }
-  }
-
-  if (reference) {
-    const state = await getVehicleState()
-    if (
-      !state ||
-      input.amountCents >
-        getMaxFuelAmountCents(
-          reference.precoMaximo,
-          state.nominalTankCapacityLiters,
-        )
-    ) {
-      return { kind: 'invalid', reason: 'Valor inválido' }
-    }
-  }
-
-  const estimatedLiters = reference
-    ? roundLiters((input.amountCents / 100) / reference.precoMedio)
-    : null
+  const state = await getVehicleState()
+  if (
+    !state ||
+    !Number.isFinite(input.liters) ||
+    input.liters <= 0 ||
+    input.liters > state.nominalTankCapacityLiters ||
+    Math.abs(input.liters * 1000 - Math.round(input.liters * 1000)) > 1e-7
+  ) return { kind: 'invalid', reason: 'Litragem inválida' }
 
   const entry: FuelEntry = {
     id: createUuid(),
     odometerKm: input.odometerKm,
     amountCents: input.amountCents,
-    estimatedLiters,
-    referencePricePerLiter: reference?.precoMedio ?? null,
-    referenceWeekStart: reference?.semanaInicio ?? null,
-    referenceWeekEnd: reference?.semanaFim ?? null,
+    liters: input.liters,
+    estimatedLiters: null,
+    referencePricePerLiter: null,
+    referenceWeekStart: null,
+    referenceWeekEnd: null,
     fullTank: input.fullTank,
     fueledAt: input.fueledAt,
     deletedAt: null,
@@ -311,6 +332,16 @@ export async function updateFuelEntry(
     return { kind: 'invalid', reason: 'Data inválida' }
   }
 
+  const liters = input.liters === undefined ? existing.liters ?? null : input.liters
+  if (liters !== null) {
+    const state = await getVehicleState()
+    if (!state || !Number.isFinite(liters) || liters <= 0 ||
+      liters > state.nominalTankCapacityLiters ||
+      Math.abs(liters * 1000 - Math.round(liters * 1000)) > 1e-7) {
+      return { kind: 'invalid', reason: 'Litragem inválida' }
+    }
+  }
+
   const estimatedLiters =
     existing.referencePricePerLiter === null
       ? null
@@ -322,6 +353,7 @@ export async function updateFuelEntry(
     ...existing,
     odometerKm: input.odometerKm,
     amountCents: input.amountCents,
+    liters,
     estimatedLiters,
     fullTank: input.fullTank,
     fueledAt: input.fueledAt,
