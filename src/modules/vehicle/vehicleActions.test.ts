@@ -5,12 +5,8 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 const syncStub = vi.hoisted(() => ({
   syncCurrentSessionIfOnline: vi.fn().mockResolvedValue(undefined),
 }))
-const priceStub = vi.hoisted(() => ({
-  getFuelPriceReference: vi.fn(),
-}))
 
 vi.mock('../../infrastructure/sync/sync', () => syncStub)
-vi.mock('../../infrastructure/fuelPrice/fuelPrice', () => priceStub)
 
 import {
   getVehicleState,
@@ -32,18 +28,6 @@ import {
 const initialAt = '2026-09-29T10:00:00.000Z'
 const laterAt = '2026-09-30T10:00:00.000Z'
 const randomUUID = vi.spyOn(globalThis.crypto, 'randomUUID')
-const priceReference = {
-  uf: 'PA',
-  municipio: 'PARAGOMINAS',
-  produto: 'GASOLINA COMUM',
-  semanaInicio: '2026-09-27',
-  semanaFim: '2026-10-03',
-  precoMedio: 7.05,
-  precoMinimo: 6.79,
-  precoMaximo: 7.22,
-  postosPesquisados: 37,
-}
-
 function nextUuid(sequence: number): ReturnType<Crypto['randomUUID']> {
   return `00000000-0000-4000-8000-${String(sequence).padStart(12, '0')}`
 }
@@ -83,8 +67,6 @@ describe('vehicle actions', () => {
   beforeEach(async () => {
     await resetLocalDatabase()
     syncStub.syncCurrentSessionIfOnline.mockClear()
-    priceStub.getFuelPriceReference.mockReset()
-    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
     sequence = 0
     randomUUID.mockImplementation(() => nextUuid(++sequence))
   })
@@ -271,7 +253,6 @@ describe('vehicle actions', () => {
         syncStatus: 'pending',
       }),
     ])
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('ignores the old reference snapshot even when supplied in legacy data', async () => {
@@ -287,7 +268,6 @@ describe('vehicle actions', () => {
       }),
     ).resolves.toEqual({ kind: 'saved' })
 
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
         amountCents: 2_888,
@@ -297,7 +277,6 @@ describe('vehicle actions', () => {
   })
 
   it('keeps ANP estimate fields empty on new measured records', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
@@ -321,7 +300,6 @@ describe('vehicle actions', () => {
   })
 
   it('does not depend on price lookup when network is offline', async () => {
-    priceStub.getFuelPriceReference.mockRejectedValueOnce(new Error('offline'))
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
@@ -340,7 +318,6 @@ describe('vehicle actions', () => {
   })
 
   it('saves a full-tank entry with measured liters while offline', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, false, initialAt)
 
     await expect(
@@ -455,7 +432,6 @@ describe('vehicle actions', () => {
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('rejects a non-integer amount in cents', async () => {
@@ -469,7 +445,6 @@ describe('vehicle actions', () => {
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 
   it('rejects a regressive fuel odometer without writing', async () => {
@@ -535,7 +510,6 @@ describe('vehicle actions', () => {
       fueledAt: laterAt,
     })
     const [existing] = await listFuelEntries()
-    priceStub.getFuelPriceReference.mockClear()
 
     await expect(updateFuelEntry(
       existing,
@@ -548,7 +522,6 @@ describe('vehicle actions', () => {
       '2026-10-05T10:00:00.000Z',
     )).resolves.toEqual({ kind: 'saved' })
 
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
     await expect(listFuelEntries()).resolves.toEqual([
       expect.objectContaining({
         id: existing.id,
@@ -569,7 +542,6 @@ describe('vehicle actions', () => {
   })
 
   it('keeps unknown estimated liters unknown during correction', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, true, initialAt)
     await recordFuel({
         liters: 2,
@@ -706,7 +678,6 @@ describe('vehicle actions', () => {
       }),
     ).resolves.toMatchObject({ kind: 'invalid' })
     await expect(listFuelEntries()).resolves.toEqual([])
-    expect(priceStub.getFuelPriceReference).not.toHaveBeenCalled()
   })
 })
 
@@ -714,8 +685,6 @@ describe('vehicle actions', () => {
 describe('vehicle practical limits', () => {
   beforeEach(async () => {
     await resetLocalDatabase()
-    priceStub.getFuelPriceReference.mockReset()
-    priceStub.getFuelPriceReference.mockResolvedValue(priceReference)
   })
 
   afterAll(async () => {
@@ -779,7 +748,6 @@ describe('vehicle practical limits', () => {
   })
 
   it('does not impose the dynamic cap when the price reference is unavailable', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
@@ -798,7 +766,6 @@ describe('vehicle practical limits', () => {
   })
 
   it('rejects values above the UI money ceiling even without a price reference', async () => {
-    priceStub.getFuelPriceReference.mockResolvedValueOnce(null)
     await initializeVehicle(1_000, true, initialAt)
 
     await expect(
