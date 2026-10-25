@@ -113,7 +113,7 @@ function toRemoteSavedTrip(
     destination: record.record.destination,
     outbound_distance_km: record.record.outboundDistanceKm,
     return_distance_km: record.record.returnDistanceKm,
-    deleted_at: record.record.deletedAt,
+    deleted_at: record.record.deletedAt ?? null,
     created_at: record.record.createdAt,
     updated_at: record.record.updatedAt,
   }
