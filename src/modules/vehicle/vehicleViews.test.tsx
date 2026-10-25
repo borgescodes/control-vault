@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const actionStub = vi.hoisted(() => ({
   initializeVehicle: vi.fn().mockResolvedValue(undefined),
+  updateOdometerReading: vi.fn().mockResolvedValue({ kind: 'saved' }),
   recordOdometer: vi.fn().mockResolvedValue({
     kind: 'requires_confirmation',
     deltaKm: 600,
@@ -156,6 +157,48 @@ describe('vehicle views', () => {
       false,
     )
     expect(onSaved).toHaveBeenCalledOnce()
+    await act(async () => root.unmount())
+  })
+
+  it('shows an edit control and empty marker only for manual odometer entries', () => {
+    const manual = {
+      id: 'manual-1', readingKm: 13_590.5, recordedAt: '2026-10-23T21:45:54Z',
+      source: 'manual' as const, tankEmpty: true,
+      createdAt: '2026-10-23T21:45:54Z', updatedAt: '2026-10-23T21:45:54Z',
+    }
+    const markup = renderToStaticMarkup(<HistoryView
+      fuelEntries={[]} odometerReadings={[manual, { ...manual, id: 'automatic', source: 'fuel_entry' }]}
+      onEditOdometer={() => undefined} />)
+    expect(markup).toContain('tanque vazio')
+    expect(markup).toContain('Editar')
+    expect(markup.match(/history-row--odometer/g)).toHaveLength(1)
+  })
+
+  it('corrects the existing odometer reading and retains its empty flag', async () => {
+    const entry = {
+      id: 'manual-1', readingKm: 13_590.5, recordedAt: '2026-10-23T21:45:54Z',
+      source: 'manual' as const, tankEmpty: false,
+      createdAt: '2026-10-23T21:45:54Z', updatedAt: '2026-10-23T21:45:54Z',
+    }
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    await act(async () => root.render(
+      <OdometerView currentOdometerKm={13_642.6} entry={entry}
+        onBack={() => undefined} onSaved={() => undefined} />,
+    ))
+    await act(async () => {
+      (container.querySelector('input[name="tankEmpty"]') as HTMLInputElement).click()
+    })
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(actionStub.updateOdometerReading).toHaveBeenCalledWith(
+      entry, expect.objectContaining({ readingKm: 13_590.5, tankEmpty: true }),
+      expect.any(String), false,
+    )
     await act(async () => root.unmount())
   })
 
