@@ -14,10 +14,6 @@ import type {
   LocalVehicleState,
 } from '../../infrastructure/local/db'
 import {
-  subscribeFuelPriceReference,
-  type FuelPriceReference,
-} from '../../infrastructure/fuelPrice/fuelPrice'
-import {
   canOfferStatusNotification,
   clearStatusNotification,
   enableStatusNotification,
@@ -32,6 +28,7 @@ import HomeView from './HomeView'
 import TankCapacityView from './TankCapacityView'
 import OdometerView from './OdometerView'
 import { getVehicleDashboard } from './selectors'
+import { latestMeasuredPricePerLiter } from './domain/consumption'
 import SetupView from './SetupView'
 import SettingsView from './SettingsView'
 import TripDetailView from './TripDetailView'
@@ -41,6 +38,7 @@ import { deleteFuelEntry } from './vehicleActions'
 import {
   backToPreviousView,
   currentFuelEntryId,
+  currentOdometerReadingId,
   currentTripId,
   currentView,
   initializeNavigation,
@@ -61,7 +59,6 @@ export default function VehicleModule() {
   const [readings, setReadings] = useState<LocalOdometerReading[]>([])
   const [fuelEntries, setFuelEntries] = useState<LocalFuelEntry[]>([])
   const [savedTrips, setSavedTrips] = useState<LocalSavedTrip[]>([])
-  const [tripPriceReference, setTripPriceReference] = useState<FuelPriceReference | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [statusNotificationEnabled, setStatusNotificationEnabled] = useState(
@@ -105,12 +102,6 @@ export default function VehicleModule() {
     const unsubscribe = subscribeToLocalChanges(update)
     return () => { active = false; unsubscribe() }
   }, [])
-
-  useEffect(() => {
-    if (!vehicleReady || !isTripView(view)) return
-
-    return subscribeFuelPriceReference(setTripPriceReference)
-  }, [vehicleReady, view])
 
   useEffect(() => {
     if (!vehicleState || !statusNotificationEnabled) return
@@ -227,6 +218,11 @@ export default function VehicleModule() {
   const tripNavigationActive = isTripView(view)
   const tripId = currentTripId()
   const fuelEntryId = currentFuelEntryId()
+  const odometerReadingId = currentOdometerReadingId()
+  const selectedOdometerReading = odometerReadingId
+    ? readings.find((reading) => reading.id === odometerReadingId && reading.source === 'manual') ?? null
+    : null
+  const measuredPricePerLiter = latestMeasuredPricePerLiter(fuelEntries)
   const selectedFuelEntry = fuelEntryId
     ? fuelEntries.find(
         (entry) => entry.id === fuelEntryId && entry.deletedAt === null,
@@ -325,12 +321,18 @@ export default function VehicleModule() {
     </>
   }
 
-  if (view === 'odometer') {
+  if (view === 'odometer-edit' && !selectedOdometerReading) {
+    replaceTo('history')
+    return null
+  }
+
+  if (view === 'odometer' || view === 'odometer-edit') {
     return <>
       <OdometerView
+        entry={view === 'odometer-edit' ? selectedOdometerReading ?? undefined : undefined}
         currentOdometerKm={dashboard.odometerKm}
         onBack={backToPreviousView}
-        onSaved={() => handleSaved('Hodômetro atualizado')}
+        onSaved={() => handleSaved(view === 'odometer-edit' ? 'Hodômetro corrigido' : 'Hodômetro atualizado')}
       />
       {navigation}
     </>
@@ -350,6 +352,7 @@ export default function VehicleModule() {
             setNotice('Abastecimento excluído')
           }}
           onEditFuel={(id) => navigateTo('fuel-edit', id)}
+          onEditOdometer={(id) => navigateTo('odometer-edit', id)}
         />
         {navigation}
       </>
@@ -394,7 +397,7 @@ export default function VehicleModule() {
       <>
         <TripsView
           consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
-          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          fuelPricePerLiter={measuredPricePerLiter}
           onNew={() => navigateTo('trip-new')}
           onOpen={(id) => navigateTo('trip-detail', id)}
           trips={visibleTrips}
@@ -461,7 +464,7 @@ export default function VehicleModule() {
       <>
         <TripDetailView
           consumptionKmPerLiter={dashboard.consumptionKmPerLiter}
-          fuelPricePerLiter={tripPriceReference?.precoMedio ?? null}
+          fuelPricePerLiter={measuredPricePerLiter}
           onBack={backToPreviousView}
           onDeleted={handleTripDeleted}
           onEdit={() => navigateTo('trip-edit', selectedTrip.id)}
