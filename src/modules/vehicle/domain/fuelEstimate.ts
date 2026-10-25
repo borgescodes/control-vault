@@ -1,5 +1,5 @@
-import type { FullTankAnchor } from './consumption'
-import type { FuelEntry } from './types'
+import { effectiveFuelLiters, type FullTankAnchor } from './consumption'
+import type { FuelEntry, OdometerReading } from './types'
 
 export type FuelEstimate = {
   remainingLiters: number
@@ -12,105 +12,64 @@ type FuelEstimateInput = {
   consumptionKmPerLiter: number | null
   initialAnchor: FullTankAnchor | null
   fuelEntries: FuelEntry[]
+  odometerReadings?: OdometerReading[]
   currentOdometerKm: number
 }
 
 export function estimateFuelRemaining({
-  nominalTankCapacityLiters,
-  consumptionKmPerLiter,
+  nominalTankCapacityLiters: capacity,
+  consumptionKmPerLiter: consumption,
   initialAnchor,
   fuelEntries,
+  odometerReadings = [],
   currentOdometerKm,
 }: FuelEstimateInput): FuelEstimate | null {
-  if (
-    !Number.isFinite(nominalTankCapacityLiters) ||
-    nominalTankCapacityLiters <= 0
-  ) {
+  if (!Number.isFinite(capacity) || capacity <= 0) {
     throw new RangeError('Tank capacity must be greater than zero')
   }
-
-  if (consumptionKmPerLiter === null) {
-    return null
-  }
-
-  if (
-    !Number.isFinite(consumptionKmPerLiter) ||
-    consumptionKmPerLiter <= 0
-  ) {
+  if (consumption === null) return null
+  if (!Number.isFinite(consumption) || consumption <= 0) {
     throw new RangeError('Consumption must be greater than zero')
   }
 
-  const entries = [...fuelEntries].sort(
-    (left, right) =>
-      left.odometerKm - right.odometerKm ||
-      left.fueledAt.localeCompare(right.fueledAt),
-  )
-  let anchor = initialAnchor
-
-  for (const entry of entries) {
-    if (
-      entry.fullTank &&
-      (!anchor ||
-        entry.odometerKm > anchor.odometerKm ||
-        (entry.odometerKm === anchor.odometerKm &&
-          entry.fueledAt > anchor.at))
-    ) {
-      anchor = { odometerKm: entry.odometerKm, at: entry.fueledAt }
-    }
+  const anchors = [
+    ...(initialAnchor ? [{
+      km: initialAnchor.odometerKm, at: initialAnchor.at, quantity: capacity,
+    }] : []),
+    ...fuelEntries.filter((entry) => entry.deletedAt === null && entry.fullTank)
+      .map((entry) => ({
+        km: entry.odometerKm, at: entry.fueledAt, quantity: capacity,
+      })),
+    ...odometerReadings.filter((reading) => reading.source === 'manual' && reading.tankEmpty)
+      .map((reading) => ({
+        km: reading.readingKm, at: reading.recordedAt, quantity: 0,
+      })),
+  ].filter((anchor) => anchor.km <= currentOdometerKm)
+    .sort((a, b) => a.km - b.km || a.at.localeCompare(b.at))
+  const anchor = anchors.at(-1)
+  if (!anchor) return null
+  if (!Number.isFinite(currentOdometerKm) || currentOdometerKm < anchor.km) {
+    throw new RangeError('Current odometer cannot precede the latest anchor')
   }
 
-  if (!anchor) {
-    return null
+  let remaining = anchor.quantity
+  let previousKm = anchor.km
+  const subsequent = fuelEntries
+    .filter((entry) => entry.deletedAt === null && !entry.fullTank &&
+      entry.odometerKm <= currentOdometerKm &&
+      (entry.odometerKm > anchor.km ||
+        (entry.odometerKm === anchor.km && entry.fueledAt > anchor.at)))
+    .sort((a, b) => a.odometerKm - b.odometerKm || a.fueledAt.localeCompare(b.fueledAt))
+  for (const entry of subsequent) {
+    const liters = effectiveFuelLiters(entry)
+    if (liters === null) return null
+    remaining = Math.min(capacity, Math.max(0, remaining - (entry.odometerKm - previousKm) / consumption) + liters)
+    previousKm = entry.odometerKm
   }
-
-  if (
-    !Number.isFinite(currentOdometerKm) ||
-    currentOdometerKm < anchor.odometerKm
-  ) {
-    throw new RangeError('Current odometer cannot precede the latest full tank')
-  }
-
-  let remainingLiters = nominalTankCapacityLiters
-  let previousOdometerKm = anchor.odometerKm
-
-  for (const entry of entries) {
-    const followsAnchor =
-      entry.odometerKm > anchor.odometerKm ||
-      (entry.odometerKm === anchor.odometerKm && entry.fueledAt > anchor.at)
-
-    if (
-      entry.fullTank ||
-      !followsAnchor ||
-      entry.odometerKm > currentOdometerKm
-    ) {
-      continue
-    }
-
-    if (entry.estimatedLiters === null) {
-      return null
-    }
-
-    remainingLiters = Math.min(
-      nominalTankCapacityLiters,
-      Math.max(
-        0,
-        remainingLiters -
-          (entry.odometerKm - previousOdometerKm) /
-            consumptionKmPerLiter,
-      ) + entry.estimatedLiters,
-    )
-    previousOdometerKm = entry.odometerKm
-  }
-
-  remainingLiters = Math.max(
-    0,
-    remainingLiters -
-      (currentOdometerKm - previousOdometerKm) / consumptionKmPerLiter,
-  )
-
+  remaining = Math.max(0, remaining - (currentOdometerKm - previousKm) / consumption)
   return {
-    remainingLiters,
-    rangeKm: remainingLiters * consumptionKmPerLiter,
-    fuelPercent: (remainingLiters / nominalTankCapacityLiters) * 100,
+    remainingLiters: remaining,
+    rangeKm: remaining * consumption,
+    fuelPercent: remaining / capacity * 100,
   }
 }
