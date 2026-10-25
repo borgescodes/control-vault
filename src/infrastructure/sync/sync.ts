@@ -135,7 +135,7 @@ function toRemoteFuelEntry(
     reference_week_end: record.record.referenceWeekEnd,
     full_tank: record.record.fullTank,
     fueled_at: record.record.fueledAt,
-    deleted_at: record.record.deletedAt,
+    deleted_at: record.record.deletedAt ?? null,
     created_at: record.record.createdAt,
     updated_at: record.record.updatedAt,
   }
