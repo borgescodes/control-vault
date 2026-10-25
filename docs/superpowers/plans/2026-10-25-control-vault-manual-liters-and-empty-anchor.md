@@ -10,7 +10,7 @@ Spec: [2026-10-25-control-vault-manual-liters-and-empty-anchor.md](../specs/2026
 - Superpowers: systematic-debugging, test-driven-development, executing-plans e verification-before-completion. Ponytail full, sem novos pacotes.
 - Fazer commits separados por tarefas. Executar `npm test` + `npm run build`, inspecionar CI. PR sem merge e sem deploy até autorização.
 - Consultar changelog/documentação Supabase e security advisors antes de aplicar migration remota. Não executar SQL de correção nos registros pessoais.
-- Estado de produção: `vehicle_state.tank_capacity_liters = 3.000` L no Supabase e o usuário reporta 3,5 L. Corrigir pelo fluxo de Configurações separadamente, preservando a sincronização local-first.
+- Estado de produção: `vehicle_state.tank_capacity_liters = 3.000` L no Supabase, e o usuário confirmou que **3,0 L está correto**. Não alterar capacidade no banco, nas Configurações ou em constantes.
 
 ## Tarefa 1 - Tests de domínio para volume real e preço/L (Sol extra alto)
 
@@ -23,13 +23,13 @@ Arquivos:
 
 Interfaces:
 - `FuelEntry.liters: number | null`: litros efetivos medidos pelo usuário.
-- `effectiveFuelLiters(entry: FuelEntry): number | null`: retorna `entry.liters ?? entry.estimatedLiters`, sem arredondamento extra.
+- `effectiveFuelLiters(entry: FuelEntry): number | null`: retorna `entry.liters ?? entry.estimatedLiters`, sem arredondamento extra, **apenas para compatibilidade com histórico/projeção provisória**. O aprendizado novo de consumo deve ler somente `entry.liters`.
 - `lastMeasuredFuelPricePerLiter(entries: FuelEntry[]): number | null`: seleciona a última entrada não excluída com volume medido positivo e divide `amountCents / 100 / liters` (preço derivado, nunca persistido).
 - Ambos os métodos de cálculo atuais (`buildConsumptionCycles`, `estimateFuelRemaining`) passam a usar volume operacional efetivo sem contar litros duas vezes. Atualizar fixtures tipadas do projeto para `liters: null`.
 
 Testes primeiro:
 - Medição de 0,910 L prevalece sobre `estimatedLiters = 0.993`.
-- Legado sem medição continua calculável com `estimatedLiters`, mas sem afirmar ser medido.
+- Legado sem medição continua visível/calculável como **estimativa histórica**, nunca entra nos novos ciclos medidos.
 - Preço de 700 centavos / 0,910 L é arredondado APENAS para exibição: 7,69 R$/L.
 - Entrada excluída e entrada com litro null não definem preço atual.
 - Mesmo com litros reais, sem âncora de tanque nem consumo conhecido não inventar autonomia.
@@ -130,7 +130,7 @@ Nenhuma política RLS nova é necessária; tabela já tem ownership-RLS e permis
 Interfaces:
 - `OdometerReading.tankEmpty?: boolean`, com fallback `false` para registros locais legados.
 - `recordOdometer`/correção passam esse valor (apenas fonte manual); sync mapeia `tank_empty`.
-- `estimateFuelRemaining` recebe leituras manuais e determina a última âncora declarada: cheio = capacidade, vazio = 0. Reprocessa abastecimentos posteriores por timestamp/km, incluindo litros adicionados no mesmo km segundos após `tankEmpty`; clampa em [0, capacidade].
+- `estimateFuelRemaining` recebe leituras manuais e determina a última âncora declarada: cheio = **3,0 L**, vazio = 0. Reprocessa abastecimentos posteriores por timestamp/km, incluindo litros adicionados no mesmo km segundos após `tankEmpty`; clampa em [0, 3,0 L]. Dados estimados da ANP posteriores à âncora só podem alimentar saldo **provisório**, nunca calibração medida.
 - Na falta de consumo conhecido, informar explicitamente incerteza e não inferir quilômetros de autonomia; no instante exato da âncora de vazio, mostrar 0 L.
 
 Testes primeiro:
@@ -140,11 +140,35 @@ Testes primeiro:
 - atualização offline/sync mantém flag, via migration sem perda de IDs;
 - nenhuma atualização automática dos dados particulares da base.
 
-## Tarefa 7 - Verificação, migração e liberação (Sol extra alto; revisão independente)
+## Tarefa 7 - Recalibração progressiva somente com ciclos medidos (Sol extra alto)
+
+Arquivos:
+- `src/modules/vehicle/domain/consumption.ts`, `domain/consumption.test.ts` ou `domain/domain.test.ts`
+- `src/modules/vehicle/selectors.ts`, `selectors.test.ts`
+- `src/modules/vehicle/HomeView.tsx`, `vehicleViews.test.tsx`
+- `src/modules/vehicle/domain/fuelEstimate.ts`, se necessária distinção de confiança/época na projeção.
+
+Interfaces:
+- `buildMeasuredConsumptionCycles(entries: FuelEntry[]): ConsumptionCycle[]` considera apenas períodos iniciados por um abastecimento **cheio e medido**, encerrados por outro abastecimento **cheio e medido**, com todos os abastecimentos intermediários contendo `liters` medidos. Reutilizar `learnConsumption` com esses ciclos; não adicionar configuração global para data de corte.
+- `getVehicleDashboard` continua listando `buildConsumptionCycles(...)` legados para histórico existente, mas cria uma trilha de `measuredCycles` usada como fonte EXCLUSIVA de consumo novo quando houver pelo menos um ciclo elegível.
+- Enquanto `measuredCycles.length === 0`, permitir `legacyConsumption` para autonomia apenas como `provisional` / confiança baixa e deixar claro `Recalibrando`. Se for nulo, não projetar autonomia. Após o primeiro medido, usar mediana da série medida e mostrar `Nova calibração 1/3`, `2/3`, ou `3/3`; estado final de calibrado só com dispersão consistente segundo `learnConsumption`.
+- Um abastecimento cheio medido redefine saldo a 3,0 L. Litros reais em eventos parciais aumentam o saldo sem extrapolar a capacidade. `estimatedLiters` só participa de telas históricas e projeção legada marcada como provisória.
+- Não alterar os registros históricos ANP; não reclassificar seus volumes como medidos. O registro confirmado de 25/10, 0,910 L, ainda não é suficiente para estabelecer um ciclo medido, por não ser tanque cheio.
+
+Testes primeiro:
+- histórico ANP anterior continua exibindo valor/litragem estimada/ciclos sem ser reescrito;
+- uma entrada de 0,910 L que não marcou tanque cheio não cria âncora de calibração;
+- primeiro tanque cheio medido ativa nova época; segundo tanque cheio medido, 60 km depois com 1,500 L acumulados no intervalo, resulta em 40 km/L;
+- se existir uma recarga legada estimada no intervalo entre âncoras novas, rejeitar ciclo como medido;
+- `learnConsumption` recebe apenas novos ciclos medidos: 1 e 2 ciclos = estimado, 3 ciclos consistentes = calibrado; mediana dos últimos cinco;
+- antes do primeiro ciclo novo, consumo legado usado provisoriamente tem confiança baixa e não aparenta precisão calibrada;
+- se o usuário marcar tanque vazio em 13.590,5 km, o abastecimento legado seguinte não se torna `liters` medido.
+
+## Tarefa 8 - Verificação, migração e liberação (Sol extra alto; revisão independente)
 
 - Rode `npm ci`, `npm test`, `npm run build`; após implementar migração, execute verificações sem tocar dados de produção até autorização.
 - Teste regressão de full-to-full, parcial, sem consumo, volume desconhecido legado, autonomia, tombstones, sync offline, correção de histórico e parsing de litro.
 - Execute auditoria focada de SQL e segurança/RLS em Supabase via plugin.
 - Revise diff completo e CI; use Ponytail full para retirar caminhos ANP mortos e abstrações especulativas.
 - Abrir PR funcional separado deste PR de planejamento (ou substituir o conteúdo do ramo antes do PR de implementação, após decisão de fluxo). Não fazer merge nem deploy automático por este plano.
-- Após implantação: ajustar capacidade de 3,0 para 3,5 L pelo app em Configurações; editar abastecimento de 25/10 em 13642,6 km para 0,910 L; editar leitura de 13.590,5 km e marcar tanque vazio. Só usuário deve validar dados reais da bomba.
+- Após implantação: **manter tanque em 3,0 L**, editar abastecimento de 25/10 em 13642,6 km para 0,910 L confirmado e, se desejar, marcar como tanque vazio a leitura existente de 13.590,5 km. Sem converter estimativas ANP em litragem medida; a nova calibração de consumo começa no primeiro **tanque cheio medido** e amadurece por ciclos completos subsequentes.
